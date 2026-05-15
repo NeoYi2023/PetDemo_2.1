@@ -249,3 +249,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e7bf4c6d8a9247e289c1fdd0edb00304, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  heroStatsRowAnchoredPosition: {x: 0, y: 106}
