@@ -1,0 +1,13 @@
+﻿# 肥料类型配置表（SPEC §B.7，自 v2.10 起；v3.12 增 description, iconResource）,,,
+# 列：id, displayName, speedMul, description, iconResource
+# id：唯一肥料 id（同时作为堆叠键与 initial_inventory.csv 中 kind=Fertilizer 行的 id）,,,,
+# displayName：显示名,,,,
+# speedMul：施肥生效期间倒计时倍率，覆盖 PlantConfig.fertilizerSpeedMul（默认 1.5）,,,,
+# description：道具描述（肥料仓库详情区）；可空,,,,
+# iconResource：Resources 下 Sprite 路径（无扩展名），如 AirUI/ShiFei-1；可空,,,,
+# 非法行（id 空 / speedMul 不可解析 / speedMul <= 0）将打 Warning 并跳过,,,,
+id,         displayName, speedMul, description,      iconResource
+FL1001,快速生长,15,极大加快植物的生长速度,  AirUI/FeiLiao_1
+FL1002,幸运之水,15,植物生长为极品的概率大幅提升,  AirUI/FeiLiao_2
+FL1003,强化战斗,15,植物额外增加村民的攻击力,  AirUI/FeiLiao_3
+FL1004,强化变异,15,四联植物的变异几率大幅度提升,  AirUI/FeiLiao_4

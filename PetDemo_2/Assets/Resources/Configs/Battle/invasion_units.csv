@@ -1,0 +1,7 @@
+# 入侵单位配置表（SPEC §B.9 / §12）
+# 列：unitId, displayName, attack, maxHp
+# unitId 约定：player = 玩家方；boss_* = 敌方
+# attack >= 0（单次固定伤害，忽略防御）；maxHp >= 1
+unitId,        displayName,    attack, maxHp
+player,        Role,           12,     80
+boss_langren,  狼人入侵者,     8,      60

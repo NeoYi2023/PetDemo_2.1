@@ -1,0 +1,11 @@
+﻿# 初始仓库表（SPEC §B.5）,,
+# 列：kind, id, count
+# kind=Seed 时 id 为 plantConfigId；kind=Pack 时 id 为 SeedPackQuality 字符串值,,
+# kind=Fertilizer 时 id 为 FertilizerType.id（需存在于 fertilizers.csv）,,
+# count 必须 >= 1；非法行打 Warning 并跳过,,
+kind, id,          count
+Pack, Common,60
+Fertilizer,FL1001,60
+Fertilizer,FL1002,60
+Fertilizer,FL1003,60
+Fertilizer,FL1004,60

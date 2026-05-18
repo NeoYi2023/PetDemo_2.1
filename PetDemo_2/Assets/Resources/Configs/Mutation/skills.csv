@@ -1,0 +1,7 @@
+﻿# 技能配置表（对应 SPEC §B.12，v3.18）,,,
+# 列：id, displayName, description, iconResource
+# iconResource：Resources.Load<Sprite> 路径（不带扩展名）；现有目录名为 SkilIcon（拼写沿用工程现状）,,,
+# 分隔符为 ASCII 半角逗号；单元内可用中文全角逗号「，」自然书写,,,
+id,displayName,description,iconResource
+skill_1001,烈焰冲击,当触发连击后，每次攻击都附带着火特效，并额外增加1次连击,SkilIcon/Skill1001
+skill_1002,寒霜护甲,抵伤概率提升20%，如果被敌方命中则敌方下一次攻击有15%的概率会错失,SkilIcon/Skill1002

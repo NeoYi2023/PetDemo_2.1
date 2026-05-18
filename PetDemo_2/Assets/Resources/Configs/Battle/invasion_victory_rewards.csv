@@ -1,0 +1,9 @@
+# 入侵胜利掉落表（SPEC §12.8 / §B.10）
+# 列：kind, id, count
+# kind ∈ {Seed, Fertilizer, SeedPack}
+# kind=Seed 时 id 为 plantConfigId；kind=Fertilizer 时 id 为 fertilizerId；kind=SeedPack 时 id 为质量（Common/Rare/Epic/Legendary）
+# count 必须 >= 1
+kind,        id,      count
+Seed,        fanqie,  2
+Fertilizer,  demo,    1
+SeedPack,    Common,  1

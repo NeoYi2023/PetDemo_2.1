@@ -1,0 +1,10 @@
+﻿# 精灵配置表（对应 SPEC §B.11，v3.18）,,,,
+# 列：id, displayName, traitDescription, prefabResource, animations
+# prefabResource：Resources.Load<GameObject> 路径（不带扩展名），需保证副本存在于 Resources/Pets/,,,,
+# animations：半角分号分隔的 SkeletonAnimation 动画名，弹窗运行时随机抽 1 个播放；空值使用预制体默认,,,,
+# 分隔符为 ASCII 半角逗号；单元内可用中文全角逗号「，」自然书写,,,,
+id,displayName,traitDescription,prefabResource,animations
+pet_slime,毛茸茸,每2回合进行一次攻击并施加3层中毒。觉醒后会跟随你的暴击一起攻击。,Pets/Monster_32_Grass Rabbit,idle;attack
+pet_hamy_q,松龟,每3回合尝试帮你抵挡一次伤害，抵挡成功再触发一次反击。觉醒后回合数-1，反击伤害提升2倍,Pets/Monster_59_Grass Turtle,idle;attack
+pet_book,魔嘴,跟随你的怒气技能一同攻击，如果你的技能属于电系则伤害提升2倍,Pets/Monster_72_Armored Book,idle;attack
+pet_mushroom,蜂后,每2回合召唤蜂群进行一轮攻击，并施加中毒。觉醒后开局即召唤蜂群攻击并留下2只蜂兵持续战斗,Pets/Monster_102_Hamy Alsapphire,idle;attack
