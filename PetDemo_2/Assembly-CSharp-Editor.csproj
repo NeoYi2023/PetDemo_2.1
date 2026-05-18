@@ -63,6 +63,7 @@
     <Compile Include="Assets\Scripts\UI\Farm\Editor\WarehouseHubPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\WarehouseBackgroundPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\FarmGridPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\Editor\InvasionBattleResultDialogPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\RoleGrowthPanelPrefabGenerator.cs" />
   </ItemGroup>
   <ItemGroup>

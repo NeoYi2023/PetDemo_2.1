@@ -181,10 +181,15 @@ Either branch ends with the same `PlantInstance` initialization on the tile (`wa
 - **`Wilt` (annual):** destroy the `PlantInstance` and reset all tile dimensions to initial (`planting=AwaitingSeed`, `fertilizer/pest/harvest=None`, `water=Empty`, `plantInstanceId=null`).
 - **`Regrow` (perennial):** keep the `PlantInstance`, reset `waterConsumed=0`, `appearanceNode=1`, `state=Growing`; set `tile.harvest=AwaitingHarvest`, `tile.fertilizer=AwaitingFertilizer`, `tile.pest=PestControlled`; `tile.water` keeps its current stage (the player may continue to use any leftover water).
 
-#### 4.1.6 外围事件 / 捉虫 / External Event and Pest Control
+#### 4.1.6 外围事件 / 虫灾与捉虫 / External Event and Pest Control (v3.50)
 
-**中文：** 植物处于 `Growing` 时，外围事件调度器按植物 `pestEventIntervalSec` 与 `pestEventProb` 配置抽取触发：成功触发即将 `tile.pest` 翻为 `AwaitingPestControl`。玩家执行「捉虫」后翻回 `PestControlled`。**捉虫的具体玩法（如小游戏、判定规则、未及时处理的负面收益）暂列为 P1，待后续补充**；Demo 实现为单击即完成、暂不影响生长倒计时。  
-**English:** While a plant is `Growing`, an external event scheduler samples per-plant `pestEventIntervalSec` and `pestEventProb` config: on success it flips `tile.pest` to `AwaitingPestControl`. Performing `PestControl` flips it back to `PestControlled`. **The detailed pest-catch gameplay (mini-game, hit checks, penalties for inaction) is P1, pending later definition**; the demo implements it as a single tap with no current effect on the growth countdown.
+**中文（自 v3.50 起）：** 当植物 `AdvanceOneStage` 使 `appearanceNode` 进入 **2 或 3**（对应 CSV `sprite2` / `sprite3`）时，若本株尚未触发过虫灾且该节点尚未做过抽取，则按 `PlantConfig.pestSpriteProb` 判定一次：`Random.value < pestSpriteProb` 成功则将 `tile.pest` 置为 `AwaitingPestControl`、`PlantState` 置为 `Paused`，并触发 `OnPestEventTriggered(tileId)`；**每株植物生命周期内最多触发 1 次**；节点 2 与节点 3 **各只抽 1 次**（无论成败均标记该节点已抽）。虫灾期间 `TickGrowth` 不推进该株倒计时（等同缺水暂停）。田面叠放可点击、循环闪烁的 `AirUI/WH_Chong`；点击后打开 §9.10 全屏「打虫子」演示；玩家点「胜利」后调用 `IPlantingService.CompletePestControl(tileId)`，将 `tile.pest` 翻回 `PestControlled`，若 `tile.water != Empty` 则恢复 `Growing`。`pestEventIntervalSec` / `pestEventProb` 列保留于 CSV 但本 Demo **不使用**定时抽取。  
+**English (since v3.50):** When `AdvanceOneStage` sets `appearanceNode` to **2 or 3** (CSV `sprite2` / `sprite3`), if this plant has not yet triggered a pest event and this node has not been rolled, sample once with `Random.value < pestSpriteProb`. On success: `tile.pest = AwaitingPestControl`, `PlantState = Paused`, `OnPestEventTriggered(tileId)`. **At most one pest event per plant lifetime**; nodes 2 and 3 each get **one roll** (mark the node rolled win or lose). While `AwaitingPestControl`, `TickGrowth` does not advance that plant (same as drought pause). The tile shows a blinking clickable `AirUI/WH_Chong`; tap opens the §9.10 fullscreen pest demo; **Victory** calls `CompletePestControl(tileId)` → `PestControlled` and resumes `Growing` when `tile.water != Empty`. `pestEventIntervalSec` / `pestEventProb` remain in CSV but are **unused** in this demo.
+
+#### 4.1.6.1 地鼠偷窃与打地鼠 / Mole Theft and Whack-a-Mole (v3.52)
+
+**中文（自 v3.52 起）：** 当植物 `AdvanceOneStage` 使 `appearanceNode` 进入 **4 或 5**（对应 CSV `sprite4` / `sprite5`）时，若本株尚未触发过地鼠偷窃且该节点尚未做过抽取，则按 `PlantConfig.moleSpriteProb` 判定一次：`Random.value < moleSpriteProb` 成功则将 `tile.moleTheft` 置为 `AwaitingMoleTheft`、`PlantState` 置为 `Paused`；**每株植物生命周期内最多触发 1 次**；节点 4 与节点 5 **各只抽 1 次**（无论成败均标记该节点已抽）。地鼠偷窃期间 `TickGrowth` 不推进该株倒计时（等同缺水/虫灾暂停）；`IsHarvestActionable` 返回 `false`（不可收获）。田面叠放可点击、循环闪烁的 `AirUI/WH_Tou`；点击后打开 §9.12 全屏「打地鼠」演示；玩家点「胜利」后调用 `IPlantingService.CompleteMoleTheft(tileId)`，将 `tile.moleTheft` 翻回 `MoleTheftResolved`，若 `tile.water != Empty` 且 `plant.state == Paused` 则恢复 `Growing`。  
+**English (since v3.52):** When `AdvanceOneStage` sets `appearanceNode` to **4 or 5** (CSV `sprite4` / `sprite5`), if this plant has not yet triggered mole theft and this node has not been rolled, sample once with `Random.value < moleSpriteProb`. On success: `tile.moleTheft = AwaitingMoleTheft`, `PlantState = Paused`. **At most one mole theft per plant lifetime**; nodes 4 and 5 each get **one roll** (mark the node rolled win or lose). While `AwaitingMoleTheft`, `TickGrowth` does not advance that plant and harvest is blocked. The tile shows a blinking clickable `AirUI/WH_Tou`; tap opens the §9.12 fullscreen whack-a-mole demo; **Victory** calls `CompleteMoleTheft(tileId)` → `MoleTheftResolved` and resumes `Growing` when `tile.water != Empty`.
 
 #### 4.1.7 5 节点外观映射 / Five-Node Appearance Mapping
 
@@ -217,6 +222,9 @@ stateDiagram-v2
 
 **中文（产品配置 v3.27）：** 当前 Demo **默认关闭**上述「四格合并」触发：`PlantingService` 内 `kRowMutationTriggerEnabled == false` 时不调用 `TryTriggerMutationForTile`，不产生新 `MutationPlant`；同组四田各自继续浇水至自然 `AwaitingHarvest`。实现代码与 §4.1.10 数据结构（`MutationPlant`、`MutationOverlayView` 等）保留，将来将常量改为 `true` 即可恢复。  
 **English (product config v3.27):** In the current demo the row-merge trigger above is **off by default:** when `PlantingService.kRowMutationTriggerEnabled` is `false`, `TryTriggerMutationForTile` is not invoked and no new `MutationPlant` is created; the four tiles in a group continue watering independently to natural `AwaitingHarvest`. Implementation and §4.1.10 data structures (`MutationPlant`, `MutationOverlayView`, etc.) remain so flipping the constant back to `true` can re-enable the feature.
+
+**中文（自 v3.59 起，v3.60 修订 UI 入口）：** 除上述「四格合并」外，另有一条 **「单格变异」** 入口：`MutationPlant.tileIds` 允许 **长度 1**（仅占用发起流程的那一格）。由 **§9.13** 转盘在玩家点击「确定」且 **`grantMutationOnConfirm==true`**（当前实现：**仅 §9.12 打地鼠** 胜利后）时调用 `IPlantingService.TriggerSingleTileMutation(tileId)` 写入；**§9.11 捉虫** 胜利后的转盘将该参数置为 **false**，**不调用**该 API（无单格变异）。抽签规则（50%/50% 品类与 `refId` 来源）与 §4.1.10.2 的「四格路径」相同，但删除 **1** 株 `PlantInstance` 并锁定 **1** 田。四格路径仍要求 `tileIds.Count == 4`。  
+**English (since v3.59, v3.60 UI entry):** Besides the four-tile merge, a **single-tile mutation** path exists: `MutationPlant.tileIds` may have **length 1**. It is created when the §9.13 wheel's **Confirm** runs with **`grantMutationOnConfirm==true`** (currently: **only after §9.12 mole** victory) by calling `IPlantingService.TriggerSingleTileMutation(tileId)`. The **§9.11 pest** flow sets this flag **false** and **does not** call that API (no single-tile mutation). The roll rules (50/50 kind and `refId` pools) match §4.1.10.2's four-tile path, but only **one** `PlantInstance` is removed and **one** tile is locked. The four-tile path still requires `tileIds.Count == 4`.
 
 ##### 4.1.10.1 分组与触发条件 / Grouping and Trigger
 
@@ -256,6 +264,9 @@ stateDiagram-v2
 5. **Create `MutationPlant`:** push to `session.mutations` with fields `instanceId / kind / refId / groupIndex / tileIds (4) / state=AwaitingHarvest`.
 6. **Events:** fire `OnTileFlagsChanged(tileId)` 4 times in `orderIndex` ascending order, then `OnMutationCreated(mutationId)` once.
 
+**中文（自 v3.59 起，单格路径）：** 由 `TriggerSingleTileMutation(tileId)` 调用，不依赖 §4.1.10.1 窗口期。前提：`tileId` 存在、`tile.plantInstanceId` 非空、`tile.lockedByMutationId` 为空、`petConfigs` 与 `skillConfigs` 不同时为空。执行顺序与上表一致，但步骤 3~4 仅处理 **1** 株植物与 **1** 块田，`MutationPlant.tileIds` 仅含该 `tileId`；步骤 6 改为 **1** 次 `OnTileFlagsChanged` + **1** 次 `OnMutationCreated`。`groupIndex` 仍按 `((orderIndex - 1) / 4) + 1` 写入。  
+**English (since v3.59, single-tile path):** Invoked by `TriggerSingleTileMutation(tileId)`, independent of §4.1.10.1. Preconditions: `tileId` exists, `tile.plantInstanceId` non-empty, `tile.lockedByMutationId` empty, and not both `petConfigs` and `skillConfigs` empty. Same ordered steps as above, but steps 3–4 operate on **one** plant and **one** tile; `MutationPlant.tileIds` contains only that `tileId`; step 6 fires **one** `OnTileFlagsChanged` plus **one** `OnMutationCreated`. `groupIndex` still uses `((orderIndex - 1) / 4) + 1`.
+
 ##### 4.1.10.3 锁定语义 / Lock Semantics
 
 **中文：** 当 `tile.lockedByMutationId != null` 时，该田对所有玩家操作短路：
@@ -272,29 +283,29 @@ stateDiagram-v2
 
 ##### 4.1.10.4 收获结算 / Harvest Resolution
 
-**中文：** `MutationPlant` 不参与统一按钮的优先级链，仅响应「直接点击」（由 §5.2 `MutationOverlayView` 中的图标点击转发）。**自 v3.20 起，`MutationOverlayView` 的四格植物图标按 `MutationKind` 区分资源：`kind=Pet` 使用 `Resources/AirUI/DaShouHuo_1`，`kind=Skill` 使用 `Resources/AirUI/DaShouHuo_2`**。点击后调用 `IPlantingService.TryHarvestMutation(mutationId)`，按以下顺序执行：
+**中文：** `MutationPlant` 不参与统一按钮的优先级链，仅响应「直接点击」（由 §5.2 `MutationOverlayView` 中的图标点击转发）。**自 v3.59 起，`MutationOverlayView` 的变异果实入口图标按 `MutationKind` 区分资源：`kind=Pet` 使用 `Resources/AirUI/ShiWu_2`，`kind=Skill` 使用 `Resources/AirUI/DaShouHuo_2`**（**v3.20** 的 `DaShouHuo_1` 映射由 v3.59 替换）。点击后调用 `IPlantingService.TryHarvestMutation(mutationId)`，按以下顺序执行：
 1. 校验 `mutation` 存在且 `state == AwaitingHarvest`；否则返回 `false`。
 2. `mutation.state = Harvested`；从 `session.mutations` 中移除。
-3. 4 田 `lockedByMutationId = null`，并按 `Wilt` 路径全维度复位（`planting=AwaitingSeed`、`fertilizer/pest/harvest=None`、`water=Empty`、`plantInstanceId=null`）。
-4. 触发 4 次 `OnTileFlagsChanged(tileId)`，再触发一次 `OnMutationHarvested(mutationId, kind, refId)`；UI 层据此弹窗。
+3. `mutation.tileIds` 中每一块田 `lockedByMutationId = null`，并按 `Wilt` 路径全维度复位（`planting=AwaitingSeed`、`fertilizer/pest/harvest=None`、`water=Empty`、`plantInstanceId=null`）。
+4. 对 `tileIds` 中每一田触发一次 `OnTileFlagsChanged(tileId)`（顺序与列表一致），再触发一次 `OnMutationHarvested(mutationId, kind, refId)`；UI 层据此弹窗。
 
-**English:** `MutationPlant` does not participate in the unified-button priority chain; it only responds to **direct taps** forwarded by §5.2 `MutationOverlayView`. **Since v3.20, the four-tile mutation icon is selected by `MutationKind`: `kind=Pet` uses `Resources/AirUI/DaShouHuo_1`, and `kind=Skill` uses `Resources/AirUI/DaShouHuo_2`.** The tap calls `IPlantingService.TryHarvestMutation(mutationId)`, executed in order:
+**English:** `MutationPlant` does not participate in the unified-button priority chain; it only responds to **direct taps** forwarded by §5.2 `MutationOverlayView`. **Since v3.59, the mutation fruit entry icon is selected by `MutationKind`: `kind=Pet` uses `Resources/AirUI/ShiWu_2`, and `kind=Skill` uses `Resources/AirUI/DaShouHuo_2`** (replacing the **v3.20** `DaShouHuo_1` mapping). The tap calls `IPlantingService.TryHarvestMutation(mutationId)`, executed in order:
 1. Verify the mutation exists and `state == AwaitingHarvest`; otherwise return `false`.
 2. Set `mutation.state = Harvested` and remove from `session.mutations`.
-3. Set `lockedByMutationId = null` on the 4 tiles and reset all dimensions per the `Wilt` path (`planting=AwaitingSeed`, `fertilizer/pest/harvest=None`, `water=Empty`, `plantInstanceId=null`).
-4. Fire 4 `OnTileFlagsChanged(tileId)` events, then `OnMutationHarvested(mutationId, kind, refId)`; the UI layer renders the modal accordingly.
+3. For every tile id in `mutation.tileIds`, set `lockedByMutationId = null` and reset all dimensions per the `Wilt` path (`planting=AwaitingSeed`, `fertilizer/pest/harvest=None`, `water=Empty`, `plantInstanceId=null`).
+4. Fire one `OnTileFlagsChanged(tileId)` per locked tile (in list order), then `OnMutationHarvested(mutationId, kind, refId)`; the UI layer renders the modal accordingly.
 
 ##### 4.1.10.5 弹窗规则 / Reveal Modal
 
 **中文：** 弹窗（`MutationRevealPopupView`）以半透明遮罩 + 中央面板形式呈现：
-- **Pet 分支**：左侧通过 `PetPreviewRig`（独立 `Camera + RenderTexture`，渲染 Spine `SkeletonAnimation` 预制体）输出到 `RawImage`；右侧两行文本展示 `PetConfig.displayName`、`PetConfig.traitDescription`；动画从 `PetConfig.randomAnimations` 中均匀抽签选 1 个，若列表为空则使用 `SkeletonAnimation` 当前默认动画。
+- **Pet 分支**：左侧通过 `PetPreviewRig`（独立 `Camera + RenderTexture`，渲染 Spine `SkeletonAnimation` 预制体）输出到 `RawImage`；**Fantazia 来源预制体在实例化根节点上须先对 XY 放大 20%（`FantaziaMonsterDisplay.PackVisualScaleMultiplier = 1.2`），再水平镜像**（`localScale.x` 取负、保留幅度，实现见 `FantaziaMonsterDisplay.ApplyBoostAndHorizontalMirror`）；右侧两行文本展示 `PetConfig.displayName`、`PetConfig.traitDescription`；动画从 `PetConfig.randomAnimations` 中均匀抽签选 1 个，若列表为空则使用 `SkeletonAnimation` 当前默认动画。
 - **Skill 分支**：左侧 `Image.sprite = Resources.Load<Sprite>(SkillConfig.iconResource)`；右侧两行文本展示 `SkillConfig.displayName`、`SkillConfig.description`。
 - **Skill 图标缩放约束（v3.19）**：`LeftPreview/SkillIcon` 的本地缩放固定为 `localScale = (0.5, 0.5, 1)`，用于在保持 `preserveAspect=true` 前提下避免技能图标在 360×360 预览容器中过大占位。
 
 弹窗仅由 `OnMutationHarvested` 驱动；点击遮罩或关闭按钮关闭，关闭时销毁 Pet 实例并停止预览 Camera 渲染。
 
 **English:** The modal (`MutationRevealPopupView`) renders a dim layer + center panel:
-- **Pet branch:** left side uses `PetPreviewRig` (its own `Camera + RenderTexture` rendering a Spine `SkeletonAnimation` prefab) blitted into a `RawImage`; right side shows two lines `PetConfig.displayName`, `PetConfig.traitDescription`; the animation is uniformly sampled from `PetConfig.randomAnimations`, falling back to the prefab's default animation if empty.
+- **Pet branch:** left side uses `PetPreviewRig` (its own `Camera + RenderTexture` rendering a Spine `SkeletonAnimation` prefab) blitted into a `RawImage`; **Fantazia-sourced prefabs must first scale XY by +20% (`FantaziaMonsterDisplay.PackVisualScaleMultiplier = 1.2`), then be horizontally mirrored on the instantiated root** (`localScale.x` negated while preserving magnitude; see `FantaziaMonsterDisplay.ApplyBoostAndHorizontalMirror`); right side shows two lines `PetConfig.displayName`, `PetConfig.traitDescription`; the animation is uniformly sampled from `PetConfig.randomAnimations`, falling back to the prefab's default animation if empty.
 - **Skill branch:** left side uses `Image.sprite = Resources.Load<Sprite>(SkillConfig.iconResource)`; right side shows `SkillConfig.displayName`, `SkillConfig.description`.
 - **Skill icon scale constraint (v3.19):** `LeftPreview/SkillIcon` keeps a fixed local scale `localScale = (0.5, 0.5, 1)` so that with `preserveAspect=true` the skill icon does not over-occupy the 360×360 preview container.
 
@@ -315,6 +326,23 @@ stateDiagram-v2
 
 **中文：** 普通农田收获（§4.1.5 `TryHarvestTile` → `ApplyHarvest`）成功后，奖励以「果实」形式进入 `PlayerFruitBag`，按 `plantConfigId` 堆叠累加数量；收获本身 **不**改变 `RoleStats`。`PlantingService` 在写入后触发 `OnFruitBagChanged`；可选触发 `OnHarvestFruitReady(tileId, plantConfigId, count)` 供 UI 播放飞向果实入口的动效（不写入属性）。主界面提供「果实背包」入口按钮 + 半透明遮罩 + 只读列表（作物名、数量），布局约定见 §9.9。**自 v3.41 起**，§9.8.13 统一仓库面板把 `PlayerFruitBag` 作为果实槽数据源，并通过 `IPlantingService.EatOneFruit(plantConfigId)` / `EatFruitToFull(plantConfigId)` 把选中果实换算为 `RoleStats.stamina`（换算系数见 §9.8.13.6 与 `PlantConfig.fruitStaminaGain`）；§9.9 入口与本入口并行存在，互不替代。  
 **English:** After a normal farm harvest (`TryHarvestTile` → `ApplyHarvest` in §4.1.5), rewards are stored as **fruit** in `PlayerFruitBag`, stacked and incremented by `plantConfigId`. Harvesting itself does **not** change `RoleStats`. `PlantingService` raises `OnFruitBagChanged` after writes; it may also raise `OnHarvestFruitReady(tileId, plantConfigId, count)` for optional UI flight toward the fruit-bag button (no stat write). The main menu exposes a fruit-bag entry, dim modal, and read-only list — see §9.9. **Since v3.41**, the §9.8.13 unified warehouse panel uses `PlayerFruitBag` as the data source for its fruit slot grid and converts the selected fruit into `RoleStats.stamina` via `IPlantingService.EatOneFruit(plantConfigId)` / `EatFruitToFull(plantConfigId)` (formula in §9.8.13.6 and `PlantConfig.fruitStaminaGain`); the §9.9 entry coexists with the §9.8.13 entries without replacement.
+
+#### 4.1.12 精灵背包与上场数量 / Pet Bag and Field Pet Limit (v3.70)
+
+**中文：** 自 v3.70 起，玩家通过 §4.1.10 收获到的「精灵」（`MutationKind.Pet`）**不再**由 UI 直接生成伴侣；改由 `PlantingService` 写入 **`PlayerPetBag`**，并在 **`PetDeployment`** 有空槽时按 **`RestrictionProfile.fieldPetLimit`** 自动上场。默认 **`fieldPetLimit = 2`**，本期**不可提升**。  
+**English:** Since v3.70, Pets from §4.1.10 harvest (`MutationKind.Pet`) are **no longer** spawned directly by UI companions; `PlantingService` writes them into **`PlayerPetBag`** and auto-deploys into **`PetDeployment`** while slots remain under **`RestrictionProfile.fieldPetLimit`**. Default **`fieldPetLimit = 2`**, not increasable in this release.
+
+**中文：** **限制接受（P0）**：`PlantingService` 构造时写入 `restrictionProfile = { fieldPetLimit: 2, accepted: true }`；进入底栏「家园 / JiaYuan」与 `InvasionService.OpenBattle()` 时读取同一 profile（P0 无额外弹窗，为后续多套规则预留）。  
+**English:** **Restriction acceptance (P0):** on `PlantingService` construction set `restrictionProfile = { fieldPetLimit: 2, accepted: true }`; home tab and `OpenBattle()` read the same profile (no extra modal in P0).
+
+**中文：** **获得流程**：`TryHarvestMutation` 成功且 `kind == Pet` 时，在触发 `OnMutationHarvested` **之前**调用 `GrantPet(refId)` → `TryAutoDeploy(instanceId)`。自动上场顺序：**先 `LowerLeft`，再 `UpperLeft`**；已满员则仅留背包。  
+**English:** **Grant flow:** on successful `TryHarvestMutation` with `kind == Pet`, call `GrantPet(refId)` then `TryAutoDeploy(instanceId)` **before** `OnMutationHarvested`. Auto-deploy order: **LowerLeft first, then UpperLeft**; overflow stays in the bag only.
+
+**中文：** **可见性**：仅**已上场**精灵在底栏 `OpenKey == JiaYuan` 时由 §9.5.1 展示；其它 Tab 隐藏伴侣节点。  
+**English:** **Visibility:** only **deployed** pets are shown by §9.5.1 while `OpenKey == JiaYuan`; hidden on other tabs.
+
+**中文：** **战斗联动**：见 §12.3 / §12.4；上场精灵出现在玩家左侧上/下槽，偶数我方行动轮按「左下 → 左上 → 主角」攻击，精灵伤害 `max(1, floor(playerAttack * 0.5))`（`playerAttack` 取自本场 `BattleSession`，见 §12.5）。  
+**English:** **Battle linkage:** see §12.3 / §12.4; deployed pets at player upper-left / lower-left; on even player-action rounds attack in order lower → upper → role; pet damage `max(1, floor(playerAttack * 0.5))` from this battle's `BattleSession.playerAttack`.
 
 ### 4.2 回合战斗 / Turn-Based Battle
 
@@ -400,6 +428,7 @@ enum PlantingFlag   { AwaitingSeed, Seeded }
 enum FertilizerFlag { None, AwaitingFertilizer, Fertilized }
 enum WaterStage     { Empty, W1, W2, W3 }                  // 上限 W3 / max W3
 enum PestFlag       { None, AwaitingPestControl, PestControlled }
+enum MoleTheftFlag  { None, AwaitingMoleTheft, MoleTheftResolved }  // v3.52
 enum HarvestFlag    { None, AwaitingHarvest, Harvested }
 
 struct CropTile {
@@ -409,6 +438,7 @@ struct CropTile {
   FertilizerFlag  fertilizer;
   WaterStage      water;
   PestFlag        pest;
+  MoleTheftFlag   moleTheft;       // v3.52：地鼠偷窃事件维度
   HarvestFlag     harvest;
   string plantInstanceId;          // 空表示无植物 / empty when AwaitingSeed
   string lockedByMutationId;       // v3.17：被同组变异植物锁定时写入 MutationPlant.instanceId；
@@ -560,8 +590,10 @@ struct PlantConfig {
   float  baseStageSeconds;          // 每阶水倒计时基础秒数 / per-stage base seconds
   float  fertilizerSpeedMul;        // 默认 1.5 / default 1.5
   AfterHarvest afterHarvest;
-  float  pestEventIntervalSec;      // 外围事件抽取间隔 / pest event sampling interval
-  float  pestEventProb;             // 单次抽取触发概率 0..1 / per-sample probability
+  float  pestEventIntervalSec;      // 保留列；v3.50 Demo 未使用 / retained; unused in v3.50 demo
+  float  pestEventProb;             // 保留列；v3.50 Demo 未使用 / retained; unused in v3.50 demo
+  float  pestSpriteProb;            // 进入 appearanceNode 2/3 时各抽一次的概率 0..1 / per-node roll at nodes 2 & 3
+  float  moleSpriteProb;            // 进入 appearanceNode 4/5 时各抽一次的概率 0..1 / per-node roll at nodes 4 & 5
 }
 
 // PlantInstance — 在场植物运行时实例
@@ -575,6 +607,10 @@ struct PlantInstance {
   int   waterConsumed;              // 0..5
   int   appearanceNode;             // 1..5，= min(5, waterConsumed + 1)
   float currentStageRemainingSec;   // 当前一阶水的剩余倒计时 / remaining countdown of current stage
+  bool  pestEventConsumed;          // 本株是否已触发虫灾（一生一次）/ lifetime pest triggered
+  int   pestSpriteRollMask;         // 位标记：节点 2/3 是否已抽过概率（bit1=node2, bit2=node3）
+  bool  moleTheftEventConsumed;     // 本株是否已触发地鼠偷窃（一生一次）/ lifetime mole theft triggered
+  int   moleSpriteRollMask;         // 位标记：节点 4/5 是否已抽过概率（bit2=node4, bit3=node5）
 }
 
 // 农田变异机制（自 v3.17 起，见 §4.1.10）
@@ -584,8 +620,8 @@ struct PlantInstance {
 // MutationKind — content branch of the mutation plant
 enum MutationKind { Pet, Skill }
 
-// MutationPlant — 一株「四格植物」的运行时实例；占据同组 4 田直到收获
-// MutationPlant — runtime instance of a "four-tile plant"; locks 4 tiles in a group until harvested
+// MutationPlant — 一株「变异果实」的运行时实例；占据 1 或 4 块田直到收获（见 §4.1.10）
+// MutationPlant — runtime instance of a mutation fruit; locks 1 or 4 tiles until harvested (see §4.1.10)
 struct MutationPlant {
   string instanceId;                 // 唯一 id；同时也是 CropTile.lockedByMutationId 的取值
                                      // unique id; also the value written to CropTile.lockedByMutationId
@@ -593,8 +629,8 @@ struct MutationPlant {
   string refId;                      // kind==Pet 时为 PetConfig.id；kind==Skill 时为 SkillConfig.id
                                      // PetConfig.id when Pet; SkillConfig.id when Skill
   int    groupIndex;                 // 1..6
-  list<string> tileIds;              // 长度 4，按 orderIndex 升序
-                                     // length 4, ordered by ascending orderIndex
+  list<string> tileIds;              // 长度 1（单格变异，§9.13）或 4（四格合并，§4.1.10.1），按 orderIndex 升序
+                                     // length 1 (§9.13 single-tile) or 4 (four-tile merge §4.1.10.1), ascending orderIndex
   PlantState state;                  // 仅取 AwaitingHarvest / Harvested
                                      // only AwaitingHarvest / Harvested
 }
@@ -690,6 +726,7 @@ struct GameSession {
 - `IPlantingService.ExecuteUnifiedAction()` — 触发统一「操作」按钮：执行智能轮训扫描并对首块「有事可做」的农田执行最高优先级动作（自 v2.9 起扫描链不再包含 `Seed`；自 v2.10 起也不再包含 `Fertilize`，详见 §10） / triggers the unified action button: smart polling scan + execute highest-priority action on the first actionable tile (since v2.9 the chain excludes `Seed`; since v2.10 it also excludes `Fertilize`; see §10)
 - `IPlantingService.TrySeedTile(tileId) → bool` — 自 v2.9 起新增：直接尝试在指定 `tileId` 上播种；内部沿用 §4.1.4 第 1 步的 `Seed/Pack` 双分支语义，并触发既有事件链（`OnTileFlagsChanged / OnSeedBagChanged / OnSeedRolledFromPack`）。失败原因（返回 `false`）包括：`tileId` 不存在 / `tile.planting != AwaitingSeed` / `seedBag.active == null` / `countOf(active) == 0` / 对应 `plantConfigId` 不在 `plantConfigs` 中。供 §9.4.6 的仓库内播种按钮 + 手势直接调用，单次成功消耗 1 个种子或 1 个种子包。 / Since v2.9: directly attempt to seed the tile by `tileId`; reuses the §4.1.4 step-1 `Seed/Pack` branch semantics and fires the existing events. Returns `false` on: missing `tileId` / `tile.planting != AwaitingSeed` / `seedBag.active == null` / `countOf(active) == 0` / unknown `plantConfigId`. Called directly by the in-warehouse sow button and gesture in §9.4.6; one success consumes one seed or one seed pack.
 - `IPlantingService.TryHarvestTile(tileId) → bool` — 自 v3.2 起新增：直接尝试对指定 `tileId` 执行收获（供 §9.1 农田点击入口调用）。失败返回 `false`：`tileId` 不存在 / `tile.harvest != AwaitingHarvest` / `plantInstanceId` 或 `PlantConfig` 缺失。成功后沿用 §4.1.5 的 `Wilt/Regrow` 分支，将果实写入 `fruitBag` 并触发 `OnFruitBagChanged` 与（可选）`OnHarvestFruitReady`；**自 v3.27 起不再**发出 `OnHarvestRewardReady`。 / Since v3.2: directly attempt harvest on target `tileId` (for §9.1 tile-tap entry). Returns `false` on missing tile / non-harvestable tile / missing plant instance or config. On success, follows §4.1.5 `Wilt/Regrow`, writes fruit into `fruitBag`, and fires `OnFruitBagChanged` plus (optionally) `OnHarvestFruitReady`; **since v3.27** it does **not** emit `OnHarvestRewardReady`.
+- `IPlantingService.TryWaterTile(tileId) → bool` — **自 v3.62 起新增**：对指定 `tileId` 执行一次浇水（内部 `ApplyWater`）。失败：`tileId` 不存在 / 非 `IsWaterStage1/2/3Actionable` / 变异锁定。成功触发 `OnTileFlagsChanged`；**不**触发 `OnUnifiedActionExecuted`（供 §9.5.2 精灵协助浇水）。 / **Since v3.62:** apply one water step on `tileId` via `ApplyWater`. Returns `false` on missing tile / no actionable water stage / mutation lock. On success fires `OnTileFlagsChanged` only; does **not** fire `OnUnifiedActionExecuted` (for §9.5.2 pet assist).
 - `IPlantingService.GetFruitBag() → PlayerFruitBag` — 自 v3.27 起新增：返回 `GameSession.fruitBag` 引用（UI 刷新用）。 / Since v3.27: returns the `GameSession.fruitBag` reference for UI refresh.
 - `IPlantingService.ApplyHarvestRoleReward(statType, amount)` — 自 v3.2 起新增：提交一次属性奖励，写入 `GameSession.role` 并触发 `OnRoleStatsChanged`；**普通收获路径不再调用**（自 v3.27 起收获改入果实背包，见 §4.1.11）。 / Since v3.2: commit a stat reward into `GameSession.role` and fire `OnRoleStatsChanged`; **normal harvest no longer calls this** since v3.27 (harvest goes to fruit bag per §4.1.11).
 - `IPlantingService.GetRoleStats() → RoleStats` — 自 v3.2 起新增：返回主角属性快照，供主界面属性显示初始化与刷新。 / Since v3.2: returns role stats snapshot for main-menu display init/refresh.
@@ -701,7 +738,8 @@ struct GameSession {
 - `OnFruitBagChanged()` — 自 v3.27 起新增：`fruitBag.stacks` 内容变化（收获入包等）。 / Since v3.27: `fruitBag.stacks` changed (e.g. harvest grant).
 - `OnHarvestFruitReady(tileId, plantConfigId, count)` — 自 v3.27 起新增：一次收获刚写入果实背包后的可选表现事件（尚未、也不应写入 `RoleStats`）；UI 可据此播放飞向果实入口动效。 / Since v3.27: optional presentation event after fruit is granted (not applied to `RoleStats`); UI may use it for flight FX toward the fruit-bag entry.
 - `OnHarvestRewardReady(tileId, statType, amount)` — **v3.2–v3.26**：一次收获产出待表现属性奖励；**v3.27 起普通收获不再发出**（保留事件占位供将来其它系统复用时可再启用）。 / **v3.2–v3.26:** pending stat reward after harvest; **since v3.27** normal harvest does **not** emit this (kept as a reserved hook for other systems if needed).
-- `IPlantingService.TryHarvestMutation(mutationId) → bool` — 自 v3.17 起新增：直接尝试收获指定 `MutationPlant`（由 §5.2 `MutationOverlayView` 的图标点击转发）。失败原因（返回 `false`）：`mutationId` 不存在 / `state != AwaitingHarvest`。成功后将 `mutation.state` 推为 `Harvested` 并从 `session.mutations` 移除；4 田 `lockedByMutationId=null` 并按 `Wilt` 路径全维度复位（`planting=AwaitingSeed`、`fertilizer/pest/harvest=None`、`water=Empty`、`plantInstanceId=null`）；按 4 田 `orderIndex` 升序触发 4 次 `OnTileFlagsChanged(tileId)`，最后触发一次 `OnMutationHarvested(mutationId, kind, refId)`。 / Since v3.17: directly attempt to harvest a `MutationPlant` (forwarded by the icon tap in §5.2 `MutationOverlayView`). Returns `false` on missing id or non-`AwaitingHarvest` state. On success: set `mutation.state = Harvested` and remove from `session.mutations`; clear `lockedByMutationId` on the 4 tiles and reset all dimensions per the `Wilt` path; fire 4 `OnTileFlagsChanged(tileId)` events in ascending `orderIndex`, then `OnMutationHarvested(mutationId, kind, refId)`.
+- `IPlantingService.TryHarvestMutation(mutationId) → bool` — 自 v3.17 起新增：直接尝试收获指定 `MutationPlant`（由 §5.2 `MutationOverlayView` 的图标点击转发）。失败原因（返回 `false`）：`mutationId` 不存在 / `state != AwaitingHarvest`。成功后将 `mutation.state` 推为 `Harvested` 并从 `session.mutations` 移除；`mutation.tileIds` 中每一块田 `lockedByMutationId=null` 并按 `Wilt` 路径全维度复位（`planting=AwaitingSeed`、`fertilizer/pest/harvest=None`、`water=Empty`、`plantInstanceId=null`）；对列表中每一块田触发一次 `OnTileFlagsChanged(tileId)`（**自 v3.59 起** 列表长度可为 1 或 4），最后触发一次 `OnMutationHarvested(mutationId, kind, refId)`。 / Since v3.17: directly attempt to harvest a `MutationPlant` (forwarded by the icon tap in §5.2 `MutationOverlayView`). Returns `false` on missing id or non-`AwaitingHarvest` state. On success: set `mutation.state = Harvested` and remove from `session.mutations`; clear `lockedByMutationId` on every tile in `mutation.tileIds` and reset all dimensions per the `Wilt` path; fire one `OnTileFlagsChanged(tileId)` per tile (since **v3.59** the list length may be 1 or 4), then `OnMutationHarvested(mutationId, kind, refId)`.
+- `IPlantingService.TriggerSingleTileMutation(tileId) → bool` — **自 v3.59 起新增**：将指定田上当前 `PlantInstance` 原子替换为一株 **单格** `MutationPlant`（`tileIds.Count == 1`），抽签规则同 §4.1.10.2。失败原因（返回 `false`）：`tileId` 不存在 / `plantInstanceId` 为空 / `lockedByMutationId` 非空 / `petConfigs` 与 `skillConfigs` 均为空。成功：删除原植物、锁定该田并写入 `MutationPlant`、`OnTileFlagsChanged` + `OnMutationCreated`（详见 §4.1.10.2 单格段落）。**自 v3.60 起**：仅由 §9.12 地鼠流程后的 §9.13 转盘「确定」调用；§9.11 捉虫流程后的转盘**不得**调用（`grantMutationOnConfirm: false`）。 / **Since v3.59:** atomically replace the tile's current `PlantInstance` with a **single-tile** `MutationPlant` (`tileIds.Count == 1`) using the same roll rules as §4.1.10.2. Returns `false` if: missing tile / empty `plantInstanceId` / non-null `lockedByMutationId` / both pet and skill lists empty. On success: remove the plant, lock the tile, push `MutationPlant`, fire `OnTileFlagsChanged` + `OnMutationCreated` (see §4.1.10.2 single-tile paragraph). **Since v3.60:** invoked only from the §9.13 wheel **Confirm** after §9.12 mole; the §9.11 pest wheel must **not** call this (`grantMutationOnConfirm: false`).
 - `IPlantingService.GetMutation(mutationId) → MutationPlant?` / `GetMutations() → IReadOnlyList<MutationPlant>` — 自 v3.17 起新增：UI 拉取 / 枚举当前在场的 `MutationPlant`。 / Since v3.17: UI fetch / enumerate live `MutationPlant`s.
 - `IPlantingService.GetPetConfig(id) → PetConfig?` / `GetSkillConfig(id) → SkillConfig?` — 自 v3.17 起新增：根据 `MutationPlant.refId` 取静态配置（弹窗渲染用）。 / Since v3.17: lookup static config by `MutationPlant.refId` for modal rendering.
 
@@ -1140,8 +1178,8 @@ struct MainRoleCunminConfig {
 
 ### 9.5.1 主界面精灵伴侣展示 / Main Menu Pet Companion Display (v3.24)
 
-**中文：** 自 v3.24 起，玩家通过 §4.1.10 收获到的「精灵」（即 `OnMutationHarvested` 事件中 `kind == MutationKind.Pet`）必须以**伴侣**形式持续出现在主界面 **§9.5 主角** 的旁边。每只精灵以 `SkeletonGraphic` 形式渲染（与 §9.5 主角同构，避免与 Screen Space Overlay 主画布相互遮挡），**循环播放 `idle` 动作**，**Y 坐标与主角的 `villagerAnchoredPosition.y` 完全一致**，X 坐标位于主角右侧，以固定步长依次排开。  
-**English:** Since v3.24, every Pet obtained via §4.1.10 (i.e. `OnMutationHarvested` with `kind == MutationKind.Pet`) must appear as a persistent **companion** beside the **§9.5 hero** on the main menu. Each pet is rendered with `SkeletonGraphic` (mirroring §9.5 to avoid being occluded by the Screen Space Overlay canvas), **looping the `idle` animation**, with **Y coordinate matching the role's `villagerAnchoredPosition.y` exactly** and X laid out to the right of the role at a fixed stride.
+**中文：** 自 v3.24 起，玩家通过 §4.1.10 收获到的「精灵」（即 `OnMutationHarvested` 事件中 `kind == MutationKind.Pet`）必须以**伴侣**形式持续出现在主界面 **§9.5 主角** 的旁边。每只精灵以 `SkeletonGraphic` 形式渲染（与 §9.5 主角同构，避免与 Screen Space Overlay 主画布相互遮挡），**Y 坐标与主角的 `villagerAnchoredPosition.y` 完全一致**，X 坐标位于主角右侧，以固定步长依次排开。**自 v3.62 起**，伴侣默认进入 §9.5.2「精灵巡逻」双状态 FSM（待机 / 协助种植），不再仅无限循环 idle。  
+**English:** Since v3.24, every Pet obtained via §4.1.10 (i.e. `OnMutationHarvested` with `kind == MutationKind.Pet`) must appear as a persistent **companion** beside the **§9.5 hero** on the main menu. Each pet is rendered with `SkeletonGraphic` (mirroring §9.5 to avoid being occluded by the Screen Space Overlay canvas), with **Y matching `MainRoleCunminPresenter.villagerAnchoredPosition.y`** and X laid out to the right at a fixed stride. **Since v3.62**, companions enter the §9.5.2 patrol FSM (idle / assist planting) instead of only looping idle forever.
 
 **中文：** **触发与数据来源**：  
 **English:** **Trigger and data source:**
@@ -1155,7 +1193,7 @@ struct MainRoleCunminConfig {
 
 - 在主画布下创建 **`PetCompanionRoot`** 节点，锚点与 `MainRoleCunminPresenter.VillagerRoleRoot` 一致（`anchorMin = anchorMax = (0.5, 1)`、`pivot = (0.5, 0.5)`、`anchoredPosition = (0, 0)`），保证两者坐标系完全对齐。
 - 每只精灵作为 `PetCompanionRoot` 的子节点（命名 `PetCompanion_{petId}_{seq}`），其 `RectTransform` 锚点 `(0.5, 0.5)`、`pivot=(0.5, 0.5)`，`anchoredPosition.y` **直接复用 `MainRoleCunminPresenter.villagerAnchoredPosition.y`**（默认 `-600`），`anchoredPosition.x` 按 `petCompanionFirstOffsetX + (index * petCompanionStrideX)` 计算（默认 `320 + index * 220`）。
-- 默认 `sizeDelta = (480, 720)`、`localScale = (0.40, 0.40, 1)`，与主角 `(0.53, 0.53)` 整体协调，使精灵略小于主角以体现「随从」尺度，可在 Inspector 微调。
+- 默认 `sizeDelta = (480, 720)`；`localScale` 默认 `(0.40, 0.40, 1)`，经 **`FantaziaMonsterDisplay.BoostedHorizontallyMirroredScale`** 后为 **`(-0.48, 0.48, 1)`**（先 XY ×**1.2** 再 Fantazia 水平镜像，见 §9.5.1.3），与主角 `(-0.53, 0.53)` 同向翻转、整体协调，使精灵略小于主角以体现「随从」尺度，可在 Inspector 微调。
 - **重复持久化** / **Persistence**：精灵一旦显示则在场景内一直保留；同一 `petId` 多次收获将连续追加（叠加显示多只）。
 
 **中文：** **动画规则**：  
@@ -1201,7 +1239,8 @@ class PetCompanionPresenter : MonoBehaviour {
 - **复用 §9.5 模式**：与 `MainRoleCunminPresenter.TryBuildSkeletonGraphic` 类似——实例化预制体只做探针读取，随后销毁。**必须**同步预制体权威 `SkeletonAnimation` 上的 `initialSkinName`（及 `initialFlipX/Y`）；若仅用 `SkeletonDataAsset` 的默认皮肤而预制体配置了 `V1/V3` 等变体皮肤，运行时骨骼可能无任何附件挂载，从而导致 `SkeletonGraphic` 顶点为空、画面上「看得见节点但完全没有外形」（典型如 `Monster_102_Hamy Alsapphire` 的 `initialSkinName=V3`）。**多图集/多材质**：当 `SkeletonDataAsset.atlasAssets.Length > 1` 或 `atlasAssets[0].MaterialCount > 1` 时，`SkeletonGraphic` 必须启用 `allowMultipleCanvasRenderers`（与 Spine Unity 官方对 Unity UI 单 CanvasRenderer 单纹理限制的说明一致）。
 - **Shader 依赖**：`SkeletonGraphic` 需 `Spine/SkeletonGraphic` Shader（spine-unity Runtime 自带）；缺失时 Presenter 仅记录一次 Warning 并跳过本只精灵。
 - **缺失脚本扫描**：与 §9.5 同样调用 `GetComponentsInChildren<MonoBehaviour>(true)` 校验 `null != null` 计数，规避 P1 残留脚本占位的预制体。
-- **不与主角动画耦合**：精灵的循环 `idle` 完全独立，不订阅 `OnUnifiedActionExecuted / OnRoleStatsChanged / OnFertilizeApplied`，避免与 `attack_3 / wait_3` 主角动画冲突。
+- **不与主角动画耦合**：精灵巡逻与主角动画完全独立，不订阅 `OnUnifiedActionExecuted / OnRoleStatsChanged / OnFertilizeApplied`，避免与 `attack_3 / wait_3` 主角动画冲突；协助浇水/收获调用 `TryWaterTile` / `TryHarvestTile`，**不得**触发 `OnUnifiedActionExecuted`。
+- **Fantazia 水平镜像 + 放大 20%**：凡 `prefabResource` 指向自 `Assets/Fantazia Animated 2D Monsters/Prefabs/` 复制到 `Resources/Pets/` 的精灵，伴侣根 `RectTransform.localScale` **必须**经 `FantaziaMonsterDisplay.BoostedHorizontallyMirroredScale`（先 `localScale.xy *= PackVisualScaleMultiplier`（默认 **1.2**），再 `localScale.x = -Mathf.Abs(localScale.x)`）处理后再 `Initialize`，与 §4.1.10.5 / §12.3 / B.11 一致。
 - **不复用 `PetPreviewRig`**：`PetPreviewRig` 输出的 `RenderTexture` 仅用于 `MutationRevealPopupView` 单只预览；伴侣需多只共存且与 UI 一同布局，故必须使用 `SkeletonGraphic` 直挂主画布。
 
 **English:**
@@ -1209,7 +1248,71 @@ class PetCompanionPresenter : MonoBehaviour {
 - **Shader dependency:** `SkeletonGraphic` requires the `Spine/SkeletonGraphic` shader (shipped by spine-unity Runtime); when missing, the presenter logs a single warning and skips that pet.
 - **Missing-script guard:** like §9.5, call `GetComponentsInChildren<MonoBehaviour>(true)` and count nulls to dodge prefabs polluted by P1 placeholders.
 - **Decoupled from role animation:** the looping `idle` is fully independent — the presenter must NOT subscribe to `OnUnifiedActionExecuted / OnRoleStatsChanged / OnFertilizeApplied` to avoid clashing with `attack_3 / wait_3`.
+- **Fantazia horizontal mirror + +20% scale:** whenever `prefabResource` points to a pet duplicated from `Assets/Fantazia Animated 2D Monsters/Prefabs/` under `Resources/Pets/`, the companion root `RectTransform.localScale` **must** pass through `FantaziaMonsterDisplay.BoostedHorizontallyMirroredScale` (first `localScale.xy *= PackVisualScaleMultiplier` (default **1.2**), then `localScale.x = -Mathf.Abs(localScale.x)`) before `Initialize`, matching §4.1.10.5 / §12.3 / Appendix B.11.1.
 - **Do not reuse `PetPreviewRig`:** `PetPreviewRig` outputs a single `RenderTexture` consumed by `MutationRevealPopupView`; companions need multiple instances co-existing within the canvas layout, so they must use `SkeletonGraphic` directly under the main canvas.
+
+### 9.5.2 精灵巡逻 / Pet Patrol (v3.62)
+
+**中文：** 自 v3.62 起，§9.5.1 收获的每只精灵在**底部导航「家园 / JiaYuan」**打开时运行独立双状态巡逻 FSM；离开家园 Tab 时暂停协助逻辑、保持当前位置并强制待机。  
+**English:** Since v3.62, each §9.5.1 companion runs an independent two-state patrol FSM while the bottom nav **Home / JiaYuan** tab is open; leaving that tab pauses assist logic, freezes position, and forces idle.
+
+#### 9.5.2.1 状态与切换 / States and Transitions
+
+| 状态 | 行为 |
+|------|------|
+| **状态1 待机 (`Idle`)** | 在当前 `anchoredPosition` **循环** `idle`（动画名解析同 §9.5.1）；**每播完一整圈** idle（Spine `TrackEntry.Complete` 且 `entry.Loop==true`）后抽签下一状态 |
+| **状态2 协助种植 (`AssistPlanting`)** | 随机选一块「有植物」田 → 线性插值移动到田面中心（`moveDurationSec`，默认 0.6s）→ 非循环 `attack` **2 遍** → 按田状态施加效果 → 抽签下一状态；**协助结束后留在该田位置**进入待机，不强制回到主角旁 |
+
+**抽签规则**（每次「当前状态要求的动作序列」结束后执行一次）：
+
+- 若 24 田中**不存在**任何「有植物」田 → **100%** 进入 / 保持 **状态1**
+- 否则 → **65%** 状态1、**35%** 状态2（`UnityEngine.Random.value < 0.65f`）
+
+**有植物田**：`tile.planting == Seeded` 且 `plantInstanceId` 非空 且 `lockedByMutationId` 为空。
+
+**协助效果**（攻击 2 遍结束后，对**本次选中的** `tileId` 判定，优先级与 §10.1 一致）：
+
+1. 可收获 → `IPlantingService.TryHarvestTile(tileId)`
+2. 否则任一可浇水阶（`IsWaterStage1/2/3Actionable`）→ `IPlantingService.TryWaterTile(tileId)`
+3. 皆不可 → **仅播放攻击，不写农田数据**
+
+**家园 Tab 联动**（`BottomNavBarView.OnOpenChanged`，`OpenKey` 与 `JiaYuanHomeFeatureEntriesView.JiaYuanNavKey` 比较）：
+
+| 事件 | 行为 |
+|------|------|
+| 离开 `JiaYuan` | 停止各精灵协程；`homePatrolEnabled=false`；**不修改** `anchoredPosition`；强制状态1 + 循环 idle |
+| 进入 `JiaYuan` | `homePatrolEnabled=true`；每只精灵 **重新抽签** 并进入对应状态（可能立刻开始协助序列） |
+| 新收获精灵 | 若当前为家园 Tab → 重新抽签；否则 → 仅循环 idle（不启动协助）直至下次进入家园 |
+
+#### 9.5.2.2 数据结构与接口 / Data Structures and APIs
+
+```csharp
+enum PetPatrolState { Idle, AssistPlanting }
+
+const float kIdleStateProbability = 0.65f;   // 进入 / 保持状态1
+const float kAssistStateProbability = 0.35f; // 进入状态2（仅当存在有植物田时）
+
+class PetCompanionPresenter : MonoBehaviour {
+    float moveDurationSec;              // default 0.6
+    float animationWaitTimeout;         // default 8
+    string attackAnimationName;         // default "attack"；回退 Attack / attack_1
+    string idleAnimationName;           // default "idle"（同 §9.5.1）
+
+    void Build(RectTransform canvasRect, IPlantingService service);
+    void BindBottomNavBar(BottomNavBarView barView); // 订阅 OnOpenChanged；由 AirMainMenuRuntimeBuilder 在底栏创建后调用
+}
+```
+
+**服务层（§6）新增**：
+
+- `IPlantingService.TryWaterTile(tileId) → bool` — 对指定田执行一次浇水（`ApplyWater`）；失败：`tileId` 不存在 / 非 `IsWaterStage1/2/3Actionable` / 变异锁定。成功触发 `OnTileFlagsChanged`；**不**触发 `OnUnifiedActionExecuted`。
+
+**坐标**：目标田位置 = `FarmGridView.GetTileSlotRect(tileId).position` 经 `RectTransformUtility` 转换到 `PetCompanionRoot` 本地 `anchoredPosition`；`FarmGridView.Instance` 为空时跳过移动、原地攻击。
+
+#### 9.5.2.3 实现优先级 / Implementation Priority
+
+**中文：** P0 = 双状态 FSM + 概率 + 协助移动/攻击×2/浇水或收获 + 家园 Tab 暂停与重抽签 + `TryWaterTile`；P1 = 移动缓动曲线、面向翻转、点击精灵详情。  
+**English:** P0 = dual-state FSM, probabilities, assist move/attack×2/water-or-harvest, home-tab pause/re-roll, and `TryWaterTile`; P1 = move easing, facing flip, tap-to-detail.
 
 ### 9.6 主界面主角四维属性直显 / Main Menu Hero Four-Stat Display
 
@@ -1368,8 +1471,8 @@ public class BottomNavButtonView : MonoBehaviour
 
 #### 9.8.8 主线关卡选择界面 / Main Story Level Select Screen (v3.31, 章节标记点 + 前往 + 饿肚子提示 v3.40)
 
-**中文：** 当底部导航 `OnOpenChanged` 的 `newKey == "ZhuXian"`（玩家点击 `BottomNavSlot_ZhuXian` 并成功切换为 `Open`）时，在主 Canvas 上显示全屏面板 **`MainStoryLineScreen`**（与 `BottomNavBar` 同级、`RectTransform` 全屏拉伸，`SetSiblingIndex` 置于 `BottomNavBar` 之下，保证底栏始终可点）。面板根节点默认 `active=false`；当 `newKey != "ZhuXian"` 时隐藏，并强制隐藏其上的「前往」按钮与「饿肚子提示框」（关闭弹窗，但保留实例避免反复销毁/重建）。背景图固定为 **`Resources.Load<Sprite>("AirUI/ZhuXian_1")`**，`Image.preserveAspect = false` 铺满；资源缺失时回退为深色纯色并 `Debug.LogWarning`。面板顶部居中标题节点 **`Title`** 锚定 `anchorMin/Max=(0.5,1)`、`pivot=(0.5,1)`，**`anchoredPosition.y`（PosY）固定为 `-30`**，文案固定为「**第1章**」。**自 v3.47 起**，面板**左上角**（`anchorMin/Max=(0,1)`、`pivot=(0,1)`、`anchoredPosition=(20,-20)`）增加 **`MainStoryStaminaHud`**：`MainStoryStaminaBarSlot` 尺寸 **`275×60`**（与 §9.8.12.4 `StaminaBarView` 复用同一套 `TiLi_*` 资源），其 `siblingIndex` 位于 **`EmptyAreaCloseButton` 之上**、**`ChapterPin` 之下或同级靠后**（须保证体力 HUD 不被全屏透明层遮挡）；可选 **`MainStoryStaminaText`**（`fontSize≈28`、白字、`raycastTarget=false`）置于槽位下方展示 **`stamina / staminaMax`**。数据来自 `IPlantingService.GetRoleStats()` + `StaminaBarView.BuildInto(slot, role, plantingService)`；`plantingService==null` 时仍显示 HUD 占位（数值文案 `-- / --`，体力条按空 `RoleStats` 显示 0 档）。**刷新时机（v3.47）**：(1) 每次底栏切回 `ZhuXian` 且本层 `SetActive(true)` 时调用 **`RefreshMainStoryStamina()`**；(2) 每次 **`WarehouseHubPanelView.Hide()`**（统一仓库关闭，含从主线「确定」进入后再关闭）且 **`MainStoryLineScreen` 根节点处于激活**时同样调用，确保从仓库返回主线后条与数字与 `RoleStats` 一致。实现类型为 `PetDemo.UI.MainStoryLineScreenView`，由 `AirMainMenuRuntimeBuilder.BuildBottomNavBar` 在实例化 `BottomNavBar` 之后调用 `BuildInto(canvasRect, barView, plantingService)` 构建并订阅 `OnOpenChanged`；`OnDestroy` 时解除订阅。全屏根节点、`Background` 的 `Resources` 加载与拉伸规则与 §9.8.9 / §9.8.10 共用静态工具 **`PetDemo.UI.BottomNavAttachedScreenLayout`**（`CreateRootBelowBottomNav` + `AddStretchedResourcesBackground`）。**v3.40 起，旧版用于占位的 `LevelSlot_1 / LevelSlot_2 / LevelSlot_3` 三连按钮整体下线**；主线层改为「章节标记点 + 前往按钮 + 饿肚子提示框」三段式（详见下文）。  
-**English:** When `OnOpenChanged` reports `newKey == "ZhuXian"` (the player taps `BottomNavSlot_ZhuXian` and it becomes `Open`), show a full-screen panel **`MainStoryLineScreen`** on the main Canvas (sibling of `BottomNavBar`, stretch-full `RectTransform`, `SetSiblingIndex` **below** `BottomNavBar` so the bar stays interactable on top). The panel root defaults to `active=false`; hide when `newKey != "ZhuXian"`, and force-hide the "Go" button and the "hungry" dialog above it (close modals, keep instances to avoid churn). The background is **`Resources.Load<Sprite>("AirUI/ZhuXian_1")`** with `Image.preserveAspect = false` to fill; missing asset falls back to a dark color with `Debug.LogWarning`. The top-centered **`Title`** uses `anchorMin/Max=(0.5,1)`, `pivot=(0.5,1)`, with **`anchoredPosition.y` (PosY) fixed at `-30`**, copy 「**第1章**」. **Since v3.47**, a **top-left** HUD (**`MainStoryStaminaHud`**) is added at `anchorMin/Max=(0,1)`, `pivot=(0,1)`, `anchoredPosition=(20,-20)`: a **`MainStoryStaminaBarSlot`** sized **`275×60`** reuses the §9.8.12.4 `StaminaBarView` / `TiLi_*` stack; its `siblingIndex` must sit **above** **`EmptyAreaCloseButton`** so the transparent layer does not cover it, and remain **below or before** interactive pins as needed. Optional **`MainStoryStaminaText`** (~`fontSize=28`, white, `raycastTarget=false`) sits under the slot showing **`stamina / staminaMax`**. Data comes from `IPlantingService.GetRoleStats()` via `StaminaBarView.BuildInto(slot, role, plantingService)`; when `plantingService == null`, the HUD still renders with placeholder copy `-- / --` and an empty-role bar at 0. **Refresh rules (v3.47):** (1) call **`RefreshMainStoryStamina()`** whenever the bottom nav returns to `ZhuXian` and this layer becomes active; (2) also call it after **`WarehouseHubPanelView.Hide()`** whenever **`MainStoryLineScreen`** is still active, so returning from the unified warehouse restamps the bar and numbers from `RoleStats`. Implement as `PetDemo.UI.MainStoryLineScreenView`, constructed from `AirMainMenuRuntimeBuilder.BuildBottomNavBar` after the bottom bar is instantiated via `BuildInto(canvasRect, barView, plantingService)` with `OnOpenChanged` subscription; unsubscribe on `OnDestroy`. Root, background load and stretch rules are shared with §9.8.9 / §9.8.10 via **`PetDemo.UI.BottomNavAttachedScreenLayout`** (`CreateRootBelowBottomNav` + `AddStretchedResourcesBackground`). **Since v3.40, the legacy `LevelSlot_1 / LevelSlot_2 / LevelSlot_3` placeholder buttons are retired**; the layer is rewritten to a three-stage flow: chapter pin + Go button + hungry dialog (see below).
+**中文：** 当底部导航 `OnOpenChanged` 的 `newKey == "ZhuXian"`（玩家点击 `BottomNavSlot_ZhuXian` 并成功切换为 `Open`）时，在主 Canvas 上显示全屏面板 **`MainStoryLineScreen`**（与 `BottomNavBar` 同级、`RectTransform` 全屏拉伸，`SetSiblingIndex` 置于 `BottomNavBar` 之下，保证底栏始终可点）。面板根节点默认 `active=false`；当 `newKey != "ZhuXian"` 时隐藏，并强制隐藏其上的「前往」按钮与「饿肚子提示框」（关闭弹窗，但保留实例避免反复销毁/重建）。背景图固定为 **`Resources.Load<Sprite>("AirUI/ZhuXian_1")`**，`Image.preserveAspect = false` 铺满；资源缺失时回退为深色纯色并 `Debug.LogWarning`。面板顶部居中标题节点 **`Title`** 锚定 `anchorMin/Max=(0.5,1)`、`pivot=(0.5,1)`，**`anchoredPosition.y`（PosY）固定为 `-30`**，文案固定为「**第1章**」。**自 v3.47 起**，面板**左上角**（`anchorMin/Max=(0,1)`、`pivot=(0,1)`、`anchoredPosition=(20,-20)`）增加 **`MainStoryStaminaHud`**（根容器实现约 **`300×168`**，容纳体力槽与数值）：`MainStoryStaminaBarSlot` 尺寸 **`275×116`**（与 §9.8.13 统一仓库体力槽及 §9.8.12.4 `StaminaBarView` 复用同一套 `TiLi_*` 资源），其 `siblingIndex` 位于 **`EmptyAreaCloseButton` 之上**、**`ChapterPin` 之下或同级靠后**（须保证体力 HUD 不被全屏透明层遮挡）；可选 **`MainStoryStaminaText`**（`fontSize≈28`、白字、`raycastTarget=false`）置于槽位下方（相对 HUD 顶边 `anchoredPosition.y≈-124`）展示 **`stamina / staminaMax`**。数据来自 `IPlantingService.GetRoleStats()` + `StaminaBarView.BuildInto(slot, role, plantingService)`；`plantingService==null` 时仍显示 HUD 占位（数值文案 `-- / --`，体力条按空 `RoleStats` 显示 0 档）。**刷新时机（v3.47）**：(1) 每次底栏切回 `ZhuXian` 且本层 `SetActive(true)` 时调用 **`RefreshMainStoryStamina()`**；(2) 每次 **`WarehouseHubPanelView.Hide()`**（统一仓库关闭，含从主线「确定」进入后再关闭）且 **`MainStoryLineScreen` 根节点处于激活**时同样调用，确保从仓库返回主线后条与数字与 `RoleStats` 一致。实现类型为 `PetDemo.UI.MainStoryLineScreenView`，由 `AirMainMenuRuntimeBuilder.BuildBottomNavBar` 在实例化 `BottomNavBar` 之后调用 `BuildInto(canvasRect, barView, plantingService)` 构建并订阅 `OnOpenChanged`；`OnDestroy` 时解除订阅。全屏根节点、`Background` 的 `Resources` 加载与拉伸规则与 §9.8.9 / §9.8.10 共用静态工具 **`PetDemo.UI.BottomNavAttachedScreenLayout`**（`CreateRootBelowBottomNav` + `AddStretchedResourcesBackground`）。**v3.40 起，旧版用于占位的 `LevelSlot_1 / LevelSlot_2 / LevelSlot_3` 三连按钮整体下线**；主线层改为「章节标记点 + 前往按钮 + 饿肚子提示框」三段式（详见下文）。  
+**English:** When `OnOpenChanged` reports `newKey == "ZhuXian"` (the player taps `BottomNavSlot_ZhuXian` and it becomes `Open`), show a full-screen panel **`MainStoryLineScreen`** on the main Canvas (sibling of `BottomNavBar`, stretch-full `RectTransform`, `SetSiblingIndex` **below** `BottomNavBar` so the bar stays interactable on top). The panel root defaults to `active=false`; hide when `newKey != "ZhuXian"`, and force-hide the "Go" button and the "hungry" dialog above it (close modals, keep instances to avoid churn). The background is **`Resources.Load<Sprite>("AirUI/ZhuXian_1")`** with `Image.preserveAspect = false` to fill; missing asset falls back to a dark color with `Debug.LogWarning`. The top-centered **`Title`** uses `anchorMin/Max=(0.5,1)`, `pivot=(0.5,1)`, with **`anchoredPosition.y` (PosY) fixed at `-30`**, copy 「**第1章**」. **Since v3.47**, a **top-left** HUD (**`MainStoryStaminaHud`**) is added at `anchorMin/Max=(0,1)`, `pivot=(0,1)`, `anchoredPosition=(20,-20)` (root ~**`300×168`** to fit the bar plus label): a **`MainStoryStaminaBarSlot`** sized **`275×116`** aligns with the §9.8.13 warehouse slot and reuses the §9.8.12.4 `StaminaBarView` / `TiLi_*` stack; its `siblingIndex` must sit **above** **`EmptyAreaCloseButton`** so the transparent layer does not cover it, and remain **below or before** interactive pins as needed. Optional **`MainStoryStaminaText`** (~`fontSize=28`, white, `raycastTarget=false`) sits under the slot (`anchoredPosition.y≈-124` from the HUD top) showing **`stamina / staminaMax`**. Data comes from `IPlantingService.GetRoleStats()` via `StaminaBarView.BuildInto(slot, role, plantingService)`; when `plantingService == null`, the HUD still renders with placeholder copy `-- / --` and an empty-role bar at 0. **Refresh rules (v3.47):** (1) call **`RefreshMainStoryStamina()`** whenever the bottom nav returns to `ZhuXian` and this layer becomes active; (2) also call it after **`WarehouseHubPanelView.Hide()`** whenever **`MainStoryLineScreen`** is still active, so returning from the unified warehouse restamps the bar and numbers from `RoleStats`. Implement as `PetDemo.UI.MainStoryLineScreenView`, constructed from `AirMainMenuRuntimeBuilder.BuildBottomNavBar` after the bottom bar is instantiated via `BuildInto(canvasRect, barView, plantingService)` with `OnOpenChanged` subscription; unsubscribe on `OnDestroy`. Root, background load and stretch rules are shared with §9.8.9 / §9.8.10 via **`PetDemo.UI.BottomNavAttachedScreenLayout`** (`CreateRootBelowBottomNav` + `AddStretchedResourcesBackground`). **Since v3.40, the legacy `LevelSlot_1 / LevelSlot_2 / LevelSlot_3` placeholder buttons are retired**; the layer is rewritten to a three-stage flow: chapter pin + Go button + hungry dialog (see below).
 
 ##### 9.8.8.1 章节标记点 / Chapter Pin (v3.40)
 
@@ -1744,13 +1847,16 @@ int    EatFruitToFull(string plantConfigId);       // 循环 EatOneFruit，合�
 
 #### 9.10.1 页签与子页面 / Tabs and Sub-Pages
 
-**中文：** 层内顶部为 **页签栏**（宽 `1080` × 高 `100`），含 3 个固定顺序互斥页签（左→右）：`ShuXing`（属性）、`JiNeng`（技能）、`TianFu`（天赋）。每个页签与 §9.8 相同采用 **`OpenState` / `ClosedState` 两态视觉** + `HitArea`，互斥规则与左对齐前缀和布局一致，但宽度公式为：`Open = 540`，`Closed = 270`（因 `540 + 270 × 2 = 1080`）。**每次**因底栏进入 `JueSe` 而显示该层时，页签重置为默认 **`ShuXing`（属性，索引 0）**。页签下方为 **`Page_ShuXing` / `Page_JiNeng` / `Page_TianFu`** 三个兄弟节点，与当前选中页签一一对应显隐；三页内容占位由预制体搭好，**美术资源由用户在预制体 Inspector 中自行挂载**（脚本不硬编码 `Resources` 图路径）。  
-**English:** Inside the layer, a **tab bar** sits at the top (`1080 × 100`) with three fixed-order mutex tabs (left-to-right): `ShuXing`, `JiNeng`, `TianFu`. Each tab mirrors §9.8 with **`OpenState` / `ClosedState`** plus `HitArea`, same mutex and left-aligned prefix-sum layout, but widths are **`Open = 540`**, **`Closed = 270`** (`540 + 270 × 2 = 1080`). **Every time** the layer becomes visible because the bottom bar entered `JueSe`, the tab selection resets to **`ShuXing` (index 0)**. Below the tabs, sibling nodes **`Page_ShuXing` / `Page_JiNeng` / `Page_TianFu`** toggle visibility with the selected tab; page chrome is prefab-authored and **sprites are assigned by the user in the Inspector** (no hardcoded `Resources` paths).
+**中文：** 层内顶部为 **页签栏**（宽 `1080` × 高 `100`），含 3 个固定顺序互斥页签（左→右）：`ShuXing`（属性）、`JiNeng`（技能）、`TianFu`（天赋）。每个页签与 §9.8 相同采用 **`OpenState` / `ClosedState` 两态视觉** + `HitArea`，互斥规则一致；**与 §9.8 底栏不同**，本页签栏 **不** 随 Open/Closed 视觉切换改变槽位宽度：三槽 **等宽** `TabSlotWidth = 1080 / 3 = 360`，左对齐前缀和 `x = index × 360`，切换时仅切换 `OpenState`/`ClosedState` 显隐，**槽位 `sizeDelta.x` 与 `anchoredPosition.x` 保持不变**（v3.55）。**每次**因底栏进入 `JueSe` 而显示该层时，页签重置为默认 **`ShuXing`（属性，索引 0）**。页签下方为 **`Page_ShuXing` / `Page_JiNeng` / `Page_TianFu`** 三个兄弟节点，与当前选中页签一一对应显隐；三页内容占位由预制体搭好，**美术资源由用户在预制体 Inspector 中自行挂载**（脚本不硬编码 `Resources` 图路径）。  
+**English:** Inside the layer, a **tab bar** sits at the top (`1080 × 100`) with three fixed-order mutex tabs (left-to-right): `ShuXing`, `JiNeng`, `TianFu`. Each tab mirrors §9.8 with **`OpenState` / `ClosedState`** plus `HitArea` and the same mutex rule; **unlike §9.8 bottom nav**, slot width **does not** change with open/closed visuals: three **equal** slots at `TabSlotWidth = 1080 / 3 = 360`, left-aligned prefix sum `x = index × 360`; switching only toggles `OpenState`/`ClosedState` visibility while **slot `sizeDelta.x` and `anchoredPosition.x` stay fixed** (v3.55). **Every time** the layer becomes visible because the bottom bar entered `JueSe`, the tab selection resets to **`ShuXing` (index 0)**. Below the tabs, sibling nodes **`Page_ShuXing` / `Page_JiNeng` / `Page_TianFu`** toggle visibility with the selected tab; page chrome is prefab-authored and **sprites are assigned by the user in the Inspector** (no hardcoded `Resources` paths).
 
 #### 9.10.2 数据结构与接口 / Data Structures and APIs
 
 ```csharp
-// 页签栏：逻辑同 BottomNavBarView，但按钮数 = 3、条高 = 100、Open/Close 宽 = 540/270。
+// 页签栏：互斥逻辑同 BottomNavBarView；按钮数 = 3、条高 = 100；槽位等宽 TabSlotWidth = 360（不随 Open/Closed 变宽）。
+// 生命周期：在 Start 订阅 tabButtons.OnClicked（勿在 Awake 订阅）——实例化后
+// ApplyMainBottomNavKey 会立刻隐藏全屏层并触发 OnDisable 取消订阅；首次显示时 OnEnable
+// 在 started 之前会跳过，若 Awake 已订阅则首次进入 JueSe 页签点击无响应。
 public class RoleGrowthTabBarView : MonoBehaviour
 {
     [SerializeField] private int defaultOpenIndex; // 默认 0 (ShuXing)
@@ -1764,7 +1870,8 @@ public class RoleGrowthTabBarView : MonoBehaviour
 // 全屏层根：显隐 + 页内容与底栏 JueSe 同步。
 public class RoleGrowthScreenView : MonoBehaviour
 {
-    public void ApplyMainBottomNavKey(string bottomNavKey); // "JueSe" 时显示并重置页签为属性
+    public void ApplyMainBottomNavKey(string bottomNavKey); // "JueSe" 时显示；默认页签 0，pendingTabIndexWhenShowingJueSe 可覆盖
+    public void NavigateToTianFuPage(BottomNavBarView bar); // 升级弹窗「前往」：pending=2 后 SetOpenKey(JueSe)
     // 内部订阅 RoleGrowthTabBarView.OnTabChanged 切换 Page_* 显隐
 }
 ```
@@ -1778,6 +1885,163 @@ public class RoleGrowthScreenView : MonoBehaviour
 
 **中文：** P0：预制体生成菜单 + `RoleGrowthScreenView` / `RoleGrowthTabBarView` + 底栏 `JueSe` 显隐联动 + 三页签互斥与默认属性页。P1：属性/技能/天赋具体数值与养成逻辑接入。  
 **English:** P0: prefab generator menu, `RoleGrowthScreenView` / `RoleGrowthTabBarView`, bottom-nav `JueSe` visibility wiring, three-tab mutex and default Attributes tab. P1: wire real stats/skill/talent progression data.
+
+---
+
+### 9.11 虫灾「打虫子」全屏演示 / Pest Control "Bug Catching" Fullscreen Demo (v3.50)
+
+**中文（v3.50，v3.59 修订衔接，v3.60 奖励）：** 当某田触发虫灾（`tile.pest == AwaitingPestControl`，详见 §4.1.6）时，在该田面中央叠加一枚可点击的 `WH_Chong` 图标；点击图标打开本节描述的全屏「打虫子」演示界面；玩家在「胜利」后应先调用 `IPlantingService.CompletePestControl(tileId)` 清除虫灾并关闭本全屏层，再立即打开 **§9.13** `WheelLotteryScreenView`（`Open(tileId, grantMutationOnConfirm: false)`，转盘可玩但**不写入**单格变异，两种变异奖励概率视为 0）；**不切换底栏 Tab**。  
+**English (v3.50, v3.59 handoff, v3.60 rewards):** When a tile has a pest event (`tile.pest == AwaitingPestControl`, see §4.1.6), overlay a tappable `WH_Chong` icon at the tile center. Tapping it opens the fullscreen "bug catching" demo. After **Victory**, call `IPlantingService.CompletePestControl(tileId)` to clear the pest and close this layer, then immediately open §9.13 `WheelLotteryScreenView` with **`Open(tileId, grantMutationOnConfirm: false)`** — the wheel still plays but **does not grant** single-tile mutation (both mutation kinds at 0%); **no bottom-nav tab switch**.
+
+#### 9.11.1 田面虫灾图标 / Pest Overlay Icon on Tile
+
+- 子节点名：`PestEventIcon`；层级：`PlantImage` 之上，`FocusRing` 之前（与 `NeedWaterIcon` 同级）。
+- Sprite：`Resources/AirUI/WH_Chong`；尺寸 **72 × 72**（居中，`anchoredPosition = Vector2.zero`）。
+- `Image.raycastTarget = true`（可接收点击；`NeedWaterIcon` 保持 `false`）。
+- **闪烁**：`tile.pest == AwaitingPestControl` 时启动 `Coroutine`，alpha 在 `0.35..1.0` 之间以正弦曲线循环（`blinkSpeed ≈ 5`，参考 `InvasionEntryView` 闪烁实现）；虫灾消除后停止闪烁并隐藏。
+- 刷新入口：`TileSlotView.Refresh()` 内调用 `RefreshPestEventOverlay(tile)`；同时隐藏原 `pestBadge` 色块以避免重复提示。
+
+#### 9.11.2 点击路由 / Tap Routing
+
+在 `TileSlotView.OnPointerClick` 处理顺序中，**收获直点之后、施肥/Tips 之前**插入虫灾分支：
+
+```csharp
+if (tile.pest == PestFlag.AwaitingPestControl)
+{
+    PestControlScreenView.Instance?.Open(tileId);
+    return;
+}
+```
+
+#### 9.11.3 全屏界面结构 / Fullscreen Panel Structure
+
+| 元素 | 规格 |
+|------|------|
+| 根节点 `PestControlModal` | stretch 全屏，初始 `SetActive(false)` |
+| `PestGameBackground` | 铺满；Sprite = `Resources/AirUI/WH_Game_Chong`；`preserveAspect = false` |
+| `VictoryButton`（初始隐藏） | 尺寸 **280 × 110**，`anchoredPosition = (0, -520)`（相对中心锚）；文字「胜利」 |
+
+**打开流程（`Open(tileId)`）**：`SetActive(true)` → `SetAsLastSibling()` → 隐藏 `VictoryButton` → 启动 Coroutine：`WaitForSeconds(2f)` 后显示 `VictoryButton`。
+
+**胜利流程（点击 `VictoryButton`）**：`PlantingService.Instance.CompletePestControl(tileId)` → `PestControlScreenView.Close()`（`SetActive(false)`）→ `WheelLotteryScreenView.Instance.Open(tileId, grantMutationOnConfirm: false)`（§9.13，无变异结算）。
+
+#### 9.11.4 接口扩展 / Interface Addition
+
+`IPlantingService` 新增：
+
+```csharp
+// 清除指定田的虫灾状态；失败原因：tileId 不存在 / tile.pest != AwaitingPestControl。
+// 成功：tile.pest = PestControlled；若 tile.water != Empty 且 plant.state == Paused → Growing；
+// 触发 OnTileFlagsChanged(tileId)。
+bool CompletePestControl(string tileId);
+```
+
+#### 9.11.5 装配 / Wiring
+
+在 `AirMainMenuRuntimeBuilder.Build()` 内，`FarmGridView.BuildInto` 之后参见 **§9.12.5** 的完整三行装配（含 `PestControl` / `MoleTheft` / `WheelLottery`）。
+
+#### 9.11.6 资源清单 / Asset Manifest
+
+| 路径 | 用途 |
+|------|------|
+| `Resources/AirUI/WH_Chong.png` | 田面虫灾闪烁图标（`Import as Sprite`） |
+| `Resources/AirUI/WH_Game_Chong.png` | 打虫子全屏背景（`Import as Sprite`） |
+
+---
+
+### 9.12 地鼠偷窃「打地鼠」全屏演示 / Mole Theft "Whack-a-Mole" Fullscreen Demo (v3.52)
+
+**中文（v3.52，v3.59 修订衔接）：** 当某田触发地鼠偷窃（`tile.moleTheft == AwaitingMoleTheft`，详见 §4.1.6.1）时，在该田面中央叠加一枚可点击的 `WH_Tou` 图标；点击图标打开本节描述的全屏「打地鼠」演示界面；玩家在「胜利」后应先调用 `IPlantingService.CompleteMoleTheft(tileId)` 清除事件并关闭本全屏层，再立即打开 **§9.13** `WheelLotteryScreenView`；**不切换底栏 Tab**。  
+**English (v3.52, v3.59 handoff):** When a tile has mole theft (`tile.moleTheft == AwaitingMoleTheft`, see §4.1.6.1), overlay a tappable `WH_Tou` icon at the tile center. Tapping it opens the fullscreen whack-a-mole demo. After **Victory**, call `IPlantingService.CompleteMoleTheft(tileId)` to clear the event and close this layer, then immediately open §9.13 `WheelLotteryScreenView`; **no bottom-nav tab switch**.
+
+#### 9.12.1 田面地鼠图标 / Mole Overlay Icon on Tile
+
+- 子节点名：`MoleTheftEventIcon`；层级：`PlantImage` 之上，`FocusRing` 之前（与 `PestEventIcon` / `NeedWaterIcon` 同级）。
+- Sprite：`Resources/AirUI/WH_Tou`；尺寸 **72 × 72**（居中，`anchoredPosition = Vector2.zero`）。
+- `Image.raycastTarget = true`；**闪烁**：`tile.moleTheft == AwaitingMoleTheft` 时 alpha 在 `0.35..1.0` 正弦循环（`blinkSpeed ≈ 5`）；消除后停止并隐藏。
+- 刷新入口：`TileSlotView.Refresh()` 内调用 `RefreshMoleTheftEventOverlay(tile)`。
+
+#### 9.12.2 点击路由 / Tap Routing
+
+在 `TileSlotView.OnPointerClick` 中，**虫灾分支之后、施肥/Tips 之前**插入：
+
+```csharp
+if (tile.moleTheft == MoleTheftFlag.AwaitingMoleTheft)
+{
+    MoleTheftScreenView.Instance?.Open(tileId);
+    return;
+}
+```
+
+#### 9.12.3 全屏界面结构 / Fullscreen Panel Structure
+
+| 元素 | 规格 |
+|------|------|
+| 根节点 `MoleTheftModal` | stretch 全屏，初始 `SetActive(false)` |
+| `MoleGameBackground` | 铺满；Sprite = `Resources/AirUI/WH_Game_Tou`；`preserveAspect = false` |
+| `VictoryButton`（初始隐藏） | 尺寸 **280 × 110**，`anchoredPosition = (0, -520)`；文字「胜利」 |
+
+**打开流程（`Open(tileId)`）**：`SetActive(true)` → `SetAsLastSibling()` → 隐藏 `VictoryButton` → `WaitForSeconds(2f)` 后显示 `VictoryButton`。
+
+**胜利流程**：`PlantingService.Instance.CompleteMoleTheft(tileId)` → `MoleTheftScreenView.Close()` → `WheelLotteryScreenView.Instance.Open(tileId)`（§9.13）。
+
+#### 9.12.4 接口扩展 / Interface Addition
+
+```csharp
+// 清除指定田的地鼠偷窃；失败：tileId 不存在 / tile.moleTheft != AwaitingMoleTheft。
+// 成功：tile.moleTheft = MoleTheftResolved；若 tile.water != Empty 且 plant.state == Paused → Growing；
+// 触发 OnTileFlagsChanged(tileId)。
+bool CompleteMoleTheft(string tileId);
+```
+
+#### 9.12.5 装配 / Wiring
+
+```csharp
+PestControlScreenView.BuildInto(canvasRect, service);
+MoleTheftScreenView.BuildInto(canvasRect, service);
+WheelLotteryScreenView.BuildInto(canvasRect, service); // §9.13，排在 Pest / Mole 全屏层之后
+```
+
+（在 `AirMainMenuRuntimeBuilder.Build()` 内，`FarmGridView.BuildInto` 之后、与其它农场 UI 同帧装配；`WheelLotteryScreenView` 仅构建一次。）
+
+#### 9.12.6 资源清单 / Asset Manifest
+
+| 路径 | 用途 |
+|------|------|
+| `Resources/AirUI/WH_Tou.png` | 田面地鼠偷窃闪烁图标 |
+| `Resources/AirUI/WH_Game_Tou.png` | 打地鼠全屏背景 |
+
+### 9.13 转盘抽奖（Wheel Lottery, v3.59）
+
+**中文：** 玩家在 §9.11 / §9.12 两则全屏小游戏点击「胜利」并完成 `CompletePestControl` / `CompleteMoleTheft` 后，在返回农场主界面之前弹出一个全屏 **转盘抽奖** 层；旋转动画**纯表现**。**自 v3.60 起**：经 **§9.11 捉虫** 进入时须 `Open(tileId, grantMutationOnConfirm: false)`，点击「确定」**不**调用 `TriggerSingleTileMutation`，即精灵/技能两种变异奖励概率均为 **0**（无奖励）；经 **§9.12 打地鼠** 进入时默认 `grantMutationOnConfirm: true`，点击「确定」后仍由 `TriggerSingleTileMutation` 写入（50% Pet / 50% Skill）。**不切换底栏 Tab**。  
+**English:** After pest or mole minigame **Victory** and `CompletePestControl` / `CompleteMoleTheft`, a fullscreen **wheel lottery** opens before returning to the farm. The spin is **cosmetic only**. **Since v3.60:** when opened from **§9.11 pest control**, use `Open(tileId, grantMutationOnConfirm: false)` — **Confirm** does **not** call `TriggerSingleTileMutation` (both mutation kinds at **0%**, no grant). When opened from **§9.12 mole**, default `grantMutationOnConfirm: true` — **Confirm** still calls `TriggerSingleTileMutation` (50/50 Pet vs Skill). **No bottom-nav tab switch**.
+
+#### 9.13.1 层级与资源 / Hierarchy and Assets
+
+| 节点 | 说明 |
+|------|------|
+| `WheelLotteryModal` | `RectTransform` stretch 全屏，初始 `SetActive(false)` |
+| `DimBackground` | 全屏 `Image`，`color = (0,0,0,0.55)`，`raycastTarget = true`；**SiblingIndex 置于转盘三层与主按钮之下**，使半透明遮挡在转盘背后 |
+| `WheelLayer3` | `Resources/AirUI/JL_ZhuanPan_3`；**唯一旋转层**；`anchor=pivot=(0.5,0.5)`，建议 `sizeDelta=(600,600)`；`Image.raycastTarget = false` |
+| `WheelLayer2` | `Resources/AirUI/JL_ZhuanPan_2`；与 Layer3 同位同大小；`raycastTarget = false` |
+| `WheelLayer1` | `Resources/AirUI/JL_ZhuanPan_1`；与 Layer3 同位同大小；`raycastTarget = false` |
+| `ActionButton` | `Button` + `Text`；默认文案「选择摇奖」；`anchoredPosition=(0,-520)`，`sizeDelta=(280,110)`（相对中心锚）；置于最前以便高于 `DimBackground` |
+
+**旋转契约**：首次点击「选择摇奖」后，`WheelLayer3.localEulerAngles.z` 在 **3 秒**内由 `0°` 缓动至 **`-(Random.Range(1520f, 2830f))°`**（负号表示顺时针视觉；插值使用 `Mathf.SmoothStep`）；旋转期间按钮 `interactable=false`。结束后按钮文案改为「确定」且恢复可点。
+
+**确定契约**：第二次点击（显示「确定」后）若 `grantMutationOnConfirm==true`（默认，§9.12 地鼠路径）则调用 `PlantingService.Instance.TriggerSingleTileMutation(currentTileId)`；若为 **false**（§9.11 捉虫路径）则**不调用**，仅关窗。无论是否结算，`WheelLotteryModal` 最终均 `SetActive(false)`。
+
+#### 9.13.2 装配 / Wiring
+
+```csharp
+WheelLotteryScreenView.BuildInto(canvasRect, PlantingService.Instance /* 或 IPlantingService */);
+```
+
+与 §9.12.5 一并放在 `FarmGridView.BuildInto` 之后的农场装配段。
+
+#### 9.13.3 实现类 / Class
+
+- `PetDemo.UI.Farm.WheelLotteryScreenView`：`BuildInto` / `Open(tileId, grantMutationOnConfirm = true)` / `Close` / `Resolve` / 单例 `Instance`。
 
 ---
 
@@ -1926,6 +2190,30 @@ function executeUnifiedAction():
 | 3.37 | 2026-05-14 | §9.8.10 **`ShangDianScreen`** 背景图由 `Resources/AirUI/ShangDian` 更换为 **`Resources/AirUI/ShangDian_0`**（`ShangDianScreen/Background` 的 `Image.sprite`）；`BottomNavSimpleBackgroundScreenView.ResShangDianBackground` 与 §9.8.6 P1 文案同步。 / §9.8.10 **`ShangDianScreen`** background switches from `Resources/AirUI/ShangDian` to **`Resources/AirUI/ShangDian_0`** for the `Background` `Image.sprite`; `BottomNavSimpleBackgroundScreenView.ResShangDianBackground` and §9.8.6 P1 text updated. |
 | 3.38 | 2026-05-14 | §9.8.8 **`MainStoryLineScreen/Title`**：`anchoredPosition.y`（PosY）由 `-120` 调整为 **`-30`**；标题文案由「主线」改为 **「第1章」**；`MainStoryLineScreenView` 构建常量对齐。 / §9.8.8 **`MainStoryLineScreen/Title`**: `anchoredPosition.y` (PosY) changes from `-120` to **`-30`**; title copy changes from 「主线」 to **「第1章」**; `MainStoryLineScreenView` build constants aligned. |
 | 3.39 | 2026-05-14 | 底栏附属全屏面板布局抽取：新增 `BottomNavAttachedScreenLayout`（`CreateRootBelowBottomNav` / `AddStretchedResourcesBackground` / `StretchFull` / `CreateChildRect`），`MainStoryLineScreenView` 与 `BottomNavSimpleBackgroundScreenView` 复用；§9.8.8～§9.8.10 技术说明与变更表同步。 / Extract shared bottom-nav attached full-screen layout: add `BottomNavAttachedScreenLayout` for root/background/rect helpers reused by `MainStoryLineScreenView` and `BottomNavSimpleBackgroundScreenView`; §9.8.8–§9.8.10 notes and changelog updated. |
+| 3.55 | 2026-05-15 | §9.10 **`RoleGrowthTabBar` 页签槽位等宽**：三槽固定 `TabSlotWidth = 360`（`1080/3`），切换 Open/Closed 仅切子树显隐，不再使用底栏式 `Open=540 / Closed=270` 变宽；`RoleGrowthTabBarView` / `RoleGrowthPanelPrefabGenerator` / `AirMainMenuRuntimeBuilder` 兜底同步。 / §9.10 **`RoleGrowthTabBar` equal tab slots:** three fixed `TabSlotWidth = 360` slots; open/closed only toggles child visibility, not bottom-nav-style `540/270` resizing; `RoleGrowthTabBarView`, prefab generator, and runtime fallback aligned. |
+| 3.69 | 2026-05-15 | §12.3 **`ResultDialog` 缩放**：`InvasionBattleModal` 内结算弹窗根节点 `localScale` 调整为 **`(1.4, 1.4, 1)`**；预制体与生成器同步。 / §12.3 **`ResultDialog` scale:** root `localScale` **`(1.4, 1.4, 1)`** under `InvasionBattleModal`; prefab and generator aligned. |
+| 3.68 | 2026-05-15 | **修复升级弹窗「前往」首次打开属性页**：`NavigateToTianFuPage` 用 `pendingTabIndexWhenShowingJueSe` 避免 `ApplyMainBottomNavKey` 重置为 0；`RoleGrowthTabBarView.Start` 保留已设 `OpenTabIndex`。 / **Fix Go first-open landing on ShuXing:** pending tab index + Start respects pre-set index. |
+| 3.67 | 2026-05-15 | §12.10 **`LaterButton` / `GoButton` 文字隐藏**：不创建可见 `Label`；按钮根节点透明 `Image` 保持可点。 / §12.10 hide button labels; transparent hit target on button root. |
+| 3.66 | 2026-05-15 | §12.10 **`LaterButton` `PosY = -117`**、**`GoButton` `PosY = -120`**（相对 `ButtonRow` 中心锚点）。 / §12.10 button vertical offsets within `ButtonRow`. |
+| 3.65 | 2026-05-15 | §12.10 **`ButtonRow` `PosY`（`offsetMin.y`）由 `400` 调整为 `478`**（`offsetMax.y = 578`）。 / §12.10 `ButtonRow` bottom offset Y: 400 → 478. |
+| 3.64 | 2026-05-15 | §12.10 **`HeroImage` 居中显示**：改为中心锚点 + 全面板 `sizeDelta`，配合 `preserveAspect` 在画面内居中；废弃底边拉伸 + `offsetMin/Max` 方案。 / §12.10 `HeroImage` centered via middle anchor + full-panel rect + `preserveAspect`; drop bottom-stretch offsets. |
+| 3.63 | 2026-05-15 | §12.10 **`HeroImage` 区域**：**`PosY = 216`**、**Bottom（`offsetMin.y`）= 284**；不再用按钮行高度推算底边。 / §12.10 `HeroImage` `PosY=216`, bottom inset `284`; decoupled from button-row height. |
+| 3.62 | 2026-05-15 | §12.10 **主角升级弹窗坐标微调**：`HeroImage` **`PosY = 32`**；`LaterButton` **`PosX = -126`**；`GoButton` **`PosX = 149`**；`ProtagonistLevelUpDialogView` 常量对齐。 / §12.10 protagonist level-up dialog layout tweak: `HeroImage` Y=32; `LaterButton` X=-126; `GoButton` X=149; constants aligned. |
+| 3.61 | 2026-05-15 | **修复 RoleGrowthTabBar 首次进入页签无响应**：`RoleGrowthTabBarView` 将 `tabButtons.OnClicked` 订阅从 `Awake` 移至 `Start`（与 `BottomNavBarView` 一致），避免实例化后 `ApplyMainBottomNavKey` 隐藏层触发 `OnDisable` 取消订阅、而首次 `OnEnable` 因 `started==false` 未重订的问题。§9.10.2 增补生命周期说明。 / **Fix RoleGrowthTabBar first-open tab clicks:** move `OnClicked` subscription from `Awake` to `Start` in `RoleGrowthTabBarView` (aligned with `BottomNavBarView`) so post-instantiate hide via `ApplyMainBottomNavKey` does not leave tabs unsubscribed on first `JueSe` open; §9.10.2 lifecycle note added. |
+| 3.60 | 2026-05-15 | **捉虫转盘无变异奖励**：§9.11 胜利后 `WheelLotteryScreenView.Open(tileId, grantMutationOnConfirm: false)`；`WheelLotteryScreenView` 增加参数；捉虫流点击「确定」不调用 `TriggerSingleTileMutation`（两种变异概率 0）；地鼠流保持原 50/50 单格变异。§9.11 / §9.13 / §6 `TriggerSingleTileMutation` 说明同步。 / **Pest wheel no mutation:** §9.11 chains `Open(..., false)`; `WheelLotteryScreenView` adds flag; Confirm skips `TriggerSingleTileMutation`; mole path unchanged. |
+| 3.59 | 2026-05-15 | **转盘抽奖 + 单格变异（v3.59）**：§9.13 新增全屏 `WheelLotteryScreenView`（`JL_ZhuanPan_1/2/3`，第 3 层旋转 1520..2830° / 3s；黑透底 +「选择摇奖」/「确定」双态）；§9.11 / §9.12 胜利后串联 `WheelLotteryScreenView.Open`；§4.1.10 扩展 `MutationPlant.tileIds` 可为 1，`IPlantingService.TriggerSingleTileMutation` 写入；`MutationOverlayView` 图标 Pet→`AirUI/ShiWu_2`、Skill→`AirUI/DaShouHuo_2`（覆盖 v3.20）。 / **Wheel lottery + single-tile mutation (v3.59):** §9.13 adds `WheelLotteryScreenView`; §9.11/§9.12 chain Open after victory; §4.1.10 allows `tileIds.Count==1` and `TriggerSingleTileMutation`; `MutationOverlayView` icon mapping updated (Pet `ShiWu_2`, Skill `DaShouHuo_2`). |
+| 3.58 | 2026-05-15 | §12.10 **主角升级弹窗布局修复**：`ButtonRow` 用 `offsetMin/Max.y` 实现 `PosY=400`（避免与底边 `offsetMax` 冲突）；`BuildInto` 对已存在实例 `RebuildPanel`；按钮无 `Image` 组件。 / §12.10 layout fix: ButtonRow offsets for Y=400; rebuild on existing instance; buttons without Image. |
+| 3.62 | 2026-05-18 | **精灵巡逻**：§9 新增 §9.5.2（双状态 FSM：待机循环 idle 每圈后 65%/35% 抽签；协助种植 = 随机有植物田 → 移动 → 攻击×2 → `TryHarvestTile` / `TryWaterTile` / 无效果）；§6 新增 `TryWaterTile`；`PetCompanionPresenter` 增 `PetCompanionAgent`、`BindBottomNavBar` 与 `JiaYuan` Tab 暂停/重抽签；§9.5.1 修订为默认进入巡逻 FSM。 / **Pet patrol:** new §9.5.2 dual-state FSM; §6 adds `TryWaterTile`; `PetCompanionPresenter` gains agents + bottom-nav home-tab pause/re-roll; §9.5.1 points to patrol FSM. |
+| 3.57 | 2026-05-15 | §12.10 **主角升级弹窗排版**：`Panel` `1080×1920`；`ButtonRow` `PosY=400`；`LaterButton` `PosX=388`、`GoButton` `PosX=-332`；两按钮 `Image` 不显示（仅文字可点）。 / §12.10 protagonist level-up dialog layout: `Panel` 1080×1920; `ButtonRow` Y=400; button X offsets; button images hidden. |
+| 3.56 | 2026-05-15 | **战斗结算后「主角升级」弹窗**：新增 §12.10；`ProtagonistLevelUpDialogView`（`548×831`、`ShengJi_1`、底部「后续再说/前往」）；手动关闭 `ResultDialog` 后弹出；「前往」→ `RoleGrowthScreenView.NavigateToTianFuPage`；自动连战链不弹窗。 / **Post-battle protagonist level-up dialog:** §12.10; `ProtagonistLevelUpDialogView`; shown after manual result close; Go → `Page_TianFu`; skipped on auto-chain. |
+| 3.55 | 2026-05-15 | **结算弹窗奖励区暂时隐藏**：`InvasionBattleResultDialogView.RewardListEnabled = false`（编译期），`RewardList` 在胜利结算时也不显示；恢复展示时改回 `true`。 / **Result dialog reward list temporarily hidden:** `RewardListEnabled = false` compile-time flag. |
+| 3.54 | 2026-05-15 | **`RewardList/RewardRow` 预制体排版**：§12.8 奖励行改为 `RewardList`（`VerticalLayoutGroup`）+ 行模板 `RewardRow`（`HorizontalLayoutGroup`、`Icon` 120×120、`Count`）；新增 `InvasionBattleRewardRowView`；运行时克隆模板并绑定掉落；生成器同步产出。 / **Reward rows prefab layout:** §12.8 uses `RewardList` VLG + `RewardRow` template with `InvasionBattleRewardRowView`; runtime clones bind rewards. |
+| 3.53 | 2026-05-15 | **入侵战斗结算弹窗预制体化**：§12.3 `ResultDialog` 由代码构建改为 `Resources/Prefabs/Battle/InvasionBattleResultDialog.prefab` + `InvasionBattleResultDialogView`；`InvasionBattleView` 通过 `InstantiateResultDialog` 加载；奖励列表渲染迁入视图组件；编辑器菜单 **Tools/PetDemo/Generate Invasion Battle Result Dialog Prefab** 生成/更新预制体。 / **Invasion result dialog as prefab:** §12.3 `ResultDialog` is now `Resources/Prefabs/Battle/InvasionBattleResultDialog.prefab` with `InvasionBattleResultDialogView`; `InvasionBattleView` loads via `InstantiateResultDialog`; reward list UI moved into the view; editor menu regenerates the prefab. |
+| 3.52 | 2026-05-15 | **地鼠偷窃与「打地鼠」全屏演示**：新增 §4.1.6.1（进入 `appearanceNode` 4/5 时按 `moleSpriteProb` 各抽一次，一生最多 1 次）；`CropTile` 增 `moleTheft`；`PlantInstance` 增 `moleTheftEventConsumed` / `moleSpriteRollMask`；`PlantConfig` 增 `moleSpriteProb`；`plants.csv` 在 `pestSpriteProb` 后新增列 `moleSpriteProb`；`TickGrowth` 地鼠偷窃期间暂停生长；`IsHarvestActionable` 阻塞收获；`TileSlotView` 叠放 `WH_Tou` + 点击路由；`IPlantingService.CompleteMoleTheft(tileId)`；新增 §9.12 + `MoleTheftScreenView`（`WH_Game_Tou` + 2s「胜利」）。 / **Mole theft and whack-a-mole fullscreen demo:** §4.1.6.1 rolls at nodes 4/5 via `moleSpriteProb`; `CropTile.moleTheft`; `PlantInstance` mole roll state; `plants.csv` column `moleSpriteProb`; growth/harvest blocked while active; `WH_Tou` overlay; `CompleteMoleTheft`; §9.12 `MoleTheftScreenView`. |
+| 3.51 | 2026-05-15 | **Fantazia 怪物展示 +20% 缩放**：`FantaziaMonsterDisplay` 增加 `PackVisualScaleMultiplier=1.2f` 与 `BoostScaleXY` / `BoostedHorizontallyMirroredScale` / `BoostedMirroredUniform` / `ApplyBoostAndHorizontalMirror`；入侵 `EnemySlot`、`PetCompanionPresenter`、`PetPreviewRig` 统一先放大 XY 再镜像；§4.1.10.5、§9.5.1、§9.5.1.3、§12.3、§12.7、附录 B.11.1 与变更表同步。 / **Fantazia monsters +20% display scale:** extend `FantaziaMonsterDisplay` with `PackVisualScaleMultiplier=1.2f` plus boost+mirror helpers; invasion `EnemySlot`, `PetCompanionPresenter`, and `PetPreviewRig` apply XY boost then mirror; §4.1.10.5, §9.5.1, §9.5.1.3, §12.3, §12.7, Appendix B.11.1, and changelog updated. |
+| 3.50 | 2026-05-15 | **Fantazia 怪物统一水平镜像**：新增 `FantaziaMonsterDisplay`；`InvasionBattleView` 敌方槽、`PetCompanionPresenter`、`PetPreviewRig` 在根 `Transform` 上对 Fantazia 来源精灵施加 `localScale.x` 镜像；§4.1.10.5、§9.5.1.3、§12.3（含血条段说明）、附录 B.11.1 与变更表同步。 / **Fantazia monsters horizontally mirrored:** add `FantaziaMonsterDisplay`; apply root `localScale.x` mirroring in `InvasionBattleView` enemy slot, `PetCompanionPresenter`, and `PetPreviewRig`; §4.1.10.5, §9.5.1.3, §12.3 (incl. HP-bar paragraph), Appendix B.11.1, and changelog aligned. |
+| 3.50 | 2026-05-15 | **虫灾事件与「打虫子」全屏演示**：§4.1.6 重写为「进入 `appearanceNode` 2/3 时按 `pestSpriteProb` 各抽一次」，废弃旧 `pestEventIntervalSec` 定时触发；`PlantInstance` 增 `pestEventConsumed` / `pestSpriteRollMask`；`PlantConfig` 增 `pestSpriteProb`；`plants.csv` 新增列 `pestSpriteProb`（放在 `pestEventProb` 之后）；`TickGrowth` 虫灾期间不推进倒计时；`TileSlotView` 叠放 `WH_Chong` 闪烁图标 + 点击路由；新增 `IPlantingService.CompletePestControl(tileId)` 接口；新增 §9.11「打虫子全屏演示」（`WH_Game_Chong` 背景 + 2s 延迟「胜利」按钮 + `PestControlScreenView`）；§B.2.1 列顺序更新为 v3.50；§5 `PlantConfig` / `PlantInstance` 伪代码同步。 / **Pest event and bug-catching fullscreen demo:** §4.1.6 rewritten to roll once per `appearanceNode` 2/3 via `pestSpriteProb`, deprecating timer-based triggering; `PlantInstance` gains `pestEventConsumed` / `pestSpriteRollMask`; `PlantConfig` gains `pestSpriteProb`; `plants.csv` adds column `pestSpriteProb` after `pestEventProb`; `TickGrowth` skips countdown while pest active; `TileSlotView` adds blinking `WH_Chong` overlay + tap routing; `IPlantingService.CompletePestControl(tileId)` added; new §9.11 "Bug Catching Fullscreen Demo" (`WH_Game_Chong` background + 2s-delayed Victory button + `PestControlScreenView`); §B.2.1 column order updated to v3.50; §5 pseudocode aligned. |
+| 3.49 | 2026-05-15 | **§12.3 `EnemySlot` 敌方展示更换为 Salamander**：`InvasionBattleView.ResEnemyPrefab` 改为 `Resources/Pets/Monster_1_Salamander`；新增 `Resources/Pets/Monster_1_Salamander.prefab`（Fantazia 预制体副本）；`InvasionBattleView` 对攻击/死亡动画在 `attack_1`/`death` 与 Fantazia 常用 `Attack`/`Dead` 间做回退匹配；§12.3 表格与 §12.7 资源清单同步。 / **§12.3 `EnemySlot` switches to Salamander:** `InvasionBattleView.ResEnemyPrefab` → `Resources/Pets/Monster_1_Salamander`; add `Resources/Pets/Monster_1_Salamander.prefab` (Fantazia prefab copy); `InvasionBattleView` adds attack/death animation fallbacks between `attack_1`/`death` and common Fantazia names `Attack`/`Dead`; §12.3 table + §12.7 manifest updated. |
 | 3.48 | 2026-05-15 | **主角 Spine 切换为 LangRen `Role_cslangren`**：`Hero_Role_cunmin.prefab`（Scenes 与 Resources 两份）内 `SkeletonAnimation.skeletonDataAsset` 与 `MeshRenderer` 材质改指向 `Assets/Scenes/Air/LangRen/Role_cslangren/`；`MainRoleCunminPresenter` 增加待机 / 浇水施肥 / 收获 wait 三类动画名的**候选链回退**（末级为骨骼首条动画），以兼容切片骨骼动画较少的情形；§9.5 / §9.5.1 / §12.3 / §12 资源表与 §9.5「Spine 导出版本与 Runtime 对齐」段落同步。 / **Hero Spine switches to LangRen `Role_cslangren`:** both `Hero_Role_cunmin.prefab` copies retarget `SkeletonAnimation` + `MeshRenderer` to `Assets/Scenes/Air/LangRen/Role_cslangren/`; `MainRoleCunminPresenter` adds **fallback chains** for idle / water-fertilize / harvest-wait clip names (final fallback: first skeleton animation) for slice rigs with few clips; §9.5 / §9.5.1 / §12.3 / §12 asset table + the §9.5 "Spine export vs runtime alignment" clause updated. |
 | 3.47 | 2026-05-15 | §9.8.8 **`MainStoryLineScreen` 左上角体力 HUD**：`MainStoryStaminaHud`（`MainStoryStaminaBarSlot` 275×60 + `MainStoryStaminaText`）复用 `StaminaBarView` + `GetRoleStats()`；每次底栏切回 `ZhuXian` 显示层时 `RefreshMainStoryStamina()`；`WarehouseHubPanelView` 新增 `Hidden` 事件于 `Hide()` 派发，主线层在实例仍激活时于回调中再次刷新（覆盖从统一仓库返回）。`WarehouseHubPanelView` / `MainStoryLineScreenView` 实现同步。 / §9.8.8 **`MainStoryLineScreen` top-left stamina HUD:** `MainStoryStaminaHud` (`MainStoryStaminaBarSlot` 275×60 + `MainStoryStaminaText`) reuses `StaminaBarView` + `GetRoleStats()`; `RefreshMainStoryStamina()` on each bottom-nav return to `ZhuXian`; `WarehouseHubPanelView` adds a `Hidden` event fired from `Hide()` so the main-story layer can refresh while still active (covers return from the unified warehouse). Implementation wired in `WarehouseHubPanelView` / `MainStoryLineScreenView`. |
 | 3.46 | 2026-05-15 | **`BuffGainedStack` 同作物合并计数**：同一 `plantConfigId` 只吃一行 Buff 演示条目，右下角 `Count` 累加本次吃下的颗数；上限按 **48 种不同作物** 计，超限时删最早一行。`WarehouseHubPanelView.AppendEatBuffBadges` 与 §9.8.13.2 / §9.8.13.3.1 同步。 / **`BuffGainedStack` merge by plant:** one demo row per `plantConfigId` with bottom-right `Count` incremented by fruits eaten this time; cap **48 distinct plant ids**, drop oldest row. `WarehouseHubPanelView.AppendEatBuffBadges` + §9.8.13.2 / §9.8.13.3.1 updated. |
@@ -2008,13 +2296,13 @@ stateDiagram-v2
 |---|---|---|---|
 | `BattleBackground` | `Resources/AirUI/ZhanDou_1` | StretchFull | 全屏背景 / full-screen bg |
 | `PlayerSlot` | `Resources/Prefabs/Air/Hero_Role_cunmin.prefab`（**v3.48+** 预制体内骨骼为 `LangRen/Role_cslangren`，路径名历史兼容） | anchor `(0.5, 0.5) / (0.5, 0.5)`，pos `(-280, -120)`，scale `(-0.53, 0.53, 1)` | 居中左 + 左右翻转 / center-left + flipped X |
-| `EnemySlot` | `Resources/Prefabs/Air/Boss_langren.prefab` | anchor `(0.5, 0.5) / (0.5, 0.5)`，pos `(280, -120)`，scale `(0.53, 0.53, 1)` | 居中右 / center-right |
+| `EnemySlot` | `Resources/Pets/Monster_1_Salamander.prefab` | anchor `(0.5, 0.5) / (0.5, 0.5)`，pos `(280, -120)`，scale **`(-0.636, 0.636, 1)`**（基底 `CharacterScale=0.53` × **`PackVisualScaleMultiplier=1.2`** 后水平镜像，见 §9.5.1.3 / B.11.1） | 居中右 / center-right |
 | `PlayerHpBar` | filled Image | anchor `(0.5, 0.5) / (0.5, 0.5)`，size `240×24`，pos `(-280, -460)` | 角色锚点正下方 / below the player anchor |
 | `EnemyHpBar` | filled Image | anchor `(0.5, 0.5) / (0.5, 0.5)`，size `240×24`，pos `(280, -460)` | 角色锚点正下方 / below the enemy anchor |
-| `ResultDialog` | code-built panel | anchor `(0.5, 0.5) / (0.5, 0.5)`，size `880×750`，pos `(0, 0)`；`HintText` pos `(0, -420)` | 胜负结果弹窗，点击任意处关闭 / victory/defeat dialog, click anywhere to close |
+| `ResultDialog` | **`Resources/Prefabs/Battle/InvasionBattleResultDialog.prefab`**（根挂 `InvasionBattleResultDialogView`） | anchor `(0.5, 0.5) / (0.5, 0.5)`，size `880×750`，pos `(0, 0)`，**scale `(1.4, 1.4, 1)`**；`HintText` pos `(0, -420)`；子节点 `ResultText` / `RewardList`（含 `VerticalLayoutGroup` + 行模板 `RewardRow`）/ `AutoAdvanceWinRow` / `HintText` | 胜负结果弹窗；`RewardList/RewardRow` 为行模板（`Icon` 120×120 + `Count`），运行时克隆并绑定掉落数据；菜单 **Tools/PetDemo/Generate Invasion Battle Result Dialog Prefab** 生成 / victory/defeat dialog; `RewardRow` prefab template with VLG |
 
-**中文：** 玩家主角通过设置 `localScale.x = -|baseScale|` 实现左右翻转；敌人保持正常方向。血条采用 `Image (filled, Horizontal)` 表达：背景灰条（`#3F3F3F`，alpha 200）+ 前景红条（`#E04848`，alpha 255）+ 居中数字文本（`{currentHp}/{maxHp}`，fontSize 22）。前景 Fill 以左端为固定端（`fillOrigin=Left`），`fillAmount = clamp(currentHp / maxHp)`，即血量下降时从右向左缩短。  
-**English:** The player flips by setting `localScale.x = -|baseScale|`; the enemy keeps its native facing. HP bars use `Image (filled, Horizontal)` with a gray background (`#3F3F3F`, alpha 200), a red foreground (`#E04848`, alpha 255), and a centered numeric label (`{currentHp}/{maxHp}`, fontSize 22). The foreground Fill keeps the left edge fixed (`fillOrigin=Left`) with `fillAmount = clamp(currentHp / maxHp)`, so HP loss shrinks from right to left.
+**中文：** 玩家主角通过设置 `localScale.x = -|baseScale|` 实现左右翻转；**敌方（Fantazia）**在战斗常量基底 `CharacterScale`（默认 `0.53`）上先乘以 **`PackVisualScaleMultiplier`（默认 `1.2`，即放大 20%）**，再取 **`localScale.x = -|CharacterScale × PackVisualScaleMultiplier|`** 做水平镜像（与 §9.5.1 / B.11 同约定），使左右站位、体量与美术默认朝向一致。血条采用 `Image (filled, Horizontal)` 表达：背景灰条（`#3F3F3F`，alpha 200）+ 前景红条（`#E04848`，alpha 255）+ 居中数字文本（`{currentHp}/{maxHp}`，fontSize 22）。前景 Fill 以左端为固定端（`fillOrigin=Left`），`fillAmount = clamp(currentHp / maxHp)`，即血量下降时从右向左缩短。  
+**English:** The player flips by setting `localScale.x = -|baseScale|`; **the Fantazia enemy** first multiplies the battle baseline `CharacterScale` (default `0.53`) by **`PackVisualScaleMultiplier` (default `1.2`, i.e. +20% scale)**, then applies **`localScale.x = -|CharacterScale × PackVisualScaleMultiplier|`** for horizontal mirroring (same convention as §9.5.1 / B.11) so placement, size, and facing match product rules. HP bars use `Image (filled, Horizontal)` with a gray background (`#3F3F3F`, alpha 200), a red foreground (`#E04848`, alpha 255), and a centered numeric label (`{currentHp}/{maxHp}`, fontSize 22). The foreground Fill keeps the left edge fixed (`fillOrigin=Left`) with `fillAmount = clamp(currentHp / maxHp)`, so HP loss shrinks from right to left.
 
 **中文：** 兼容性要求：用于血条背景与 Fill 的 `Image` 必须绑定有效 `sprite`。入侵战斗 P0 实现固定采用运行时 `Texture2D.whiteTexture` 生成的 `Sprite` 作为稳定兜底，禁止在该路径中调用 `GetBuiltinResource<Sprite>("UI/Skin/*.psd")` 进行探测，以避免不同 Unity 版本在资源缺失时刷出 `Failed to find UI/Skin/...` 错误。`HpText` 必须绑定可用字体（`Arial.ttf` 或 `LegacyRuntime.ttf` fallback），避免不同 Unity 版本出现不可见文本。  
 **English:** Compatibility requirement: both HP background and Fill `Image` must have a valid `sprite`. For invasion battle P0, implementation shall consistently use a runtime sprite created from `Texture2D.whiteTexture` as the stable fallback, and must not probe `GetBuiltinResource<Sprite>("UI/Skin/*.psd")` in this path, to avoid repeated `Failed to find UI/Skin/...` errors across Unity versions when built-in assets are absent. `HpText` must use an available font (`Arial.ttf` with `LegacyRuntime.ttf` fallback) to avoid invisible text across Unity versions.
@@ -2150,8 +2438,8 @@ interface IInvasionService {
 
 ### 12.7 资源清单 / Asset Manifest
 
-**中文：** 本系统所需资源全部来自既有工程，仅需新建一个 Boss 预制体作为 Spine 的 Resources 入口：  
-**English:** All assets are from the existing project; only one new Boss prefab is needed to serve as a Resources entry for Spine:
+**中文：** 本系统战斗 UI 所需 Spine 预制体由 `Resources.Load` 装载：玩家为 §9.5 既有预制体；敌方为 **`Resources/Pets/Monster_1_Salamander.prefab`**（Fantazia 包副本，与 `Resources/Pets` 下其它怪物同约定）。`Boss_langren.prefab` 仍保留于工程，供场景或其它用途复用。  
+**English:** Battle UI Spine prefabs load via `Resources.Load`: the player uses the existing §9.5 prefab; the enemy uses **`Resources/Pets/Monster_1_Salamander.prefab`** (a Fantazia copy under `Resources/Pets`, same convention as other pets there). `Boss_langren.prefab` remains in the project for scenes or other reuse.
 
 | 资源 / Asset | 路径 / Path | 来源 / Source |
 |---|---|---|
@@ -2159,8 +2447,9 @@ interface IInvasionService {
 | 入侵图标 / Invading icon | `Resources/AirUI/RuQin_1` | 既有 / existing |
 | 战斗背景 / Battle background | `Resources/AirUI/ZhanDou_1` | 既有 / existing |
 | 玩家预制体 / Player prefab | `Resources/Prefabs/Air/Hero_Role_cunmin.prefab`（**v3.48+** 内嵌 `Role_cslangren`） | 既有路径，复用 §9.5 / existing path, reused from §9.5 |
-| 敌方预制体 / Enemy prefab | `Resources/Prefabs/Air/Boss_langren.prefab` | **新建 / NEW**：内含 `SkeletonAnimation`，引用既有 `Assets/Scenes/Air/Boss/Boss_langren/Boss_langren_SkeletonData.asset` |
+| 敌方预制体 / Enemy prefab | `Resources/Pets/Monster_1_Salamander.prefab` | Fantazia 源预制体副本；`SkeletonAnimation` 与 `InvasionBattleView` 的 `SkeletonGraphic` 探针路径兼容；攻击/死亡动画名在实现层对 `attack_1`/`death` 与 `Attack`/`Dead` 做回退匹配；**敌方槽根 scale 为 `CharacterScale×1.2` 后 X 取负（放大 20% + 水平镜像）** |
 | 单位配置表 / Units config | `Resources/Configs/Battle/invasion_units.csv` | **新建 / NEW**，详见 §B.9 |
+| 结算弹窗预制体 / Result dialog prefab | `Resources/Prefabs/Battle/InvasionBattleResultDialog.prefab`（**v3.53+**） | 编辑器 **Tools/PetDemo/Generate Invasion Battle Result Dialog Prefab** 生成；根挂 `InvasionBattleResultDialogView`；**须纳入版本库**；编辑器 `InitializeOnLoad` 在缺失或导入失败时自动重新生成 |
 
 **中文：** 玩家与敌方预制体在战斗 UI 内通过 `SkeletonGraphic` 二次构建（与 §9.5 `MainRoleCunminPresenter` 同方法）：先实例化预制体探针读取 `SkeletonDataAsset`，再用 `Spine/SkeletonGraphic` Shader 在 ScreenSpaceOverlay Canvas 上构建可见 Spine UI 节点。  
 **English:** Both prefabs are rebuilt as `SkeletonGraphic` inside the battle UI (same approach as the §9.5 `MainRoleCunminPresenter`): first instantiate the prefab probe to read its `SkeletonDataAsset`, then construct the visible Spine UI node on a ScreenSpaceOverlay canvas using the `Spine/SkeletonGraphic` shader.
@@ -2182,8 +2471,8 @@ interface IInvasionService {
 **中文：** 容错规则：掉落行非法（`count<=0`、`Seed` 对应 `plantConfigId` 不存在、`Fertilizer` 对应 `fertilizerId` 不存在、`SeedPack` 对应 `quality` 非法）时仅 `Debug.LogWarning` 并跳过该行，不影响其余奖励与战斗收尾。  
 **English:** Fault tolerance: malformed reward rows (`count<=0`, missing `plantConfigId` for `Seed`, missing `fertilizerId` for `Fertilizer`, invalid `quality` for `SeedPack`) are logged via `Debug.LogWarning` and skipped, without blocking other rewards or battle teardown.
 
-**中文：** **胜利弹窗展示约定（v3.16）**：`ResultDialog` 在胜利时除标题「胜利！」外，需以**图标列表**展示奖励（每条包含 `Icon + Count`）；失败时不显示奖励列表，仅显示「失败...」。图标映射约定：`Seed` 使用该 `plantConfigId` 对应 `PlantConfig.appearanceSpriteIds[0]`；`Fertilizer` 使用 `Resources/AirUI/ShiFei-1`；`SeedPack` 使用 `Resources/AirUI/item_1340000`，并可按 `quality` 着色（`Common/Rare/Epic/Legendary`）。布局强约束：`Icon` 的 `Width=120`、`Height=120` 固定；`Count` 文本锚点在同一行图标右侧并保持垂直居中。  
-**English:** **Victory dialog display contract (v3.16):** on victory, `ResultDialog` must render rewards as an **icon list** (each row contains `Icon + Count`) below "胜利！"; on defeat, no reward list is shown and only "失败..." is displayed. Icon mapping: `Seed` uses `PlantConfig.appearanceSpriteIds[0]` for the given `plantConfigId`; `Fertilizer` uses `Resources/AirUI/ShiFei-1`; `SeedPack` uses `Resources/AirUI/item_1340000`, optionally tinted by `quality` (`Common/Rare/Epic/Legendary`). Hard layout constraints: each row uses fixed `Icon Width=120` and `Height=120`; the `Count` label is anchored to the icon's right side and vertically centered.
+**中文：** **胜利弹窗展示约定（v3.16，布局 v3.54）**：`ResultDialog` 在胜利时除标题「胜利！」外，需以**图标列表**展示奖励（每条包含 `Icon + Count`）；失败时不显示奖励列表，仅显示「失败...」。图标映射约定：`Seed` 使用该 `plantConfigId` 对应 `PlantConfig.appearanceSpriteIds[0]`；`Fertilizer` 使用 `Resources/AirUI/ShiFei-1`；`SeedPack` 使用 `Resources/AirUI/item_1340000`，并可按 `quality` 着色（`Common/Rare/Epic/Legendary`）。**排版（v3.54）**：`RewardList` 挂 `VerticalLayoutGroup`（行间距 8）；子节点 `RewardRow` 为**预制体行模板**（默认 `inactive` + `LayoutElement.ignoreLayout=true`），挂 `InvasionBattleRewardRowView`；行内 `HorizontalLayoutGroup` + `Icon`（`LayoutElement` 120×120）+ `Count`（`flexibleWidth=1`，左对齐、纵向居中）；运行时 `Instantiate(RewardRow)` 后清除 `ignoreLayout` 并写入图标/数量。  
+**English:** **Victory dialog display contract (v3.16, layout v3.54):** on victory, show an **icon list** (`Icon + Count` per row); on defeat, hide the list. Icon mapping unchanged. **Layout (v3.54):** `RewardList` uses `VerticalLayoutGroup` (spacing 8); child `RewardRow` is an **inactive prefab row template** with `InvasionBattleRewardRowView`, `HorizontalLayoutGroup`, fixed 120×120 `Icon`, and flexible `Count`; clones clear `ignoreLayout` and bind reward data at runtime.
 
 ### 12.9 开战体力与「自动推进关卡」连战（v3.43）/ Battle stamina cost & auto-advance chain (v3.43)
 
@@ -2214,6 +2503,29 @@ interface IInvasionService {
 **中文：** **实现注记**：`TryOpenBattleFromAutoChain() → bool` 由 `InvasionBattleView` 在倒计时结束后调用；返回 `false` 表示未进入战斗（体力或服务为空），UI 应清掉自动推进勾选状态。`AirMainMenuRuntimeBuilder` 在构建底栏后将 `BottomNavBarView` 引用注入 `InvasionService`，用于失败导航。
 
 **English:** **Implementation note:** `TryOpenBattleFromAutoChain() → bool` is invoked by `InvasionBattleView` after the countdown; `false` means battle did not start (stamina or missing service); UI must clear the auto-advance toggle state. `AirMainMenuRuntimeBuilder` injects `BottomNavBarView` into `InvasionService` for denied-start navigation.
+
+### 12.10 战斗结算后「主角升级」弹窗 / Post-Battle "Protagonist Level-Up" Dialog
+
+**中文：** 玩家在入侵战斗 **`ResultDialog`** 内点击 **`HintText`**（或等效关闭路径）关闭结算并 **`CloseBattle`** 回到主线后（战斗全屏 `modal` 已隐藏），在主 Canvas 顶层弹出 **「主角升级」** 演示弹窗。**自动推进关卡** 倒计时链式开战路径 **不** 弹出本窗（仍直接 `CloseBattle` + `TryOpenBattleFromAutoChain`）。
+
+**English:** After the player closes the invasion **`ResultDialog`** via **`HintText`** (or equivalent close path) and **`CloseBattle`** returns to the main line (battle fullscreen `modal` hidden), show a **"Protagonist Level-Up"** demo dialog on top of the main Canvas. The **auto-advance** countdown chain path **must not** show this dialog (it keeps `CloseBattle` + `TryOpenBattleFromAutoChain`).
+
+| 元素 / Element | 资源 / Asset | RectTransform | 说明 / Notes |
+|---|---|---|---|
+| `ProtagonistLevelUpModal` | — | StretchFull（主 Canvas 子节点，默认 `inactive`） | 半透明遮罩 + 居中面板；`SetAsLastSibling()` 后显示 |
+| `Panel` | — | anchor `(0.5, 0.5)`，**size `1080×1920`** | 弹窗容器 |
+| `ButtonRow` | — | anchor 底边水平拉满，**`offsetMin.y = 478`、`offsetMax.y = 578`**（高度 `100`） | 底部操作行容器；勿用 `anchoredPosition.y`（会被 offset 覆盖） |
+| `HeroImage` | `Resources/AirUI/ShengJi_1` | anchor **`(0.5, 0.5)`**，**`anchoredPosition = (0, 0)`**，**`sizeDelta = 1080×1920`**（与 `Panel` 同尺寸）；勿用底边拉伸锚点 | `Image.preserveAspect = true`，精灵在矩形内**居中**缩放 |
+| `LaterButton` | — | `ButtonRow` 内 anchor `(0.5, 0.5)`，**`PosX = -126`**、**`PosY = -117`**；无可见 `Image`/文字；透明 `Image` 承接点击 | → `Hide()` |
+| `GoButton` | — | `ButtonRow` 内 anchor `(0.5, 0.5)`，**`PosX = 149`**、**`PosY = -120`**；无可见 `Image`/文字；透明 `Image` 承接点击 | → `Hide()` + 打开角色成长 **`Page_TianFu`** |
+
+**中文：** **「前往」导航**：`NavigateToTianFuPage` 在调用 `SetOpenKey("JueSe")` **之前**写入 `pendingTabIndexWhenShowingJueSe = 2`，使 `ApplyMainBottomNavKey` 首次显示层时直接打开 **`Page_TianFu`**（而非常规默认 `Page_ShuXing`）；`RoleGrowthTabBarView.Start` 若 `OpenTabIndex >= 0` 则保留该索引，避免延迟 `Start` 覆盖。页签 key `TianFu`。
+
+**English:** **"Go" navigation:** `NavigateToTianFuPage` sets `pendingTabIndexWhenShowingJueSe = 2` **before** `SetOpenKey("JueSe")` so the first `ApplyMainBottomNavKey` opens **`Page_TianFu`** instead of the default `Page_ShuXing`; `RoleGrowthTabBarView.Start` keeps a pre-set `OpenTabIndex >= 0` so deferred `Start` does not overwrite it. Tab key `TianFu`.
+
+**中文：** 实现：`ProtagonistLevelUpDialogView.BuildInto` 于 `AirMainMenuRuntimeBuilder.BuildBottomNavBar` 内构建；`InvasionBattleView.ShowResultDialog` 在手动关闭且非自动连战链时调用 `ProtagonistLevelUpDialogView.RequestShowAfterBattleClose()`。
+
+**English:** Implementation: `ProtagonistLevelUpDialogView.BuildInto` in `AirMainMenuRuntimeBuilder.BuildBottomNavBar`; `InvasionBattleView.ShowResultDialog` calls `ProtagonistLevelUpDialogView.RequestShowAfterBattleClose()` on manual close when not in the auto-chain path.
 
 ---
 
@@ -2303,8 +2615,8 @@ interface IInvasionService {
 
 #### B.2.1 配置表落地 / Config Table Landing
 
-**中文：** 自 v1.3 起，§B.2 表格的运行时装载来源迁移为外部 CSV 配置表 `Assets/Resources/Configs/Farm/plants.csv`。列顺序（**v3.44** 修订）为：`id, displayName, sprite1, sprite2, sprite3, sprite4, sprite5, fruitIcon, harvestFruitCount, baseStageSeconds, fertilizerSpeedMul, afterHarvest, pestEventIntervalSec, pestEventProb, harvestRoleReward, eatBuffIcon`。其中 `sprite1..5` → `appearanceSpriteIds[0..4]`；`fruitIcon` → `fruitIconResource`（可选）；**`harvestFruitCount`**（必填，正整数）→ 每次收获入包果实数；**`harvestRoleReward`** 仅解析属性键（`stat` 或 `stat:后缀`，后缀忽略）→ `harvestRewardStat`；**`eatBuffIcon`**（可选）→ `eatBuffIconResource`（吃下果实 Buff 演示图标，不参与战斗结算）。  
-**English:** Runtime CSV is `Assets/Resources/Configs/Farm/plants.csv`. Column order (**v3.44**): `id, displayName, sprite1, sprite2, sprite3, sprite4, sprite5, fruitIcon, harvestFruitCount, baseStageSeconds, fertilizerSpeedMul, afterHarvest, pestEventIntervalSec, pestEventProb, harvestRoleReward, eatBuffIcon`. `sprite1..5` map to growth sprites; `fruitIcon` maps to `fruitIconResource` (optional); **`harvestFruitCount`** (required, positive int) is per-harvest fruit grant; **`harvestRoleReward`** parses only the stat key (suffix after `:` ignored); **`eatBuffIcon`** (optional) maps to `eatBuffIconResource` (presentation-only eat buff icon).
+**中文：** 自 v1.3 起，§B.2 表格的运行时装载来源迁移为外部 CSV 配置表 `Assets/Resources/Configs/Farm/plants.csv`。列顺序（**v3.52** 修订）为：`id, displayName, sprite1, sprite2, sprite3, sprite4, sprite5, fruitIcon, harvestFruitCount, baseStageSeconds, fertilizerSpeedMul, afterHarvest, pestEventIntervalSec, pestEventProb, pestSpriteProb, moleSpriteProb, harvestRoleReward, eatBuffIcon`。其中 `sprite1..5` → `appearanceSpriteIds[0..4]`；`fruitIcon` → `fruitIconResource`（可选）；**`harvestFruitCount`**（必填，正整数）→ 每次收获入包果实数；**`pestSpriteProb`**（必填，浮点 0..1）→ 进入 sprite2/sprite3 节点时各抽一次的虫灾概率；**`moleSpriteProb`**（必填，浮点 0..1）→ 进入 sprite4/sprite5 节点时各抽一次的地鼠偷窃概率；**`harvestRoleReward`** 仅解析属性键（`stat` 或 `stat:后缀`，后缀忽略）→ `harvestRewardStat`；**`eatBuffIcon`**（可选）→ `eatBuffIconResource`（吃下果实 Buff 演示图标，不参与战斗结算）。  
+**English:** Runtime CSV is `Assets/Resources/Configs/Farm/plants.csv`. Column order (**v3.52**): `id, displayName, sprite1, sprite2, sprite3, sprite4, sprite5, fruitIcon, harvestFruitCount, baseStageSeconds, fertilizerSpeedMul, afterHarvest, pestEventIntervalSec, pestEventProb, pestSpriteProb, moleSpriteProb, harvestRoleReward, eatBuffIcon`. `sprite1..5` map to growth sprites; `fruitIcon` maps to `fruitIconResource` (optional); **`harvestFruitCount`** (required, positive int) is per-harvest fruit grant; **`pestSpriteProb`** (required, float 0..1) is the per-node pest roll at `sprite2`/`sprite3`; **`moleSpriteProb`** (required, float 0..1) is the per-node mole theft roll at `sprite4`/`sprite5`; **`harvestRoleReward`** parses only the stat key (suffix after `:` ignored); **`eatBuffIcon`** (optional) maps to `eatBuffIconResource` (presentation-only eat buff icon).
 
 **中文：** **解析约定**（与 §B.4 / §B.5 共用）：UTF-8（建议带 BOM，便于 Windows/Excel 编辑链路稳定识别）、首行为 header、`#` 起始的整行视为注释、空行跳过、字段两端 `Trim()`；`afterHarvest` 仅接受 `Wilt / Regrow` 两个枚举字面量（大小写敏感）。明确禁止 ANSI/GBK 等本地代码页编码，避免中文在导入后出现乱码。  
 **English:** **Parsing convention** (shared with §B.4 / §B.5): UTF-8 (BOM recommended for robust recognition in Windows/Excel editing flows); first line is header; whole lines starting with `#` are comments; blank lines are skipped; each cell is `Trim()`-ed; `afterHarvest` accepts only `Wilt / Regrow` (case-sensitive). ANSI/GBK and other locale code pages are explicitly disallowed to prevent Chinese mojibake after import.
@@ -2656,8 +2968,8 @@ SeedPack, Common, 1
 
 #### B.11.1 字段定义 / Field Definitions
 
-**中文：** `pets.csv` 定义可被「农田变异机制」抽取的精灵静态条目（详见 §4.1.10）。每行 1 个精灵，预制体取自 `Assets/Fantazia Animated 2D Monsters/Prefabs/`，并要求复制一份至 `Assets/Resources/Pets/` 以满足运行时 `Resources.Load` 装载。  
-**English:** `pets.csv` defines static pet entries that can be rolled by the farm mutation mechanic (see §4.1.10). Each row maps to one pet prefab originating from `Assets/Fantazia Animated 2D Monsters/Prefabs/`, with a duplicate placed under `Assets/Resources/Pets/` so it is loadable via `Resources.Load`.
+**中文：** `pets.csv` 定义可被「农田变异机制」抽取的精灵静态条目（详见 §4.1.10）。每行 1 个精灵，预制体取自 `Assets/Fantazia Animated 2D Monsters/Prefabs/`，并要求复制一份至 `Assets/Resources/Pets/` 以满足运行时 `Resources.Load` 装载。**展示约定**：凡此类来源的怪物在运行时 UI（§4.1.10.5 `PetPreviewRig`、§9.5.1 伴侣、§12.3 入侵战斗敌方槽等）中须在根 Transform 上**先 XY 放大 20%（`PackVisualScaleMultiplier=1.2`），再施加水平镜像**（`FantaziaMonsterDisplay`），不得依赖未处理的默认缩放与朝向。  
+**English:** `pets.csv` defines static pet entries that can be rolled by the farm mutation mechanic (see §4.1.10). Each row maps to one pet prefab originating from `Assets/Fantazia Animated 2D Monsters/Prefabs/`, with a duplicate placed under `Assets/Resources/Pets/` so it is loadable via `Resources.Load`. **Display rule:** every such monster must **scale XY by +20% (`PackVisualScaleMultiplier = 1.2`), then horizontally mirror the instantiated root** in runtime UI (§4.1.10.5 `PetPreviewRig`, §9.5.1 companions, §12.3 invasion `EnemySlot`, etc.) via `FantaziaMonsterDisplay`; do not rely on unprocessed default scale/facing.
 
 | 字段 / Field | 类型 / Type | 默认值 / Default | 说明 / Notes |
 |---|---|---|---|

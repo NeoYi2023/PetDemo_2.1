@@ -60,6 +60,7 @@
   <ItemGroup>
     <Compile Include="Assets\Scripts\Battle\InvasionService.cs" />
     <Compile Include="Assets\Scripts\UI\BottomNavSimpleBackgroundScreenView.cs" />
+    <Compile Include="Assets\Scripts\UI\ProtagonistLevelUpDialogView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\SowGestureController.cs" />
     <Compile Include="Assets\Scripts\Core\CsvTable.cs" />
     <Compile Include="Assets\Scripts\UI\BottomNavBarView.cs" />
@@ -67,13 +68,16 @@
     <Compile Include="Assets\Scripts\Core\PlantConfigCatalog.cs" />
     <Compile Include="Assets\Scripts\Farm\IPlantingService.cs" />
     <Compile Include="Assets\Fantazia Animated 2D Monsters\Example\MonsterSpawner_Fantazia.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\InvasionBattleRewardRowView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\SeedWarehouseListView.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\PestControlScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\PetPreviewRig.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\MutationRevealPopupView.cs" />
     <Compile Include="Assets\Scripts\Farm\FarmBootstrap.cs" />
     <Compile Include="Assets\Scripts\UI\RoleGrowthScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\InvasionEntryView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\FertilizerWarehousePanelView.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\MoleTheftScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\TileSlotView.cs" />
     <Compile Include="Assets\Scripts\UI\FoodWarehouseModalView.cs" />
     <Compile Include="Assets\Scripts\UI\JiaYuanHomeFeatureEntriesView.cs" />
@@ -81,6 +85,8 @@
     <Compile Include="Assets\Scripts\UI\Farm\FarmGridView.cs" />
     <Compile Include="Assets\Scripts\UI\BottomNavButtonView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\UnifiedActionButtonView.cs" />
+    <Compile Include="Assets\Scripts\UI\FantaziaMonsterDisplay.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\InvasionBattleResultDialogView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\WarehouseHubPanelView.cs" />
     <Compile Include="Assets\Scripts\Battle\InvasionConfigCatalog.cs" />
     <Compile Include="Assets\Scripts\UI\MainRoleCunminPresenter.cs" />
@@ -93,6 +99,8 @@
     <Compile Include="Assets\Scripts\UI\BottomNavAttachedScreenLayout.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\InvasionBattleView.cs" />
     <Compile Include="Assets\Scripts\UI\PetCompanionPresenter.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\TileSlotOverlayClickRelay.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\WheelLotteryScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\FruitWarehouseListView.cs" />
   </ItemGroup>
   <ItemGroup>
