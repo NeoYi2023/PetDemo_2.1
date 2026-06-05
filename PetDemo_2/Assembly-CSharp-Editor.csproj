@@ -60,11 +60,18 @@
   <ItemGroup>
     <Compile Include="Assets\Scripts\UI\Farm\Editor\BottomNavBarPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\FertilizerWarehousePrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\EnchantScreenPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\WarehouseHubPanelPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\LevelSelectScreenPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\WarehouseBackgroundPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\ArenaScreenPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\FarmGridPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\InvasionBattleResultDialogPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\RoleGrowthPetBagPagePrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\SowActionButtonPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\PestControlGameModelTests.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\RoleGrowthPanelPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\HeroStatsRowPrefabGenerator.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">

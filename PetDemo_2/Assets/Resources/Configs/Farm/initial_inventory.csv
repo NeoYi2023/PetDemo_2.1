@@ -4,7 +4,7 @@
 # kind=Fertilizer 时 id 为 FertilizerType.id（需存在于 fertilizers.csv）,,
 # count 必须 >= 1；非法行打 Warning 并跳过,,
 kind, id,          count
-Pack, Common,60
+Pack, Common,6
 Fertilizer,FL1001,60
 Fertilizer,FL1002,60
 Fertilizer,FL1003,60

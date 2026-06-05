@@ -94,13 +94,13 @@ flowchart TB
 **中文：** 本节自 v0.5 起取代原「极简农场（`Empty/Planted/Growing/Mature` 四态）」，作为新的农场子系统。  
 **English:** Since v0.5, this section replaces the previous "minimal farm (`Empty/Planted/Growing/Mature` four-state)" model and serves as the new farm subsystem.
 
-#### 4.1.1 农田规模与分组 / Tile Layout
+#### 4.1.1 农田规模 / Tile Layout
 
-**中文：** **农田规模与分组**：固定 24 块农田，每 4 块为 1 组、共 6 组；每块农田同一时间最多容纳 1 株植物。UI 上以 6 行 × 4 列网格在 [UI0.png](PetDemo_2/Assets/Scenes/Air/UI/UI0.png) 主界面之上同屏可见，无需滚动。  
-**English:** **Tile scale and grouping:** a fixed 24 tiles arranged as 6 groups of 4; each tile holds at most 1 plant at any moment. The UI presents a 6-row × 4-column grid overlaid on [UI0.png](PetDemo_2/Assets/Scenes/Air/UI/UI0.png), fully visible on screen with no scrolling.
+**中文：** **农田规模**：固定 20 块农田；每块农田彼此独立，同一时间最多容纳 1 株植物。UI 上以 5 行 × 4 列网格在 [UI0.png](PetDemo_2/Assets/Scenes/Air/UI/UI0.png) 主界面之上同屏可见，无需滚动。  
+**English:** **Tile scale:** a fixed 20 tiles; each tile is independent and holds at most 1 plant at any moment. The UI presents a 5-row × 4-column grid overlaid on [UI0.png](PetDemo_2/Assets/Scenes/Air/UI/UI0.png), fully visible on screen with no scrolling.
 
-**中文：** 农田按 `orderIndex` 1..24 排序（自上而下、每行内自左而右），轮训操作机制按此顺序扫描（详见 §10）。  
-**English:** Tiles are ordered by `orderIndex` 1..24 (top-to-bottom, left-to-right within each row); the smart polling mechanism scans in this order (see §10).
+**中文：** 农田按 `orderIndex` 1..20 排序（自上而下、每行内自左而右），轮训操作机制按此顺序扫描（详见 §10）。  
+**English:** Tiles are ordered by `orderIndex` 1..20 (top-to-bottom, left-to-right within each row); the smart polling mechanism scans in this order (see §10).
 
 #### 4.1.2 农田 5 维独立状态 / Five Independent Tile State Dimensions
 
@@ -183,13 +183,13 @@ Either branch ends with the same `PlantInstance` initialization on the tile (`wa
 
 #### 4.1.6 外围事件 / 虫灾与捉虫 / External Event and Pest Control (v3.50)
 
-**中文（自 v3.50 起）：** 当植物 `AdvanceOneStage` 使 `appearanceNode` 进入 **2 或 3**（对应 CSV `sprite2` / `sprite3`）时，若本株尚未触发过虫灾且该节点尚未做过抽取，则按 `PlantConfig.pestSpriteProb` 判定一次：`Random.value < pestSpriteProb` 成功则将 `tile.pest` 置为 `AwaitingPestControl`、`PlantState` 置为 `Paused`，并触发 `OnPestEventTriggered(tileId)`；**每株植物生命周期内最多触发 1 次**；节点 2 与节点 3 **各只抽 1 次**（无论成败均标记该节点已抽）。虫灾期间 `TickGrowth` 不推进该株倒计时（等同缺水暂停）。田面叠放可点击、循环闪烁的 `AirUI/WH_Chong`；点击后打开 §9.10 全屏「打虫子」演示；玩家点「胜利」后调用 `IPlantingService.CompletePestControl(tileId)`，将 `tile.pest` 翻回 `PestControlled`，若 `tile.water != Empty` 则恢复 `Growing`。`pestEventIntervalSec` / `pestEventProb` 列保留于 CSV 但本 Demo **不使用**定时抽取。  
-**English (since v3.50):** When `AdvanceOneStage` sets `appearanceNode` to **2 or 3** (CSV `sprite2` / `sprite3`), if this plant has not yet triggered a pest event and this node has not been rolled, sample once with `Random.value < pestSpriteProb`. On success: `tile.pest = AwaitingPestControl`, `PlantState = Paused`, `OnPestEventTriggered(tileId)`. **At most one pest event per plant lifetime**; nodes 2 and 3 each get **one roll** (mark the node rolled win or lose). While `AwaitingPestControl`, `TickGrowth` does not advance that plant (same as drought pause). The tile shows a blinking clickable `AirUI/WH_Chong`; tap opens the §9.10 fullscreen pest demo; **Victory** calls `CompletePestControl(tileId)` → `PestControlled` and resumes `Growing` when `tile.water != Empty`. `pestEventIntervalSec` / `pestEventProb` remain in CSV but are **unused** in this demo.
+**中文（自 v3.50 起）：** 当植物 `AdvanceOneStage` 使 `appearanceNode` 进入 **2 或 3**（对应 CSV `sprite2` / `sprite3`）时，若本株尚未触发过虫灾且该节点尚未做过抽取，则按 `PlantConfig.pestSpriteProb` 判定一次：`Random.value < pestSpriteProb` 成功则将 `tile.pest` 置为 `AwaitingPestControl`、`PlantState` 置为 `Paused`，并触发 `OnPestEventTriggered(tileId)`；**每株植物生命周期内最多触发 1 次**；节点 2 与节点 3 **各只抽 1 次**（无论成败均标记该节点已抽）。虫灾期间 `TickGrowth` 不推进该株倒计时（等同缺水暂停）。田面叠放可点击、循环闪烁的 `AirUI/WH_Chong`；点击后打开 §9.10 全屏「打虫子」演示；**自 v3.79 起**玩家点「胜利」后调用 `IPlantingService.CompleteAllPestControl()`，**一次胜利清除农田内所有**处于 `AwaitingPestControl` 的田格：逐格将 `tile.pest` 翻回 `PestControlled`，对每格按相同恢复逻辑处理（若植物因虫灾 `Paused` 且 `tile.water != Empty` 则恢复 `Growing`）并触发 `OnTileFlagsChanged(tileId)`。`pestEventIntervalSec` / `pestEventProb` 列保留于 CSV 但本 Demo **不使用**定时抽取。  
+**English (since v3.50):** When `AdvanceOneStage` sets `appearanceNode` to **2 or 3** (CSV `sprite2` / `sprite3`), if this plant has not yet triggered a pest event and this node has not been rolled, sample once with `Random.value < pestSpriteProb`. On success: `tile.pest = AwaitingPestControl`, `PlantState = Paused`, `OnPestEventTriggered(tileId)`. **At most one pest event per plant lifetime**; nodes 2 and 3 each get **one roll** (mark the node rolled win or lose). While `AwaitingPestControl`, `TickGrowth` does not advance that plant (same as drought pause). The tile shows a blinking clickable `AirUI/WH_Chong`; tap opens the §9.10 fullscreen pest demo; **since v3.79, Victory** calls `CompleteAllPestControl()`, which **clears every** `AwaitingPestControl` tile farm-wide in a single win: each tile flips to `PestControlled`, applies the same recovery (resume `Growing` when paused by pest and `tile.water != Empty`), and fires `OnTileFlagsChanged(tileId)`. `pestEventIntervalSec` / `pestEventProb` remain in CSV but are **unused** in this demo.
 
 #### 4.1.6.1 地鼠偷窃与打地鼠 / Mole Theft and Whack-a-Mole (v3.52)
 
-**中文（自 v3.52 起）：** 当植物 `AdvanceOneStage` 使 `appearanceNode` 进入 **4 或 5**（对应 CSV `sprite4` / `sprite5`）时，若本株尚未触发过地鼠偷窃且该节点尚未做过抽取，则按 `PlantConfig.moleSpriteProb` 判定一次：`Random.value < moleSpriteProb` 成功则将 `tile.moleTheft` 置为 `AwaitingMoleTheft`、`PlantState` 置为 `Paused`；**每株植物生命周期内最多触发 1 次**；节点 4 与节点 5 **各只抽 1 次**（无论成败均标记该节点已抽）。地鼠偷窃期间 `TickGrowth` 不推进该株倒计时（等同缺水/虫灾暂停）；`IsHarvestActionable` 返回 `false`（不可收获）。田面叠放可点击、循环闪烁的 `AirUI/WH_Tou`；点击后打开 §9.12 全屏「打地鼠」演示；玩家点「胜利」后调用 `IPlantingService.CompleteMoleTheft(tileId)`，将 `tile.moleTheft` 翻回 `MoleTheftResolved`，若 `tile.water != Empty` 且 `plant.state == Paused` 则恢复 `Growing`。  
-**English (since v3.52):** When `AdvanceOneStage` sets `appearanceNode` to **4 or 5** (CSV `sprite4` / `sprite5`), if this plant has not yet triggered mole theft and this node has not been rolled, sample once with `Random.value < moleSpriteProb`. On success: `tile.moleTheft = AwaitingMoleTheft`, `PlantState = Paused`. **At most one mole theft per plant lifetime**; nodes 4 and 5 each get **one roll** (mark the node rolled win or lose). While `AwaitingMoleTheft`, `TickGrowth` does not advance that plant and harvest is blocked. The tile shows a blinking clickable `AirUI/WH_Tou`; tap opens the §9.12 fullscreen whack-a-mole demo; **Victory** calls `CompleteMoleTheft(tileId)` → `MoleTheftResolved` and resumes `Growing` when `tile.water != Empty`.
+**中文（自 v3.52 起）：** 当植物 `AdvanceOneStage` 使 `appearanceNode` 进入 **4 或 5**（对应 CSV `sprite4` / `sprite5`）时，若本株尚未触发过地鼠偷窃且该节点尚未做过抽取，则按 `PlantConfig.moleSpriteProb` 判定一次：`Random.value < moleSpriteProb` 成功则将 `tile.moleTheft` 置为 `AwaitingMoleTheft`、`PlantState` 置为 `Paused`；**每株植物生命周期内最多触发 1 次**；节点 4 与节点 5 **各只抽 1 次**（无论成败均标记该节点已抽）。地鼠偷窃期间 `TickGrowth` 不推进该株倒计时（等同缺水/虫灾暂停）；`IsHarvestActionable` 返回 `false`（不可收获）。田面叠放可点击、循环闪烁的 `AirUI/WH_Tou`；点击后打开 §9.12 全屏 **「附魔」转盘玩法**（`EnchantScreenView`，**自 v3.82 起取代 v3.52 「打地鼠」演示**）。**自 v3.82 起收尾衔接变更**：附魔玩法胜利后**不再**走 §9.13 转盘摇奖，而是 `CompleteMoleTheft(tileId)`（`tile.moleTheft → MoleTheftResolved`）+ `TriggerSingleTileMutation(tileId)` 将该株置为「变异待收获」，停留 1 秒后自动 `TryHarvestMutation` 弹出收获弹窗；附魔玩法失败「放弃」则调用 `AbandonMoleTheftPlant(tileId)` 直接删除该植物。  
+**English (since v3.52; v3.82 handoff change):** When `AdvanceOneStage` sets `appearanceNode` to **4 or 5** (CSV `sprite4` / `sprite5`), if this plant has not yet triggered mole theft and this node has not been rolled, sample once with `Random.value < moleSpriteProb`. On success: `tile.moleTheft = AwaitingMoleTheft`, `PlantState = Paused`. **At most one mole theft per plant lifetime**; nodes 4 and 5 each get **one roll**. While `AwaitingMoleTheft`, `TickGrowth` does not advance that plant and harvest is blocked. The tile shows a blinking clickable `AirUI/WH_Tou`; tap opens the §9.12 fullscreen **Enchant wheel game** (`EnchantScreenView`, **replaces the v3.52 whack-a-mole demo since v3.82**). **Since v3.82** the win handoff changed: instead of chaining §9.13, victory calls `CompleteMoleTheft(tileId)` + `TriggerSingleTileMutation(tileId)` (plant becomes "mutation awaiting harvest"), waits 1s, then auto `TryHarvestMutation` to show the reveal popup; on loss the **Abandon** option calls `AbandonMoleTheftPlant(tileId)` to delete the plant.
 
 #### 4.1.7 5 节点外观映射 / Five-Node Appearance Mapping
 
@@ -228,8 +228,8 @@ stateDiagram-v2
 
 ##### 4.1.10.1 分组与触发条件 / Grouping and Trigger
 
-**中文：** **分组定义**：与 §4.1.1 / §9.1 的视觉分组完全一致——每行 4 田为 1 组，`groupIndex = ((orderIndex - 1) / 4) + 1`，共 6 组；第 1 组成员 `orderIndex ∈ {1,2,3,4}`，第 6 组成员 `orderIndex ∈ {21,22,23,24}`。  
-**English:** **Grouping:** identical to the visual grouping in §4.1.1 / §9.1 — each row of 4 tiles is one group, with `groupIndex = ((orderIndex - 1) / 4) + 1`, totaling 6 groups; group 1 has `orderIndex ∈ {1..4}`, group 6 has `orderIndex ∈ {21..24}`.
+**中文：** **分组定义**：与 §9.1 的行布局一致——每行 4 田为 1 组，`groupIndex = ((orderIndex - 1) / 4) + 1`，共 5 组；第 1 组成员 `orderIndex ∈ {1,2,3,4}`，第 5 组成员 `orderIndex ∈ {17,18,19,20}`。  
+**English:** **Grouping:** aligned with §9.1 row layout — each row of 4 tiles is one group, with `groupIndex = ((orderIndex - 1) / 4) + 1`, totaling 5 groups; group 1 has `orderIndex ∈ {1..4}`, group 5 has `orderIndex ∈ {17..20}`.
 
 **中文：** **触发条件（必须 4 项全部满足）**：
 1. 4 田 `tile.planting == Seeded` 且 `tile.lockedByMutationId` 均为空。
@@ -433,7 +433,7 @@ enum HarvestFlag    { None, AwaitingHarvest, Harvested }
 
 struct CropTile {
   string tileId;
-  int orderIndex;                  // 1..24，决定轮训扫描顺序 / drives polling order
+  int orderIndex;                  // 1..20，决定轮训扫描顺序 / drives polling order
   PlantingFlag    planting;
   FertilizerFlag  fertilizer;
   WaterStage      water;
@@ -682,7 +682,7 @@ struct BattleAction {
 // GameSession — demo-level session state (not a full save system)
 struct GameSession {
   RoleStats role;
-  list<CropTile> farmTiles;          // 固定长度 24 / fixed length 24
+  list<CropTile> farmTiles;          // 固定长度 20 / fixed length 20
   list<PlantInstance> plants;         // 当前在场植物 / live plants
   PlayerSeedBag seedBag;              // 种子仓库 = 背包 / warehouse-as-bag
   PlayerFertilizerBag fertilizerBag;  // 肥料仓库 = 背包（自 v2.10 起） / fertilizer bag (since v2.10)
@@ -722,15 +722,16 @@ struct GameSession {
 - `IPlantingService.GetActiveFertilizer() → string?` — 自 v2.10 起新增：读取当前活跃肥料 id（未选时返回空） / Since v2.10: read the current active fertilizer id (empty when none).
 - `IPlantingService.GetFertilizerBag() → PlayerFertilizerBag` — 自 v2.10 起新增：返回 `GameSession.fertilizerBag` 引用（UI 刷新用） / Since v2.10: returns the `GameSession.fertilizerBag` reference for UI refresh.
 - `IPlantingService.ApplyFertilizerToTile(tileId) → bool` — 自 v2.10 起新增：对指定 `tileId` 应用当前活跃肥料；失败原因（返回 `false`）：`tileId` 不存在 / `tile.fertilizer != AwaitingFertilizer` / `activeId == null` / `count(activeId) <= 0` / `activeId` 不在 `fertilizerTypes`。成功后将 `tile.fertilizer` 推为 `Fertilized`、库存 -1、并先后触发 `OnTileFlagsChanged(tileId)`、`OnFertilizerBagChanged`、`OnFertilizeApplied(tileId, fertilizerId)`；该次施肥的速度倍率取活跃 `FertilizerType.speedMul`，覆盖 `PlantConfig.fertilizerSpeedMul`。 / Since v2.10: apply the active fertilizer to the given `tileId`. Returns `false` on missing tile / `tile.fertilizer != AwaitingFertilizer` / `activeId == null` / `count(activeId) <= 0` / unknown `activeId`. On success: pushes `tile.fertilizer` to `Fertilized`, decrements stock by 1, and fires `OnTileFlagsChanged(tileId)`, `OnFertilizerBagChanged`, and `OnFertilizeApplied(tileId, fertilizerId)` in order; the active `FertilizerType.speedMul` overrides `PlantConfig.fertilizerSpeedMul` for this fertilization.
-- `IPlantingService.ApplyFertilizerToAllAwaitingTiles() → int` — 自 v3.22 起新增：批量施肥入口（§9.7「全部施肥」按钮调用）。按 `orderIndex` 1..24 升序遍历 24 块田，对每块满足 `tile.planting == Seeded && tile.fertilizer == AwaitingFertilizer && lockedByMutationId == null` 的农田调用一次内部施肥路径（与 `ApplyFertilizerToTile` 完全一致：库存 -1、`tile.fertilizer = Fertilized`、写入 `PlantInstance.appliedFertilizerSpeedMul`、触发 `OnTileFlagsChanged(tileId)` + `OnFertilizerBagChanged` + `OnFertilizeApplied(tileId, fertilizerId)` 三连事件）；当 `bag.activeId` 为空、未在 `fertilizerTypes`、对应堆叠 `count<=0` 或库存在循环中归零时立即停止剩余田的处理。返回值为本次实际成功施肥的田数（≥0），便于 UI 或日志记录；不发出额外的"批量完成"事件——所有联动通过逐田三连事件触达。 / Since v3.22: batch-fertilize entry (used by §9.7 "全部施肥" button). Iterates the 24 tiles in ascending `orderIndex` 1..24 and for each tile satisfying `tile.planting == Seeded && tile.fertilizer == AwaitingFertilizer && lockedByMutationId == null` invokes the same internal fertilize path as `ApplyFertilizerToTile` (decrements stock, sets `tile.fertilizer = Fertilized`, writes `PlantInstance.appliedFertilizerSpeedMul`, and fires the three-event sequence `OnTileFlagsChanged(tileId)` + `OnFertilizerBagChanged` + `OnFertilizeApplied(tileId, fertilizerId)`); the loop short-circuits the moment `bag.activeId` is empty / unknown to `fertilizerTypes` / the matching stack count drops to zero. Returns the number of tiles successfully fertilized in this call (≥0) for UI or logging use; no additional "batch-complete" event is emitted — all linkage is delivered via per-tile three-event sequences.
+- `IPlantingService.ApplyFertilizerToAllAwaitingTiles() → int` — 自 v3.22 起新增：批量施肥入口（§9.7「全部施肥」按钮调用）。按 `orderIndex` 1..20 升序遍历 20 块田，对每块满足 `tile.planting == Seeded && tile.fertilizer == AwaitingFertilizer && lockedByMutationId == null` 的农田调用一次内部施肥路径（与 `ApplyFertilizerToTile` 完全一致：库存 -1、`tile.fertilizer = Fertilized`、写入 `PlantInstance.appliedFertilizerSpeedMul`、触发 `OnTileFlagsChanged(tileId)` + `OnFertilizerBagChanged` + `OnFertilizeApplied(tileId, fertilizerId)` 三连事件）；当 `bag.activeId` 为空、未在 `fertilizerTypes`、对应堆叠 `count<=0` 或库存在循环中归零时立即停止剩余田的处理。返回值为本次实际成功施肥的田数（≥0），便于 UI 或日志记录；不发出额外的"批量完成"事件——所有联动通过逐田三连事件触达。 / Since v3.22: batch-fertilize entry (used by §9.7 "全部施肥" button). Iterates the 20 tiles in ascending `orderIndex` 1..20 and for each tile satisfying `tile.planting == Seeded && tile.fertilizer == AwaitingFertilizer && lockedByMutationId == null` invokes the same internal fertilize path as `ApplyFertilizerToTile` (decrements stock, sets `tile.fertilizer = Fertilized`, writes `PlantInstance.appliedFertilizerSpeedMul`, and fires the three-event sequence `OnTileFlagsChanged(tileId)` + `OnFertilizerBagChanged` + `OnFertilizeApplied(tileId, fertilizerId)`); the loop short-circuits the moment `bag.activeId` is empty / unknown to `fertilizerTypes` / the matching stack count drops to zero. Returns the number of tiles successfully fertilized in this call (≥0) for UI or logging use; no additional "batch-complete" event is emitted — all linkage is delivered via per-tile three-event sequences.
 - `IPlantingService.ExecuteUnifiedAction()` — 触发统一「操作」按钮：执行智能轮训扫描并对首块「有事可做」的农田执行最高优先级动作（自 v2.9 起扫描链不再包含 `Seed`；自 v2.10 起也不再包含 `Fertilize`，详见 §10） / triggers the unified action button: smart polling scan + execute highest-priority action on the first actionable tile (since v2.9 the chain excludes `Seed`; since v2.10 it also excludes `Fertilize`; see §10)
 - `IPlantingService.TrySeedTile(tileId) → bool` — 自 v2.9 起新增：直接尝试在指定 `tileId` 上播种；内部沿用 §4.1.4 第 1 步的 `Seed/Pack` 双分支语义，并触发既有事件链（`OnTileFlagsChanged / OnSeedBagChanged / OnSeedRolledFromPack`）。失败原因（返回 `false`）包括：`tileId` 不存在 / `tile.planting != AwaitingSeed` / `seedBag.active == null` / `countOf(active) == 0` / 对应 `plantConfigId` 不在 `plantConfigs` 中。供 §9.4.6 的仓库内播种按钮 + 手势直接调用，单次成功消耗 1 个种子或 1 个种子包。 / Since v2.9: directly attempt to seed the tile by `tileId`; reuses the §4.1.4 step-1 `Seed/Pack` branch semantics and fires the existing events. Returns `false` on: missing `tileId` / `tile.planting != AwaitingSeed` / `seedBag.active == null` / `countOf(active) == 0` / unknown `plantConfigId`. Called directly by the in-warehouse sow button and gesture in §9.4.6; one success consumes one seed or one seed pack.
 - `IPlantingService.TryHarvestTile(tileId) → bool` — 自 v3.2 起新增：直接尝试对指定 `tileId` 执行收获（供 §9.1 农田点击入口调用）。失败返回 `false`：`tileId` 不存在 / `tile.harvest != AwaitingHarvest` / `plantInstanceId` 或 `PlantConfig` 缺失。成功后沿用 §4.1.5 的 `Wilt/Regrow` 分支，将果实写入 `fruitBag` 并触发 `OnFruitBagChanged` 与（可选）`OnHarvestFruitReady`；**自 v3.27 起不再**发出 `OnHarvestRewardReady`。 / Since v3.2: directly attempt harvest on target `tileId` (for §9.1 tile-tap entry). Returns `false` on missing tile / non-harvestable tile / missing plant instance or config. On success, follows §4.1.5 `Wilt/Regrow`, writes fruit into `fruitBag`, and fires `OnFruitBagChanged` plus (optionally) `OnHarvestFruitReady`; **since v3.27** it does **not** emit `OnHarvestRewardReady`.
 - `IPlantingService.TryWaterTile(tileId) → bool` — **自 v3.62 起新增**：对指定 `tileId` 执行一次浇水（内部 `ApplyWater`）。失败：`tileId` 不存在 / 非 `IsWaterStage1/2/3Actionable` / 变异锁定。成功触发 `OnTileFlagsChanged`；**不**触发 `OnUnifiedActionExecuted`（供 §9.5.2 精灵协助浇水）。 / **Since v3.62:** apply one water step on `tileId` via `ApplyWater`. Returns `false` on missing tile / no actionable water stage / mutation lock. On success fires `OnTileFlagsChanged` only; does **not** fire `OnUnifiedActionExecuted` (for §9.5.2 pet assist).
+- `IPlantingService.GetPendingWaterDisplayTier(tileId) → int` — **自 v3.70 起新增**；**自 v3.71 起修订**：返回该田**已受理未提交**的待浇水次数 `0..3`（直接对应 `JiaoShi_Dai_1/2/3`），与 `tile.water` 解耦。 / **Since v3.70** (revised **v3.71**): returns queued pending water count `0..3` for overlay sprites, independent of `tile.water`.
 - `IPlantingService.GetFruitBag() → PlayerFruitBag` — 自 v3.27 起新增：返回 `GameSession.fruitBag` 引用（UI 刷新用）。 / Since v3.27: returns the `GameSession.fruitBag` reference for UI refresh.
 - `IPlantingService.ApplyHarvestRoleReward(statType, amount)` — 自 v3.2 起新增：提交一次属性奖励，写入 `GameSession.role` 并触发 `OnRoleStatsChanged`；**普通收获路径不再调用**（自 v3.27 起收获改入果实背包，见 §4.1.11）。 / Since v3.2: commit a stat reward into `GameSession.role` and fire `OnRoleStatsChanged`; **normal harvest no longer calls this** since v3.27 (harvest goes to fruit bag per §4.1.11).
 - `IPlantingService.GetRoleStats() → RoleStats` — 自 v3.2 起新增：返回主角属性快照，供主界面属性显示初始化与刷新。 / Since v3.2: returns role stats snapshot for main-menu display init/refresh.
-- `IPlantingService.GetTile(orderIndex) → CropTile` — 按 1..24 的顺序号读取农田 / fetch a tile by 1..24 order index
+- `IPlantingService.GetTile(orderIndex) → CropTile` — 按 1..20 的顺序号读取农田 / fetch a tile by 1..20 order index
 - `IPlantingService.GetActionableActionOf(tileId) → ActionType?` — 查询某农田当前可执行的最高优先级动作（无可执行返回空） / query the highest-priority action available on a tile (null if none)
 - `IPlantingService.GetCurrentFocusTileId() → string?` — 读取当前焦点田（用于 UI 高亮） / get the current focus tile (for UI highlight)
 - `IPlantingService.TickGrowth(deltaSeconds)` — 推进所有 `Growing` 植物的倒计时（由主循环调用） / tick all `Growing` plants' countdowns (called by main loop)
@@ -739,7 +740,9 @@ struct GameSession {
 - `OnHarvestFruitReady(tileId, plantConfigId, count)` — 自 v3.27 起新增：一次收获刚写入果实背包后的可选表现事件（尚未、也不应写入 `RoleStats`）；UI 可据此播放飞向果实入口动效。 / Since v3.27: optional presentation event after fruit is granted (not applied to `RoleStats`); UI may use it for flight FX toward the fruit-bag entry.
 - `OnHarvestRewardReady(tileId, statType, amount)` — **v3.2–v3.26**：一次收获产出待表现属性奖励；**v3.27 起普通收获不再发出**（保留事件占位供将来其它系统复用时可再启用）。 / **v3.2–v3.26:** pending stat reward after harvest; **since v3.27** normal harvest does **not** emit this (kept as a reserved hook for other systems if needed).
 - `IPlantingService.TryHarvestMutation(mutationId) → bool` — 自 v3.17 起新增：直接尝试收获指定 `MutationPlant`（由 §5.2 `MutationOverlayView` 的图标点击转发）。失败原因（返回 `false`）：`mutationId` 不存在 / `state != AwaitingHarvest`。成功后将 `mutation.state` 推为 `Harvested` 并从 `session.mutations` 移除；`mutation.tileIds` 中每一块田 `lockedByMutationId=null` 并按 `Wilt` 路径全维度复位（`planting=AwaitingSeed`、`fertilizer/pest/harvest=None`、`water=Empty`、`plantInstanceId=null`）；对列表中每一块田触发一次 `OnTileFlagsChanged(tileId)`（**自 v3.59 起** 列表长度可为 1 或 4），最后触发一次 `OnMutationHarvested(mutationId, kind, refId)`。 / Since v3.17: directly attempt to harvest a `MutationPlant` (forwarded by the icon tap in §5.2 `MutationOverlayView`). Returns `false` on missing id or non-`AwaitingHarvest` state. On success: set `mutation.state = Harvested` and remove from `session.mutations`; clear `lockedByMutationId` on every tile in `mutation.tileIds` and reset all dimensions per the `Wilt` path; fire one `OnTileFlagsChanged(tileId)` per tile (since **v3.59** the list length may be 1 or 4), then `OnMutationHarvested(mutationId, kind, refId)`.
-- `IPlantingService.TriggerSingleTileMutation(tileId) → bool` — **自 v3.59 起新增**：将指定田上当前 `PlantInstance` 原子替换为一株 **单格** `MutationPlant`（`tileIds.Count == 1`），抽签规则同 §4.1.10.2。失败原因（返回 `false`）：`tileId` 不存在 / `plantInstanceId` 为空 / `lockedByMutationId` 非空 / `petConfigs` 与 `skillConfigs` 均为空。成功：删除原植物、锁定该田并写入 `MutationPlant`、`OnTileFlagsChanged` + `OnMutationCreated`（详见 §4.1.10.2 单格段落）。**自 v3.60 起**：仅由 §9.12 地鼠流程后的 §9.13 转盘「确定」调用；§9.11 捉虫流程后的转盘**不得**调用（`grantMutationOnConfirm: false`）。 / **Since v3.59:** atomically replace the tile's current `PlantInstance` with a **single-tile** `MutationPlant` (`tileIds.Count == 1`) using the same roll rules as §4.1.10.2. Returns `false` if: missing tile / empty `plantInstanceId` / non-null `lockedByMutationId` / both pet and skill lists empty. On success: remove the plant, lock the tile, push `MutationPlant`, fire `OnTileFlagsChanged` + `OnMutationCreated` (see §4.1.10.2 single-tile paragraph). **Since v3.60:** invoked only from the §9.13 wheel **Confirm** after §9.12 mole; the §9.11 pest wheel must **not** call this (`grantMutationOnConfirm: false`).
+- `IPlantingService.TriggerSingleTileMutation(tileId) → bool` — **自 v3.59 起新增**：将指定田上当前 `PlantInstance` 原子替换为一株 **单格** `MutationPlant`（`tileIds.Count == 1`），抽签规则同 §4.1.10.2。失败原因（返回 `false`）：`tileId` 不存在 / `plantInstanceId` 为空 / `lockedByMutationId` 非空 / `petConfigs` 与 `skillConfigs` 均为空。成功：删除原植物、锁定该田并写入 `MutationPlant`、`OnTileFlagsChanged` + `OnMutationCreated`（详见 §4.1.10.2 单格段落）。**自 v3.60 起**：曾仅由 §9.12 地鼠流程后的 §9.13 转盘「确定」调用；**自 v3.82 起**：改由 §9.12 `EnchantScreenView` 附魔胜利后直接调用（不再经 §9.13 转盘）；§9.11 捉虫流程后的转盘仍**不得**调用（`grantMutationOnConfirm: false`）。 / **Since v3.59:** atomically replace the tile's current `PlantInstance` with a **single-tile** `MutationPlant` (`tileIds.Count == 1`) using the same roll rules as §4.1.10.2. Returns `false` if: missing tile / empty `plantInstanceId` / non-null `lockedByMutationId` / both pet and skill lists empty. On success: remove the plant, lock the tile, push `MutationPlant`, fire `OnTileFlagsChanged` + `OnMutationCreated`. **Since v3.60:** previously called only by the §9.13 wheel **Confirm** after §9.12 mole; **since v3.82** called directly by §9.12 `EnchantScreenView` on enchant victory (no longer via §9.13); the §9.11 pest wheel still must **not** call this.
+- `IPlantingService.GetTileById(tileId) → CropTile?` — **自 v3.82 起新增**：按 `tileId` 取田（§9.12 附魔界面取激活植物精灵用）；未找到返回 `null`。 / **Since v3.82:** fetch a `CropTile` by `tileId`; `null` if not found.
+- `IPlantingService.AbandonMoleTheftPlant(tileId) → bool` — **自 v3.82 起新增**：§9.12 附魔玩法失败后「放弃」时调用，直接删除该田 `PlantInstance` 并复位田。失败（返回 `false`）：`tileId` 不存在 / 无有效 `plantInstanceId`。成功：从 `session.plants` / `plantById` 移除植物；`tile.planting=AwaitingSeed`，清空 `water/fertilizer/pest/moleTheft/harvest/plantInstanceId`；触发 `OnPlantStateChanged(instanceId, Wilted)` + `OnTileFlagsChanged(tileId)`。 / **Since v3.82:** called by §9.12 enchant **Abandon**; delete the tile's `PlantInstance` and reset the tile. `false` if missing tile / no valid `plantInstanceId`. On success: remove from `session.plants` / `plantById`; reset tile dimensions; fire `OnPlantStateChanged(Wilted)` + `OnTileFlagsChanged`.
 - `IPlantingService.GetMutation(mutationId) → MutationPlant?` / `GetMutations() → IReadOnlyList<MutationPlant>` — 自 v3.17 起新增：UI 拉取 / 枚举当前在场的 `MutationPlant`。 / Since v3.17: UI fetch / enumerate live `MutationPlant`s.
 - `IPlantingService.GetPetConfig(id) → PetConfig?` / `GetSkillConfig(id) → SkillConfig?` — 自 v3.17 起新增：根据 `MutationPlant.refId` 取静态配置（弹窗渲染用）。 / Since v3.17: lookup static config by `MutationPlant.refId` for modal rendering.
 
@@ -776,6 +779,7 @@ struct GameSession {
 
 **中文：** **事件（命名示例）**：
 
+- `OnWaterPendingChanged(tileId)` — **自 v3.70 起新增**；**自 v3.71 起**：`_pendingWaterCounts` 次数增减时触发；UI 刷新 `PendingWaterIcon`，**不**表示 `tile.water` 已写入 / **Since v3.70** (v3.71: `_pendingWaterCounts`); refreshes overlay only, not committed `tile.water`
 - `OnTileFlagsChanged(tileId)` — 农田任一维度状态变化（UI 刷新单格） / any of a tile's five dimensions changed
 - `OnPlantStateChanged(plantInstanceId, newState)` — 植物状态机切换 / plant state-machine transition
 - `OnAppearanceNodeChanged(plantInstanceId, node)` — 植物外观节点变化（驱动精灵切换） / plant appearance node change (drives sprite swap)
@@ -802,8 +806,8 @@ struct GameSession {
 
 ## 7. 实现优先级与依赖 / Implementation Priority
 
-**中文：** **P0**：竖屏 1080×1920 UI 壳；显示 Role 名称与基础属性（覆盖完整 1 阶 `atk / def / maxHp / currentHp / agility`，并以只读形式展示 2/3 阶字段）；`RoleStats` 数据结构升级为 1~3 阶分组（§5）；24 农田 6×4 网格在主界面同屏可见；五维独立状态机；统一「操作」按钮 + 智能轮训（§10）；5 节点植物外观；`Wilt / Regrow` 两种 `afterHarvest`；`Fertilized` ×1.5 速度；至少 1 种作物可走通「播种 → 浇水 → 施肥（可选）→ 待收获 → 收获」闭环；一场最小回合战斗（Role vs 1 敌），按 `damage = max(1, atk - def)` 结算（2/3 阶不参与）；战斗结束后回到农场并体现一项奖励或状态变化。  
-**English:** **P0:** portrait 1080×1920 UI shell; show Role name and basic stats (full Tier-1 `atk / def / maxHp / currentHp / agility`, plus Tier-2/3 fields rendered read-only); `RoleStats` upgraded to the Tier-1/2/3 grouping (§5); 24 tiles in a 6×4 grid fully visible on the main screen; five independent state dimensions; unified action button + smart polling (§10); 5-node plant appearance; both `Wilt` and `Regrow` `afterHarvest`; `Fertilized` ×1.5 speed; at least one crop completes the loop "Seed → Water → Fertilize (optional) → AwaitingHarvest → Harvest"; one minimal battle (Role vs one enemy) resolved by `damage = max(1, atk - def)` (Tier-2/3 not active); return to farm with one visible reward or state change.
+**中文：** **P0**：竖屏 1080×1920 UI 壳；显示 Role 名称与基础属性（覆盖完整 1 阶 `atk / def / maxHp / currentHp / agility`，并以只读形式展示 2/3 阶字段）；`RoleStats` 数据结构升级为 1~3 阶分组（§5）；20 农田 5×4 网格在主界面同屏可见；五维独立状态机；统一「操作」按钮 + 智能轮训（§10）；5 节点植物外观；`Wilt / Regrow` 两种 `afterHarvest`；`Fertilized` ×1.5 速度；至少 1 种作物可走通「播种 → 浇水 → 施肥（可选）→ 待收获 → 收获」闭环；一场最小回合战斗（Role vs 1 敌），按 `damage = max(1, atk - def)` 结算（2/3 阶不参与）；战斗结束后回到农场并体现一项奖励或状态变化。  
+**English:** **P0:** portrait 1080×1920 UI shell; show Role name and basic stats (full Tier-1 `atk / def / maxHp / currentHp / agility`, plus Tier-2/3 fields rendered read-only); `RoleStats` upgraded to the Tier-1/2/3 grouping (§5); 20 tiles in a 5×4 grid fully visible on the main screen; five independent state dimensions; unified action button + smart polling (§10); 5-node plant appearance; both `Wilt` and `Regrow` `afterHarvest`; `Fertilized` ×1.5 speed; at least one crop completes the loop "Seed → Water → Fertilize (optional) → AwaitingHarvest → Harvest"; one minimal battle (Role vs one enemy) resolved by `damage = max(1, atk - def)` (Tier-2/3 not active); return to farm with one visible reward or state change.
 
 **中文：** **P1**：外围事件 / 捉虫的具体玩法（小游戏、判定、未及时处理的负面收益）；多作物（附录 B 6 种全部接入）；播种、收获、施肥的过场动效；与 §4.2 战斗的串联条件（如以收获物代替原 `cropTokens`）；简单敌人数值模板与防御行动；**2/3 阶属性接入战斗结算**：按 §4.2 占位顺序 `暴击 → 连击 → 反击 → 格挡` 实现判定与 `effectiveRate = clamp(attackerRate - defenderResist, 0, 1)` 抵消，并补全敌人模板的 1~3 阶默认数值。  
 **English:** **P1:** detailed pest mini-game (hit checks, penalties); all 6 crops from Appendix B wired in; seed/harvest/fertilize transition motion; battle entry conditions linked to harvested goods (replacing the original `cropTokens` placeholder); simple enemy stat templates and the defend action; **Tier-2/3 attributes enter battle resolution**: implement the `Crit → Combo → Counter → Block` order from §4.2 with `effectiveRate = clamp(attackerRate - defenderResist, 0, 1)`, and supply Tier-1/2/3 defaults for enemy templates.
@@ -864,10 +868,10 @@ struct GameSession {
 **中文：** **编辑职责**：`WarehouseBackground` 的位置、尺寸、层级挂点、遮罩内边距由预制体承担；`AirMainMenuRuntimeBuilder` 仅负责「打开/关闭弹窗」与「将 `SeedWarehouseListView` 挂入面板根节点」，不覆盖预制体中的样式与布局。  
 **English:** **Editing responsibility:** `WarehouseBackground` prefab owns position, size, hierarchy mount point, and modal spacing; `AirMainMenuRuntimeBuilder` only handles modal open/close and attaches `SeedWarehouseListView` into the panel root, without overriding prefab-authored style/layout.
 
-### 9.1 24 农田网格布局 / 24-Tile Grid Layout
+### 9.1 20 农田网格布局 / 20-Tile Grid Layout
 
-**中文：** 24 农田以 **6 行 × 4 列** 网格直接叠加在 [UI0.png](PetDemo_2/Assets/Scenes/Air/UI/UI0.png) 主背景之上，同屏可见、无需滚动；网格父容器 `FarmGridRoot` 锚点为画布中心（0.5, 0.5）。  
-**English:** The 24 tiles are laid out as a **6-row × 4-column** grid directly overlaid on the [UI0.png](PetDemo_2/Assets/Scenes/Air/UI/UI0.png) main background, fully visible without scrolling; the grid parent `FarmGridRoot` is anchored at canvas center (0.5, 0.5).
+**中文：** 20 农田以 **5 行 × 4 列** 网格直接叠加在 [UI0.png](PetDemo_2/Assets/Scenes/Air/UI/UI0.png) 主背景之上，同屏可见、无需滚动；网格父容器 `FarmGridRoot` 锚点为画布中心（0.5, 0.5）。  
+**English:** The 20 tiles are laid out as a **5-row × 4-column** grid directly overlaid on the [UI0.png](PetDemo_2/Assets/Scenes/Air/UI/UI0.png) main background, fully visible without scrolling; the grid parent `FarmGridRoot` is anchored at canvas center (0.5, 0.5).
 
 **中文：** **设计建议尺寸（可在实现中按美术微调，但比例保持）**：
 
@@ -875,24 +879,24 @@ struct GameSession {
 |---|---|---|
 | 单格 `TileSlot` | 220 × 160 px | 包含农田底图、植物精灵、状态徽标位 / hosts soil sprite, plant sprite, and status badges |
 | 列间距 / column gap | 24 px | 4 列共 3 个间距 / 3 gaps for 4 columns |
-| 行间距 / row gap | 12 px | 6 行共 5 个间距 / 5 gaps for 6 rows |
+| 行间距 / row gap | 12 px | 5 行共 4 个间距 / 4 gaps for 5 rows |
 | 网格宽 / grid width | 4 × 220 + 3 × 24 = **952 px** | 留 64 px 横向边距 / leaves ~64 px margin |
-| 网格高 / grid height | 6 × 160 + 5 × 12 = **1020 px** | 留出顶部 Role 区与底部按钮区 / leaves room for Role at top and buttons at bottom |
+| 网格高 / grid height | 5 × 160 + 4 × 12 = **848 px** | 留出顶部 Role 区与底部按钮区 / leaves room for Role at top and buttons at bottom |
 | `FarmGridRoot.anchoredPosition` | `(0, 60)` | 相对画布中心略向上偏；可由实现按 UI0.png 美术再调 / slightly above center; tunable per artwork |
 
 **English:** **Suggested design sizes (tunable in implementation while keeping proportions):** see the table above.
 
-**中文：** **`orderIndex` 编号规则**：自上而下、每行内自左而右；第 1 行 = `1..4`、第 2 行 = `5..8`、…、第 6 行 = `21..24`。这一编号同时决定 §10 智能轮训的扫描顺序与每组 4 块的视觉分组。  
-**English:** **`orderIndex` numbering:** top-to-bottom, left-to-right within each row; row 1 = `1..4`, row 2 = `5..8`, …, row 6 = `21..24`. This numbering drives the scan order of §10 smart polling and the visual 4-tile grouping.
+**中文：** **`orderIndex` 编号规则**：自上而下、每行内自左而右；第 1 行 = `1..4`、第 2 行 = `5..8`、…、第 5 行 = `17..20`。这一编号同时决定 §10 智能轮训的扫描顺序与每组 4 块的视觉分组。  
+**English:** **`orderIndex` numbering:** top-to-bottom, left-to-right within each row; row 1 = `1..4`, row 2 = `5..8`, …, row 5 = `17..20`. This numbering drives the scan order of §10 smart polling and the visual 4-tile grouping.
 
-**中文：** **每个 `TileSlot` 的子层级建议**：底图 `SoilImage`（土壤）→ 植物精灵 `PlantImage`（按 `appearanceNode` 切换）→ **（v3.24）** 缺水提示 `NeedWaterIcon`（条件显示，叠于田面中央，见下段）→ 状态徽标层 `StatusBadges`（小图标显示当前 `water` 阶、`fertilizer`、`pest`、`harvest` 提示）→ 焦点高亮 `FocusRing`（默认隐藏，由 `OnFocusChanged` 事件驱动显示）→ 焦点箭头 `FocusArrow`（默认隐藏，位于格子上方，指示「统一按钮下一次将操作的目标田」）。  
-**English:** **Suggested child hierarchy for each `TileSlot`:** `SoilImage` (soil) → `PlantImage` (swapped by `appearanceNode`) → **(v3.24)** conditional `NeedWaterIcon` (center overlay; see next paragraph) → `StatusBadges` (icons for current `water` stage, `fertilizer`, `pest`, `harvest`) → `FocusRing` (hidden by default, shown when driven by `OnFocusChanged`) → `FocusArrow` (hidden by default, positioned above the slot, indicating the tile that the unified button will operate on next).
+**中文：** **每个 `TileSlot` 的子层级建议**：底图 `SoilImage`（土壤）→ 植物精灵 `PlantImage`（按 `appearanceNode` 切换）→ **（v3.24）** 缺水提示 `NeedWaterIcon`（条件显示，叠于田面中央，见下段）→ **（v3.70）** 待浇水受理叠层 `PendingWaterIcon`（见「待浇水受理叠层」段）→ 状态徽标层 `StatusBadges`（小图标显示当前 `water` 阶、`fertilizer`、`pest`、`harvest` 提示）→ 焦点高亮 `FocusRing`（默认隐藏，由 `OnFocusChanged` 事件驱动显示）→ 焦点箭头 `FocusArrow`（默认隐藏，位于格子上方，指示「统一按钮下一次将操作的目标田」）。  
+**English:** **Suggested child hierarchy for each `TileSlot`:** `SoilImage` (soil) → `PlantImage` (swapped by `appearanceNode`) → **(v3.24)** conditional `NeedWaterIcon` (center overlay; see next paragraph) → **(v3.70)** pending-water accept overlay `PendingWaterIcon` (see "Pending water accept overlay") → `StatusBadges` (icons for current `water` stage, `fertilizer`, `pest`, `harvest`) → `FocusRing` (hidden by default, shown when driven by `OnFocusChanged`) → `FocusArrow` (hidden by default, positioned above the slot, indicating the tile that the unified button will operate on next).
 
 **中文：** **`WaterBadge` 激活态着色（`Image.color`，与 `tile.water` 对应）**：`W1` = `#4E8AA1`，`W2` = `#346274`，`W3` = `#1E4452`；**Alpha（0–255）统一为 `80`**（Unity `float` α ≈ `80/255`）。由 `TileSlotView.Refresh` → `GetWaterColor` 在运行时写入；`TileSlot.prefab` 中 `WaterBadge` 的序列化 `m_Color` 仅作编辑器默认参考，应以本段为权威。  
 **English:** **`WaterBadge` active tint (`Image.color`, mapped from `tile.water`):** `W1` = `#4E8AA1`, `W2` = `#346274`, `W3` = `#1E4452`; **Alpha (0–255) is uniformly `80`** (Unity `float` α ≈ `80/255`). Applied at runtime by `TileSlotView.Refresh` → `GetWaterColor`; serialized `m_Color` on `WaterBadge` in `TileSlot.prefab` is editor reference only — this paragraph is authoritative.
 
-**中文：** **自 v0.9 起，网格改为预制体驱动**：`FarmGridRoot` 与 `TileSlot` 均改为可在编辑器中直接调 `RectTransform` 的预制体。运行时由 `FarmGridView` 负责实例化 `FarmGridRoot`，并按 `orderIndex 1..24` 实例化 24 个 `TileSlot` 子节点；位置公式与 §9.1 的 6×4 规则保持不变。  
-**English:** **Since v0.9, the grid is prefab-driven:** both `FarmGridRoot` and `TileSlot` become editor-adjustable prefabs with editable `RectTransform`s. At runtime, `FarmGridView` instantiates `FarmGridRoot`, then instantiates 24 `TileSlot` children in `orderIndex 1..24`; the positioning formula still follows the same 6×4 rule in §9.1.
+**中文：** **自 v0.9 起，网格改为预制体驱动**：`FarmGridRoot` 与 `TileSlot` 均改为可在编辑器中直接调 `RectTransform` 的预制体。运行时由 `FarmGridView` 负责实例化 `FarmGridRoot`，并按 `orderIndex 1..20` 实例化 20 个 `TileSlot` 子节点；位置公式与 §9.1 的 5×4 规则保持不变。  
+**English:** **Since v0.9, the grid is prefab-driven:** both `FarmGridRoot` and `TileSlot` become editor-adjustable prefabs with editable `RectTransform`s. At runtime, `FarmGridView` instantiates `FarmGridRoot`, then instantiates 20 `TileSlot` children in `orderIndex 1..20`; the positioning formula still follows the same 5×4 rule in §9.1.
 
 **中文：** **预制体资源约定**：默认从 `Resources/Prefabs/Farm/` 加载 `FarmGridRoot.prefab` 与 `TileSlot.prefab`；若项目改用其他路径，可在 `AirMainMenuRuntimeBuilder` 上通过序列化字段覆盖（以 Inspector 配置为准）。  
 **English:** **Prefab asset convention:** defaults are loaded from `Resources/Prefabs/Farm/` as `FarmGridRoot.prefab` and `TileSlot.prefab`; if the project uses a different path, override via serialized fields on `AirMainMenuRuntimeBuilder` (Inspector values take precedence).
@@ -900,14 +904,17 @@ struct GameSession {
 **中文：** **编辑职责拆分**：整体网格位置与层级由 `FarmGridRoot` 预制体负责（如 `anchoredPosition`、父层级关系）；单格尺寸、植物图层边距、徽标与高亮布局由 `TileSlot` 预制体负责。这样可在不改代码的前提下完成大多数 UI 调整。  
 **English:** **Editing responsibility split:** overall grid placement/layering is owned by the `FarmGridRoot` prefab (e.g., `anchoredPosition`, parent hierarchy), while per-tile size, plant padding, badge layout, and focus styling are owned by the `TileSlot` prefab. Most UI tweaks can then be done without code changes.
 
-**中文：** **两种布局模式（自 v1.0 起）**：`FarmGridView` 启动时先扫描 `FarmGridRoot` 的直接子节点，若发现 `≥ FarmTileCount`（24）个挂载 `TileSlotView` 组件的子节点，则进入「**手动布局模式**」——直接按 `sibling order 1..24` 绑定到 `orderIndex`，不再实例化新格子，每格的 `RectTransform`（`anchoredPosition` / `sizeDelta` / `pivot` / `anchors`）以及子层级布局完全由预制体决定，从而支持每格独立位置与大小。否则进入「**自动布局模式**」，按 §9.1 的 6×4 公式由代码生成 24 格（必要时可挂 `GridLayoutGroup` 让根节点接管布局）。  
-**English:** **Two layout modes (since v1.0):** when `FarmGridView` starts, it first scans direct children of `FarmGridRoot`. If it finds at least `FarmTileCount` (24) direct children carrying a `TileSlotView` component, it enters **manual layout mode** — binding them to `orderIndex` 1..24 by `sibling order` and skipping any instantiation, so each tile's `RectTransform` (`anchoredPosition` / `sizeDelta` / `pivot` / `anchors`) and child hierarchy is fully owned by the prefab, enabling per-tile position and size editing. Otherwise it enters **auto layout mode**, generating 24 tiles via the 6×4 formula in §9.1 (optionally letting a `GridLayoutGroup` on the root drive the layout).
+**中文：** **两种布局模式（自 v1.0 起）**：`FarmGridView` 启动时先扫描 `FarmGridRoot` 的直接子节点，若发现 `≥ FarmTileCount`（20）个挂载 `TileSlotView` 组件的子节点，则进入「**手动布局模式**」——直接按 `sibling order 1..20` 绑定到 `orderIndex`，不再实例化新格子，每格的 `RectTransform`（`anchoredPosition` / `sizeDelta` / `pivot` / `anchors`）以及子层级布局完全由预制体决定，从而支持每格独立位置与大小。否则进入「**自动布局模式**」，按 §9.1 的 5×4 公式由代码生成 20 格（必要时可挂 `GridLayoutGroup` 让根节点接管布局）。  
+**English:** **Two layout modes (since v1.0):** when `FarmGridView` starts, it first scans direct children of `FarmGridRoot`. If it finds at least `FarmTileCount` (20) direct children carrying a `TileSlotView` component, it enters **manual layout mode** — binding them to `orderIndex` 1..20 by `sibling order` and skipping any instantiation, so each tile's `RectTransform` (`anchoredPosition` / `sizeDelta` / `pivot` / `anchors`) and child hierarchy is fully owned by the prefab, enabling per-tile position and size editing. Otherwise it enters **auto layout mode**, generating 20 tiles via the 5×4 formula in §9.1 (optionally letting a `GridLayoutGroup` on the root drive the layout).
 
 **中文：** **收获直点入口（v3.2）**：当农田 `tile.harvest==AwaitingHarvest` 时，`TileSlotView` 需显示 `Resources/AirUI/ShouHuo-0` 图标，并允许玩家直接点击该田触发 `IPlantingService.TryHarvestTile(tileId)`；若同次点击既满足收获又满足施肥，收获优先。  
 **English:** **Direct tap harvest entry (v3.2):** when `tile.harvest==AwaitingHarvest`, `TileSlotView` should show `Resources/AirUI/ShouHuo-0` and allow direct tap to call `IPlantingService.TryHarvestTile(tileId)`; if both harvest and fertilize are possible on one tap, harvest takes priority.
 
 **中文：** **缺水暂停生长提示（v3.24）**：当植物因 §4.1.4「暂停 / 恢复」处于**需浇水才能继续生长**时（`tile.water==Empty` 且 `PlantInstance.state ∈ {Growing, Paused}`，且该格未被 §4.1.10.3 变异锁定），在本格田面中央叠加 `Resources/AirUI/QueShui_1`（子节点名 `NeedWaterIcon`，`Image.raycastTarget=false`，可由预制体提供或由 `TileSlotView` 在缺失时运行时创建并插在 `FocusRing` 之前以保证叠放顺序）。一旦 `tile.water` 为 `W1/W2/W3`（可继续推进生长倒计时）或植物不再处于上述生长链（如 `AwaitingHarvest`），图标隐藏。由 `TileSlotView.Refresh` 根据 `OnTileFlagsChanged` / `OnPlantStateChanged` 等既有事件链刷新。  
 **English:** **Low-water growth-pause hint (v3.24):** when §4.1.4 pause/resume implies the plant **needs watering to keep growing** (`tile.water==Empty` and `PlantInstance.state ∈ {Growing, Paused}`, and the tile is not mutation-locked per §4.1.10.3), overlay `Resources/AirUI/QueShui_1` at the tile center (`NeedWaterIcon`, `Image.raycastTarget=false`; may be prefab-authored or runtime-created by `TileSlotView` when missing, inserted just before `FocusRing` for draw order). Hide as soon as `tile.water` is `W1/W2/W3` (countdown can advance) or the plant leaves that growth chain (e.g. `AwaitingHarvest`). Updated via `TileSlotView.Refresh` on the existing `OnTileFlagsChanged` / `OnPlantStateChanged` event chain.
+
+**中文：** **待浇水受理叠层（v3.70，v3.71 修订语义）**：统一按钮（含 §9.2.1 自动浇水）每成功受理一次 `Water`，`PlantingService` 对该田 `_pendingWaterCounts[tileId]++`（**不修改** `tile.water`）；同田可连续受理直至达到上限。子节点名 `PendingWaterIcon`；`RectTransform` 与 `NeedWaterIcon` 一致（150×150 居中）；叠放于 `NeedWaterIcon` 之上、`FocusRing` 之前。图标映射：**待浇水次数 N → `Resources/AirUI/JiaoShi_Dai_N`（N=1..3）**；`GetPendingWaterDisplayTier` 直接返回该次数。受理上限：`pendingCount` 不得超过该田尚可执行的浇水次数（`tile.water==Empty` 最多 3、`W1` 最多 2、`W2` 最多 1、`W3` 不可再受理）。`CommitWaterTile` 每次 `pendingCount--`（至 0 移除）并执行一次 `ApplyWater`。互斥：`pendingCount>0` 时隐藏 `NeedWaterIcon`；`pendingCount==0` 后按 v3.24 恢复。事件：`OnWaterPendingChanged` + `OnTileFlagsChanged`。`TryWaterTile` **不**增减 pending。  
+**English:** **Pending water overlay (v3.70, semantics revised v3.71):** each accepted unified `Water` increments `_pendingWaterCounts[tileId]` without changing `tile.water`; same tile may stack until the cap. Overlay sprite **N → `JiaoShi_Dai_N`**; `GetPendingWaterDisplayTier` returns the count. Cap: `Empty` max 3, `W1` max 2, `W2` max 1, `W3` none. Each `CommitWaterTile` decrements count once and runs one `ApplyWater`. Hide `NeedWaterIcon` while `pendingCount>0`. `TryWaterTile` does not touch pending.
 
 #### 9.1.1 农田格子上方 Tips（v3.15） / Tile-Top Tips
 
@@ -926,8 +933,8 @@ struct GameSession {
 **中文：** **Tips 文本布局（v3.16）**：`Line1` 的 `RectTransform.anchoredPosition.y = -80`，`Line2` 的 `RectTransform.anchoredPosition.y = -140`（两者均相对 Tips 顶部锚点）。  
 **English:** **Tip text layout (v3.16):** `Line1` uses `RectTransform.anchoredPosition.y = -80`, and `Line2` uses `RectTransform.anchoredPosition.y = -140` (both relative to the tip top anchor).
 
-**中文：** **手动布局识别规则**：仅检索 `FarmGridRoot` 的 **直接** 子节点（不递归），按当前 `sibling index` 升序取前 24 个挂 `TileSlotView` 的对象绑定到 `orderIndex 1..24`；其它装饰子节点（无 `TileSlotView`）会被忽略。若手动节点不足 24 个，则整体回退到自动模式以保证 24 格完整。  
-**English:** **Manual-mode detection:** only the **direct** children of `FarmGridRoot` are scanned (no recursion); the first 24 children carrying `TileSlotView`, ordered by ascending `sibling index`, are bound to `orderIndex 1..24`. Decorative children (without `TileSlotView`) are ignored. If fewer than 24 manual slots are present, the system falls back to auto mode to guarantee 24 tiles overall.
+**中文：** **手动布局识别规则**：仅检索 `FarmGridRoot` 的 **直接** 子节点（不递归），按当前 `sibling index` 升序收集挂 `TileSlotView` 的对象；其它装饰子节点（无 `TileSlotView`）会被忽略。若数量 `≥ FarmTileCount`，全部按 `orderIndex 1..N` 绑定且不再实例化。若 `0 < 数量 < FarmTileCount`，进入「**混合布局**」：先绑定已有手动格到 `orderIndex 1..手动数`，再仅为缺失的 `orderIndex` 按 5×4 公式实例化（**不得**保留手动格的同时再生成完整 1..N 套，避免重复 `TileSlot_01..NN`）。运行时还会销毁名称序号 `> FarmTileCount` 的遗留 `TileSlot_XX` 子节点（如 `TileSlot_21..24`）。若无任何 `TileSlotView` 子节点，才整体进入自动模式生成全部格子。  
+**English:** **Manual-mode detection:** only **direct** children of `FarmGridRoot` are scanned (no recursion) for `TileSlotView`; decorative children are ignored. If the count is `≥ FarmTileCount`, all are bound to `orderIndex 1..N` with no further instantiation. If `0 < count < FarmTileCount`, **hybrid layout** applies: bind existing manual slots to `orderIndex 1..manualCount`, then instantiate only missing indices via the 5×4 formula (**must not** keep manual slots and also spawn a full duplicate `TileSlot_01..NN` set). At runtime, orphan `TileSlot_XX` children with index `> FarmTileCount` (e.g. `TileSlot_21..24`) are destroyed. With zero manual slots, full auto layout generates every tile.
 
 **中文：** **`GridLayoutGroup` 与手动模式互斥**：手动布局模式下不应在 `FarmGridRoot` 上启用 `GridLayoutGroup`（否则其每帧重新排版会覆盖手工位置）；自动布局模式下若挂 `GridLayoutGroup`，则其 `cellSize` 与 `spacing` 接管单格尺寸/间距。  
 **English:** **`GridLayoutGroup` is mutually exclusive with manual mode:** in manual layout, do not enable `GridLayoutGroup` on `FarmGridRoot` (it would re-arrange children every frame and overwrite handcrafted positions); in auto layout, if `GridLayoutGroup` is present, its `cellSize` and `spacing` take over per-cell size and gaps.
@@ -937,8 +944,8 @@ struct GameSession {
 **中文：** 主界面底部居中放置一枚 `UnifiedActionButton`（建议尺寸 **282 × 193** px，位于 `anchoredPosition (0, -660)`，相对画布中心锚点）；其文字与图标随当前焦点田的最高优先级动作动态切换（`Seed / Water / Fertilize / PestControl / Harvest`），点击调用 `IPlantingService.ExecuteUnifiedAction()`。  
 **English:** A `UnifiedActionButton` is placed at the bottom-center of the main screen (suggested size **282 × 193** px, at `anchoredPosition (0, -660)` relative to the canvas center anchor); its label and icon switch dynamically by the focused tile's highest-priority action (`Seed / Water / Fertilize / PestControl / Harvest`), and tapping it invokes `IPlantingService.ExecuteUnifiedAction()`.
 
-**中文：** 当 24 田全部「无事可做」时，按钮置灰并显示「暂无操作 / No Action」，禁用点击。  
-**English:** When none of the 24 tiles is actionable, the button is disabled and shows "暂无操作 / No Action".
+**中文：** 当 20 田全部「无事可做」时，按钮置灰并显示「暂无操作 / No Action」，禁用点击。  
+**English:** When none of the 20 tiles is actionable, the button is disabled and shows "暂无操作 / No Action".
 
 **中文：** **自 v1.1 起，统一按钮改为预制体驱动**：运行时优先实例化 `UnifiedActionButton.prefab`，并直接复用预制体中配置好的 `RectTransform`、背景 `Image`、`Button` 过渡色、文字 `Text` 样式；仅在缺失预制体时回退到代码构建默认样式。  
 **English:** **Since v1.1, the unified button is prefab-driven:** runtime now prefers instantiating `UnifiedActionButton.prefab` and reuses the prefab-authored `RectTransform`, background `Image`, `Button` transition colors, and label `Text` style; only falls back to code-built defaults when prefab is missing.
@@ -969,8 +976,8 @@ struct GameSession {
 **中文：** **入侵态联动**：进入入侵态时统一按钮底图切回 `ZhanDouKaiShi` 并按 v3.11 触发 `OpenBattle()`；同时 `AutoToggleButton` 必须隐藏（`gameObject.SetActive(false)`）以避免玩家在战斗入口位置误触。离开入侵态后恢复 `AutoToggleButton` 显示，并按 `autoMode` 现值还原 `JiaoShui-1` 或 `JiaoShui-2`；`autoRunning` 在入侵态被强制清零（不会自动恢复）。  
 **English:** **Invasion linkage:** on entering invasion, the unified button reverts to `ZhanDouKaiShi` and triggers `OpenBattle()` per v3.11; meanwhile `AutoToggleButton` must be hidden (`gameObject.SetActive(false)`) to prevent mis-taps at the battle entry. On leaving invasion, `AutoToggleButton` is shown again and the unified background is restored to `JiaoShui-1` or `JiaoShui-2` according to the current `autoMode`; `autoRunning` is force-cleared during invasion and does not resume automatically.
 
-**中文：** **可见性与禁用**：当 24 田全部「无事可做」时，统一按钮按 §9.2 既有规则置灰禁用；`AutoToggleButton` 始终保持可点击（仅做模式切换不消耗服务调用），不随统一按钮的 `interactable` 状态同步禁用。`autoRunning == true` 时若主按钮被服务方置为不可交互，协程仍可正常调用 `ExecuteUnifiedAction()`（服务内部会以 `false` 返回值短路），不需要额外的 UI 中断。  
-**English:** **Visibility and disable:** when none of the 24 tiles is actionable, the unified button is greyed out per §9.2; `AutoToggleButton` always stays clickable (it only flips mode and does not consume service calls) and does not mirror the unified button's `interactable` state. While `autoRunning == true`, even if the main button becomes non-interactable, the coroutine still calls `ExecuteUnifiedAction()` (the service internally returns `false` and short-circuits); no extra UI interruption is required.
+**中文：** **可见性与禁用**：当 20 田全部「无事可做」时，统一按钮按 §9.2 既有规则置灰禁用；`AutoToggleButton` 始终保持可点击（仅做模式切换不消耗服务调用），不随统一按钮的 `interactable` 状态同步禁用。`autoRunning == true` 时若主按钮被服务方置为不可交互，协程仍可正常调用 `ExecuteUnifiedAction()`（服务内部会以 `false` 返回值短路），不需要额外的 UI 中断。  
+**English:** **Visibility and disable:** when none of the 20 tiles is actionable, the unified button is greyed out per §9.2; `AutoToggleButton` always stays clickable (it only flips mode and does not consume service calls) and does not mirror the unified button's `interactable` state. While `autoRunning == true`, even if the main button becomes non-interactable, the coroutine still calls `ExecuteUnifiedAction()` (the service internally returns `false` and short-circuits); no extra UI interruption is required.
 
 **中文：** **实现优先级（v3.23）**：P0 必做「`AutoToggleButton` 子按钮构建 + 双底图切换 + 0.3 s 自动循环 + 入侵态联动停机」；P1 可选扩展按钮按下/抬起态精灵差异、按下时的轻量动效与音效。  
 **English:** **Implementation priority (v3.23):** P0 must implement "`AutoToggleButton` sub-button construction + dual-background switch + 0.3 s auto loop + invasion-phase stop"; P1 may add pressed/released sprite differences, lightweight press feedback, and SFX.
@@ -1081,8 +1088,8 @@ flowchart TB
 **中文：** 自 v2.9 起，「播种」操作的玩家入口从统一按钮迁移到种子仓库面板内的专用「播种」按钮 + 手势。设计目标：玩家在仓库选中 1 种「种子」或「种子包」后，仓库底部出现「播种」按钮，按下该按钮即关闭仓库 modal 并进入播种手势态；按住拖动可连续在多块田上播种，单击松开后可对单块田点击播种（一次性）。  
 **English:** Since v2.9, the player entry for `Seed` is moved from the unified button to a dedicated in-warehouse "Sow" button + gesture. Design goal: after the player selects one `Seed` or `SeedPack` in the warehouse, a "Sow" button appears at the bottom of the warehouse panel; pressing it immediately closes the warehouse modal and enters a sow-gesture state. Holding-and-dragging seeds multiple tiles in one gesture; tap-and-release arms a one-shot click-sow that consumes the next tap on a sowable tile.
 
-**中文：** **可见性与显示位置**：`SowActionButton` 的 GameObject 实际挂在 Canvas 根节点（不进入 `SeedWarehouseModal` 子树），但视觉位置位于 `WarehouseBackground` 底部居中，建议尺寸 360 × 120 px，`anchoredPosition (0, -680)` 附近（位于 24 田统一按钮之上、仓库面板内底部空白区）。显示条件：`seedBag.active != null` **且** 仓库 modal 处于打开状态 **且** 当前手势状态为 `Idle`；任一条件不满足则按钮 `SetActive(false)`。该挂载位置（Canvas 根而非 modal 子树）是支持「按下按钮 → 关闭 modal → 后续 IDrag/IPointerUp 仍能触发」这一交互链路的必要前提。  
-**English:** **Visibility and placement:** the `SowActionButton` GameObject is parented under the Canvas root (NOT inside `SeedWarehouseModal` subtree), but visually positioned at the bottom-center of `WarehouseBackground` (suggested size 360 × 120 px, `anchoredPosition (0, -680)`, sitting above the 24-tile unified button and inside the bottom whitespace of the warehouse panel). Visibility conditions: `seedBag.active != null` **and** the warehouse modal is open **and** the current gesture state is `Idle`; any failure causes `SetActive(false)`. The Canvas-root parenting (not modal-subtree) is required so that the interaction chain "press button → close modal → later IDrag/IPointerUp still fire" works correctly.
+**中文：** **可见性与显示位置**：`SowActionButton` 的 GameObject 实际挂在 Canvas 根节点（不进入 `SeedWarehouseModal` 子树），但视觉位置位于 `WarehouseBackground` 底部居中，建议尺寸 360 × 120 px，`anchoredPosition (0, -680)` 附近（位于 20 田统一按钮之上、仓库面板内底部空白区）。显示条件：`seedBag.active != null` **且** 仓库 modal 处于打开状态 **且** 当前手势状态为 `Idle`；任一条件不满足则按钮 `SetActive(false)`。该挂载位置（Canvas 根而非 modal 子树）是支持「按下按钮 → 关闭 modal → 后续 IDrag/IPointerUp 仍能触发」这一交互链路的必要前提。  
+**English:** **Visibility and placement:** the `SowActionButton` GameObject is parented under the Canvas root (NOT inside `SeedWarehouseModal` subtree), but visually positioned at the bottom-center of `WarehouseBackground` (suggested size 360 × 120 px, `anchoredPosition (0, -680)`, sitting above the 20-tile unified button and inside the bottom whitespace of the warehouse panel). Visibility conditions: `seedBag.active != null` **and** the warehouse modal is open **and** the current gesture state is `Idle`; any failure causes `SetActive(false)`. The Canvas-root parenting (not modal-subtree) is required so that the interaction chain "press button → close modal → later IDrag/IPointerUp still fire" works correctly.
 
 **中文：** **手势状态机**：`SowGestureController` 维护四态 `Idle / Armed / SlideMode / ClickMode`，跨手势持有 `HashSet<string> sownThisGesture` 用于同田防重。  
 **English:** **Gesture state machine:** `SowGestureController` maintains four states `Idle / Armed / SlideMode / ClickMode`, with a cross-gesture `HashSet<string> sownThisGesture` to deduplicate per-tile sows within a single drag.
@@ -1265,7 +1272,7 @@ class PetCompanionPresenter : MonoBehaviour {
 
 **抽签规则**（每次「当前状态要求的动作序列」结束后执行一次）：
 
-- 若 24 田中**不存在**任何「有植物」田 → **100%** 进入 / 保持 **状态1**
+- 若 20 田中**不存在**任何「有植物」田 → **100%** 进入 / 保持 **状态1**
 - 否则 → **65%** 状态1、**35%** 状态2（`UnityEngine.Random.value < 0.65f`）
 
 **有植物田**：`tile.planting == Seeded` 且 `plantInstanceId` 非空 且 `lockedByMutationId` 为空。
@@ -1529,6 +1536,17 @@ Each `ChapterPin` `RectTransform` uses `anchorMin = anchorMax = (0.5, 0.5)`, `pi
 **中文：** **实现优先级**：P0 必做「单 ChapterPin + 选中互斥 + 空白点击取消 + 「前往」显示规则 + 饿肚子提示框 + 「确定」打开食物仓库」；P1 可扩展多 ChapterPin + 关卡数据驱动 + `IsRoleFull()` 时直跳战斗入口。  
 **English:** **Priority:** P0 ships single `ChapterPin` + mutex + tap-outside deselect + `GoButton` visibility + hungry dialog + OK opens food warehouse; P1 extends to multi-pin + data-driven stages + direct-to-battle when `IsRoleFull()`.
 
+##### 9.8.8.8 主线关卡胜利固定掉落（v3.72）/ Main Story Level Victory Fixed Rewards (v3.72)
+
+**中文：** 在 **`main_story_levels.csv`** 增加专用列 **`victoryRewards`**，采用 **固定产出模式**：配表写入的 `kind` / `id` / `count` 在战斗胜利时 **原样** 入包，不做随机、倍率或概率修正。单格内可配置 **多条** 奖励，条目之间用 **`;`** 分隔；每条内部用 **`:`** 分隔三段，格式为 **`kind:id:count`**。`kind` 与 §12.8 / §B.10 一致，仅支持 **`Seed`**、**`Fertilizer`**、**`SeedPack`**：`Seed` 的 `id` 为 `plantConfigId`；`Fertilizer` 的 `id` 为 `fertilizerId`；`SeedPack` 的 `id` 为品质枚举 **`Common` / `Rare` / `Epic` / `Legendary`**。`count` 为正整数。列留空表示该关胜利 **无** 额外道具掉落。解析由 **`FixedRewardListParser.Parse`** 完成，非法条目 Warning + 跳过。  
+**English:** Add column **`victoryRewards`** to **`main_story_levels.csv`** using **fixed-output mode**: configured `kind` / `id` / `count` are granted **as-is** on victory (no randomness or multipliers). Multiple rewards per cell are separated by **`;`**; each entry is **`kind:id:count`**. `kind` matches §12.8 / §B.10 (`Seed`, `Fertilizer`, `SeedPack` only). Empty column means no item rewards for that level. Parsing is via **`FixedRewardListParser.Parse`**; malformed entries log a warning and are skipped.
+
+**中文：** **发放时机与数据源**：仅当本场战斗经 **`RequestMainStoryLevelSelectBattle()`** 或 §12.9 自动连战链（`continueMainStoryProgressInAutoChain`）进入、且 **`CloseBattle(playerWon=true)`** 时，按 **当前挑战关** `levelNumber = mainStoryHighestClearedLevel + 1`（封顶 `GetMaxLevelNumber`）读取该关 `victoryRewards` 并调用 `IPlantingService` 的 `GrantSeed` / `GrantFertilizer` / `GrantSeedPack`。**非主线**入侵战（仓库「开始」、入侵入口等）仍仅使用 **`invasion_victory_rewards.csv`**，不读关卡表。`InvasionService.OpenBattle` 时解析并缓存 **`activeVictoryRewards`**，供 `GetVictoryRewards()` 与结算弹窗（`InvasionBattleResultDialogView`，`RewardListEnabled=true` 时）展示。  
+**English:** **Grant timing and source:** only when the battle was entered via **`RequestMainStoryLevelSelectBattle()`** or the §12.9 auto-chain (`continueMainStoryProgressInAutoChain`), and **`CloseBattle(playerWon=true)`**, rewards are read for the **current challenge level** `levelNumber = mainStoryHighestClearedLevel + 1` (capped by max level) and granted through `GrantSeed` / `GrantFertilizer` / `GrantSeedPack`. **Non–main-story** invasion battles still use **`invasion_victory_rewards.csv`** only. `InvasionService.OpenBattle` resolves **`activeVictoryRewards`** for `GetVictoryRewards()` and the result dialog when enabled.
+
+**中文：** **数据结构**：`MainStoryLevelConfig.victoryRewards` 为 `List<InvasionRewardConfig>`（与入侵掉落共用条目类型）。**实现优先级**：P0 列解析 + 主线胜利发放 + 与入侵表分流；P1 关卡信息叠层展示奖励预览、按关差异化敌人。  
+**English:** **Data:** `MainStoryLevelConfig.victoryRewards` is `List<InvasionRewardConfig>`. **Priority:** P0 parse column + main-story grant + split from invasion table; P1 reward preview on level info overlay and per-level enemies.
+
 #### 9.8.9 公会全屏背景层（底部导航 GongHui）(v3.34)
 
 **中文：** 当 `OnOpenChanged` 的 `newKey == "GongHui"` 时，在主 Canvas 上显示全屏面板 **`GongHuiScreen`**（与 `BottomNavBar` 同级、`RectTransform` 全屏拉伸，`SetSiblingIndex` 置于 `BottomNavBar` 之下，保证底栏始终可点）。根节点默认 `active=false`；`newKey != "GongHui"` 时隐藏。背景图为 **`Resources.Load<Sprite>("AirUI/Gonghui_0")`**（对应源文件 `Assets/Resources/AirUI/Gonghui_0.png`），`Image.preserveAspect = false` 铺满；资源缺失时回退为深色纯色并 `Debug.LogWarning`。本期仅承载底图，公会玩法控件为后续扩展。实现类型为 `PetDemo.UI.BottomNavSimpleBackgroundScreenView.BuildInto(..., navKey: "GongHui", resourcesSpritePath: "AirUI/Gonghui_0")`，布局与背景构建复用 **`BottomNavAttachedScreenLayout`**；由 `AirMainMenuRuntimeBuilder.BuildBottomNavBar` 在 `MainStoryLineScreenView.BuildInto` 之后构建；`OnDestroy` 时解除订阅。  
@@ -1750,8 +1768,8 @@ WarehouseHubPanel                    // RectTransform, anchors=(0,0)/(1,1), offs
 
 ##### 9.8.13.3.1 右上已获得 Buff 竖排 / Top-Right Gained-Buff Stack
 
-**中文：** 预制体含 **`BuffGainedStack`** 节点（与 `CloseButton` 同级，默认锚点右上 `(1,1)`、`pivot=(1,1)`，带 `VerticalLayoutGroup` + `ContentSizeFitter`）。`WarehouseHubPanelView.Show()` 时清空其子节点；当 **`EatOneFruit` / `EatFruitToFull` 成功**且对应 `PlantConfig.eatBuffIconResource` 非空时，以 **`plantConfigId` 为键**维护竖排条目：每个键对应一行 **`56×56`** 容器（`LayoutElement`），子节点 **`Icon`**（`eatBuffIconResource` 的 `Image`，`preserveAspect=true`，`raycastTarget=false`）与 **`Count`**（右下角 `Text`，纯数字字符串，表示本面板会话内该作物果实被吃下的累计颗数）。若该键已存在，则将本次成功吃下的颗数 **累加** 到 `Count.text` 解析出的整数上，**不新增行**；若不存在则追加新行，初值等于本次吃下的颗数。超过 **48 个不同 `plantConfigId`** 时丢弃**最早创建**的一行（FIFO）。缺预制体节点时运行时可自动创建同名兜底容器。  
-**English:** The prefab includes **`BuffGainedStack`** (sibling of `CloseButton`, top-right anchored, `VerticalLayoutGroup` + `ContentSizeFitter`). `WarehouseHubPanelView.Show()` clears its children. On successful **`EatOneFruit` / `EatFruitToFull`**, if `PlantConfig.eatBuffIconResource` is set, maintain one vertical row per **`plantConfigId`**: each row is a **56×56** cell (`LayoutElement`) with an **`Icon`** `Image` (buff sprite, `preserveAspect=true`, `raycastTarget=false`) and a bottom-right **`Count`** `Text` holding a plain numeric string for total fruits eaten this session for that plant id. If the row already exists, **add** the newly consumed count to the parsed integer; **do not** add another row. Otherwise append a new row initialized to the consumed count. Cap **48 distinct `plantConfigId` rows** by dropping the **oldest-created** row (FIFO). Runtime may create the node if missing.
+**中文：** 预制体含 **`BuffGainedStack`** 节点（与 `CloseButton` 同级，默认锚点右上 `(1,1)`、`pivot=(1,1)`，带 `VerticalLayoutGroup` + `ContentSizeFitter`）。`WarehouseHubPanelView.Show()` 时清空其子节点；当 **`EatOneFruit` / `EatFruitToFull` 成功**且对应 `PlantConfig.eatBuffIconResource` 非空时，以 **`plantConfigId` 为键**维护竖排条目：每个键对应一行 **`128×128`** 容器（`LayoutElement`，常量 `BuffIconCell=128`），子节点 **`Icon`**（`eatBuffIconResource` 的 `Image`，铺满容器、`preserveAspect=true`，`raycastTarget=false`）与 **`Count`**（右下角 `Text`，纯数字字符串，表示本面板会话内该作物果实被吃下的累计颗数）。若该键已存在，则将本次成功吃下的颗数 **累加** 到 `Count.text` 解析出的整数上，**不新增行**；若不存在则追加新行，初值等于本次吃下的颗数。超过 **48 个不同 `plantConfigId`** 时丢弃**最早创建**的一行（FIFO）。缺预制体节点时运行时可自动创建同名兜底容器。  
+**English:** The prefab includes **`BuffGainedStack`** (sibling of `CloseButton`, top-right anchored, `VerticalLayoutGroup` + `ContentSizeFitter`). `WarehouseHubPanelView.Show()` clears its children. On successful **`EatOneFruit` / `EatFruitToFull`**, if `PlantConfig.eatBuffIconResource` is set, maintain one vertical row per **`plantConfigId`**: each row is a **128×128** cell (`LayoutElement`, `BuffIconCell=128`) with an **`Icon`** `Image` (buff sprite, fills the cell, `preserveAspect=true`, `raycastTarget=false`) and a bottom-right **`Count`** `Text` holding a plain numeric string for total fruits eaten this session for that plant id. If the row already exists, **add** the newly consumed count to the parsed integer; **do not** add another row. Otherwise append a new row initialized to the consumed count. Cap **48 distinct `plantConfigId` rows** by dropping the **oldest-created** row (FIFO). Runtime may create the node if missing.
 
 ##### 9.8.13.4 StaminaBarSlot 与 StaminaBarView 适配 / StaminaBarSlot and StaminaBarView Fit (275×116)
 
@@ -1888,10 +1906,10 @@ public class RoleGrowthScreenView : MonoBehaviour
 
 ---
 
-### 9.11 虫灾「打虫子」全屏演示 / Pest Control "Bug Catching" Fullscreen Demo (v3.50)
+### 9.11 虫灾「灭虫」全屏小游戏 / Pest Control "Bug Extermination" Fullscreen Mini-Game (v3.50, v3.64 正式版)
 
-**中文（v3.50，v3.59 修订衔接，v3.60 奖励）：** 当某田触发虫灾（`tile.pest == AwaitingPestControl`，详见 §4.1.6）时，在该田面中央叠加一枚可点击的 `WH_Chong` 图标；点击图标打开本节描述的全屏「打虫子」演示界面；玩家在「胜利」后应先调用 `IPlantingService.CompletePestControl(tileId)` 清除虫灾并关闭本全屏层，再立即打开 **§9.13** `WheelLotteryScreenView`（`Open(tileId, grantMutationOnConfirm: false)`，转盘可玩但**不写入**单格变异，两种变异奖励概率视为 0）；**不切换底栏 Tab**。  
-**English (v3.50, v3.59 handoff, v3.60 rewards):** When a tile has a pest event (`tile.pest == AwaitingPestControl`, see §4.1.6), overlay a tappable `WH_Chong` icon at the tile center. Tapping it opens the fullscreen "bug catching" demo. After **Victory**, call `IPlantingService.CompletePestControl(tileId)` to clear the pest and close this layer, then immediately open §9.13 `WheelLotteryScreenView` with **`Open(tileId, grantMutationOnConfirm: false)`** — the wheel still plays but **does not grant** single-tile mutation (both mutation kinds at 0%); **no bottom-nav tab switch**.
+**中文（v3.64 正式版，v3.59 衔接，v3.60 奖励）：** 当某田触发虫灾（`tile.pest == AwaitingPestControl`，详见 §4.1.6）时，在该田面中央叠加一枚可点击的 `WH_Chong` 图标；点击图标打开本节描述的 **5×5 滑动合并灭虫小游戏**（黑色半透明全屏遮罩 + 网格区）；玩家在「胜利」后应先调用 `IPlantingService.CompleteAllPestControl()`（**自 v3.79 起一次胜利清除农田内所有虫灾**）并关闭本全屏层，再立即以 `currentTileId` 打开 **§9.13** `WheelLotteryScreenView`（`Open(tileId, grantMutationOnConfirm: false)`，转盘可玩但**不写入**单格变异，两种变异奖励概率视为 0）；**不切换底栏 Tab**。失败时不调用 `CompleteAllPestControl`，玩家可「重试」或「关闭」返回农场（虫灾状态保持 `AwaitingPestControl`）。  
+**English (v3.64 full mini-game, v3.59 handoff, v3.60 rewards):** When a tile has a pest event (`tile.pest == AwaitingPestControl`, see §4.1.6), overlay a tappable `WH_Chong` icon at the tile center. Tapping it opens the **5×5 swipe-merge pest extermination mini-game** (fullscreen semi-transparent black overlay + grid). After **Victory**, call `IPlantingService.CompleteAllPestControl()` (**since v3.79 a single win clears every pest event farm-wide**) and close this layer, then immediately open §9.13 `WheelLotteryScreenView` with **`Open(currentTileId, grantMutationOnConfirm: false)`** — the wheel still plays but **does not grant** single-tile mutation (both mutation kinds at 0%); **no bottom-nav tab switch**. On **Defeat**, do not call `CompleteAllPestControl`; the player may **Retry** or **Close** back to the farm with the pest event still active.
 
 #### 9.11.1 田面虫灾图标 / Pest Overlay Icon on Tile
 
@@ -1918,12 +1936,23 @@ if (tile.pest == PestFlag.AwaitingPestControl)
 | 元素 | 规格 |
 |------|------|
 | 根节点 `PestControlModal` | stretch 全屏，初始 `SetActive(false)` |
-| `PestGameBackground` | 铺满；Sprite = `Resources/AirUI/WH_Game_Chong`；`preserveAspect = false` |
-| `VictoryButton`（初始隐藏） | 尺寸 **280 × 110**，`anchoredPosition = (0, -520)`（相对中心锚）；文字「胜利」 |
+| `DimOverlay` | 黑色半透明遮罩 `Color(0,0,0,0.65)`，铺满 |
+| `PestControlGridView` | 5×5 网格，居中 `anchoredPosition (0, -75)`；每格 **150 × 150** px，间距 **8** px，外框 **782 × 782** px；空格深灰底；棋子数值字号 **45**；浮动棋子 **狼人绘制层级高于虫子**（`SetSiblingIndex`：槽位底 → 虫子 → 狼人） |
+| `HudTurnText` | 顶部 `anchoredPosition (0, 820)`，显示「回合: N / 20」 |
+| `HudCountText` | `anchoredPosition (0, 760)`；显示虫子/狼人数量与「击杀分数: X / Y」（Y = 虫灾图标数 × 40） |
+| `PestControlSwipeInput` | 与网格同位置、同尺寸 **782 × 782**（`PestControlGridView.GridTotalSize`）；四向滑动阈值约 **40** px |
+| 键盘方向键 | `PestControlScreenView.Update` 监听 `Up/Down/Left/Right Arrow`；每次按下触发 1 次与滑动等价的 `HandleSwipe`；仅在 `Playing` 且全屏层激活时生效 |
+| `GiveUpButton`（v3.81） | 左下角 `anchorMin/Max=(0,0)`、`pivot=(0,0)`，约 **200 × 80** px，灰/红底，文案「放弃」；仅 `Result==Playing` 时显示 |
+| `VictoryOverlay`（初始隐藏） | 「胜利」按钮 `anchoredPosition (0, -640)` → 见胜利流程 |
+| `DefeatOverlay`（初始隐藏） | 文案「狼人被吃掉了」`(0, -480)`；「重试」`(-160, -640)` +「关闭」`(160, -640)`（Reset 重开 / 仅 Close） |
 
-**打开流程（`Open(tileId)`）**：`SetActive(true)` → `SetAsLastSibling()` → 隐藏 `VictoryButton` → 启动 Coroutine：`WaitForSeconds(2f)` 后显示 `VictoryButton`。
+**打开流程（`Open(tileId)`）**：`SetActive(true)` → `SetAsLastSibling()` → `requiredKill = CountAwaitingPestControlTiles() × 40`（本局快照）→ `PestControlGameModel.Reset(spawnConfig, requiredKill)` → 应用配置 `turn=0` 生成 → 刷新网格与 HUD → 隐藏胜/败覆盖层。
 
-**胜利流程（点击 `VictoryButton`）**：`PlantingService.Instance.CompletePestControl(tileId)` → `PestControlScreenView.Close()`（`SetActive(false)`）→ `WheelLotteryScreenView.Instance.Open(tileId, grantMutationOnConfirm: false)`（§9.13，无变异结算）。
+**放弃流程（v3.81，点击「放弃」）**：停止动画协程 → **不**显示 `DefeatOverlay` → `Close()`（等同失败「关闭」，不调用 `CompletePestControl` / `CompleteAllPestControl`，虫灾保持 `AwaitingPestControl`）。
+
+**胜利流程（点击「胜利」）**：`PlantingService.Instance.CompleteAllPestControl()`（清除农田全部虫灾）→ `PestControlScreenView.Close()`（`SetActive(false)`）→ `WheelLotteryScreenView.Instance.Open(currentTileId, grantMutationOnConfirm: false)`（§9.13，无变异结算）。
+
+**失败流程**：场上狼人数量 = 0 时显示 `DefeatOverlay`；「重试」重新 `Reset()`；「关闭」仅 `Close()`，不调用 `CompletePestControl`。
 
 #### 9.11.4 接口扩展 / Interface Addition
 
@@ -1934,6 +1963,14 @@ if (tile.pest == PestFlag.AwaitingPestControl)
 // 成功：tile.pest = PestControlled；若 tile.water != Empty 且 plant.state == Paused → Growing；
 // 触发 OnTileFlagsChanged(tileId)。
 bool CompletePestControl(string tileId);
+
+// v3.79：一次胜利清除农田内所有 AwaitingPestControl 田格。
+// 对每格套用与 CompletePestControl 相同的恢复逻辑（PestControlled + 视情况恢复 Growing），
+// 逐格触发 OnTileFlagsChanged(tileId)；返回被清除的田格数。
+int CompleteAllPestControl();
+
+// v3.81：统计 pest == AwaitingPestControl 的田格数（与田面 PestEventIcon 显示条件一致）。
+int CountAwaitingPestControlTiles();
 ```
 
 #### 9.11.5 装配 / Wiring
@@ -1945,14 +1982,122 @@ bool CompletePestControl(string tileId);
 | 路径 | 用途 |
 |------|------|
 | `Resources/AirUI/WH_Chong.png` | 田面虫灾闪烁图标（`Import as Sprite`） |
-| `Resources/AirUI/WH_Game_Chong.png` | 打虫子全屏背景（`Import as Sprite`） |
+| `Resources/AirUI/Game_1_2.png` | 网格棋子「虫子」Sprite |
+| `Resources/AirUI/Game_1_3.png` | 网格棋子「狼人」Sprite |
+| `Resources/Configs/Farm/pest_control_spawn.csv` | 按回合生成配置表（§9.11.8 / §B.12） |
+
+#### 9.11.7 玩法规则 / Gameplay Rules (v3.64)
+
+**中文：** 5×5 网格；棋子分 **虫子**（`Bug`，Sprite=`Game_1_2`）与 **狼人**（`Werewolf`，Sprite=`Game_1_3`）；数值均为 **2 的幂**（2, 4, 8, …）。开局与每回合生成**完全由配置表**决定（§9.11.8）；允许多个狼人（同值同类型可合并）。
+
+**滑动（2048 式）：** 玩家四向滑动时，网格内**所有**虫子与狼人沿该方向移动；靠边界格不再移动；遇障碍则停下。仅当网格状态发生变化时计为 1 次有效滑动。**键盘：** 方向键（↑↓←→）与滑动等价，每次 `GetKeyDown` 触发 1 次移动尝试。
+
+**合并（同类型）：** 移动过程中，同类型且**同数值**的相邻棋子合并为 1 个，数值翻倍（2+2=4, 4+4=8）；同类型不同数值则互相阻挡。
+
+**捕食（不同类型）：** 移动过程中不同类型相遇时：狼人 value **>** 虫子 value → 狼人 value += 虫子 value，虫子移除；虫子 value **>** 狼人 value → 狼人移除（死亡）；相等 → 无效果，互相阻挡。
+
+**回合：** `turn` 初始为 0（仅应用 `turn=0` 配置，**不计入**「≥20 回合」）；每次有效滑动后 `turn++`，再应用该 `turn` 的配置生成。
+
+**表现时序（v3.75，v3.76 修订阶段顺序，v3.78 修订同线顺序）：** 有效滑动后先进入动画阶段（禁输入），**严格按序**：
+
+1. **移动**：有效 `moves` 按目标边线顺序分组播放，每组 **0.2s/格**
+2. **捕食**：仅 `PulseKind.Eat` 格按目标边线顺序播放 **放大→收缩**（约 0.15s），阶段结束后再移除被吃棋子视图
+3. **合并**：仅 `PulseKind.Merge` 格按目标边线顺序播放脉冲，阶段结束后再移除被合并棋子视图
+4. `turn++` 并生成新棋子 → 刷新 HUD 与胜负
+
+**同线动作顺序（v3.78）：** 在滑动目标方向对应的同一行/列内，越靠近目标边线的格子动作越先执行，并逐格向远离目标边线的方向推进。向左为每行 `col 0→4`，向右为每行 `col 4→0`，向上为每列 `row 0→4`，向下为每列 `row 4→0`；不同线之间可并行。
+
+**狼吃虫反馈特效（v3.79）：** 仅当 **狼人吃掉虫子**（捕食 survivor 为 `Werewolf`）时，将该次捕食的表现从「合并脉冲」升级为独立的**吃虫前置阶段**，插在「移动」之前；该阶段进行时**其他所有棋子保持原位静止**，结束后再进入正常归位。流程如下：
+
+1. **接近**：吃虫狼从其起始格滑动到「虫子相邻格」（由虫子起始格朝狼起始格方向步进 1 格；二者必同行/列且其间为空，路径可达）。
+2. **特效 + 震动**：在虫子起始格位置生成特效图片 `Resources/AirUI/Game_1_3_1`（叠在棋子之上），停留 **0.5 秒**，期间仅该特效图片本身做**剧烈随机抖动**（位移震动）；其余棋子不动。
+3. **进入**：狼从相邻格步入虫子起始格，随后销毁被吃虫子的视图。
+4. **归位**：吃虫阶段结束后，全体棋子（含吃虫狼，从虫子格出发）按 `plan.moves` 从**当前位置**滑到 2048 压缩后的最终格，再播放合并脉冲、刷新数值与胜负。
+
+**多吃虫并行（v3.79）：** 同一次滑动若产生多个「狼吃虫」事件，三步（接近 / 特效 0.5s / 进入）均**并行**播放，整体仅占用一个 0.5 秒特效窗口。**虫吃狼**（导致失败）不走此阶段，仍按既有捕食脉冲表现。
+
+**English:** Presentation order after valid swipe: **(wolf-eats-bug feedback phase, others frozen) → move → eat pulse → merge pulse** (then spawn), and each line plays from the target edge outward. Wolf-eats-bug shows a dedicated phase: approach the bug's neighbor cell, play `Game_1_3_1` effect for 0.5s with intense image-only shake, then step in and destroy the bug; remaining pieces settle afterward. Multiple eats play in parallel within one 0.5s window. Bug-eats-wolf keeps the legacy pulse. Logic grid resolution unchanged (single-pass 2048-style).
+
+**English (v3.75):** Turn and spawn rules unchanged; animate moves, pulse on merge/eat, then spawn.
+
+#### 9.11.9 动画参数 / Animation Parameters (v3.75, v3.76)
+
+| 参数 | 值 |
+|------|-----|
+| `SecondsPerCell` | **0.2** |
+| 脉冲缩放 | 1.0 → 1.15 → 1.0，总时长约 **0.15s** |
+| 表现阶段顺序（v3.76） | **移动 → 捕食脉冲 → 合并脉冲**（再 commit 生成） |
+| 同线播放顺序（v3.78） | 按滑动目标边线向远端递增；不同线相同序位可并行 |
+| 狼吃虫前置阶段（v3.79） | **接近 → 特效 0.5s（仅图片震动）→ 进入 → 全体归位**；其他棋子在此阶段全程静止 |
+| 吃虫特效图片（v3.79） | `Resources/AirUI/Game_1_3_1`（`PestControlGridView.ResEatEffectSprite`） |
+| 吃虫特效停留（v3.79） | `EatEffectDuration = 0.5f` 秒 |
+| 吃虫特效震动幅度（v3.79） | `EatShakeAmplitude ≈ 14px`（仅作用于特效图片 `anchoredPosition` 随机抖动） |
+| 多吃虫（v3.79） | 同次滑动多个「狼吃虫」并行，共用一个 0.5s 窗口 |
+| 输入锁 | `PestControlScreenView.isAnimating` 为 true 时忽略滑动/方向键（贯穿全部动画阶段，含吃虫前置阶段） |
+
+#### 9.11.10 分值底色表 / Value Tile Colors (v3.75)
+
+**路径：** `Assets/Resources/Configs/Farm/pest_control_value_colors.csv`
+
+| 列 | 说明 |
+|---|---|
+| `分值` | 棋子数值（2 的幂） |
+| `狼人底色色号` | 狼人格子底 `#RRGGBB` |
+| `虫子底色色号` | 虫子格子底 `#RRGGBB` |
+
+**查找：** 精确匹配分值；否则取表中 **≤ value 的最大分值**；仍无则默认色。加载：`PestControlValueColorCatalog`；详见附录 **§B.15**。
+
+**击杀分数（v3.81，击杀虫子数 / 狼人分数）：** 常量 `VictoryKillScorePerPestIcon = 40`。`Open(tileId)` 时 `RequiredKillScore = CountAwaitingPestControlTiles() × 40`（本局不变）。每次成功「狼吃虫」在 `CommitSwipeAndSpawn` 提交前从当前 grid 读取被吃虫子 `value`，累加到 `KillScore`（与规则「狼人 value += 虫子 value」一致）。
+
+**胜负（v3.81，判定顺序）：**
+
+1. **失败：** `Count(Werewolf)==0`（狼人被虫子吃掉）。
+2. **胜利 A（优先，独立）：** `KillScore >= RequiredKillScore`（不要求清虫、不要求 20 回合）。
+3. **胜利 B（保留）：** `Count(Bug)==0 && turn>=20`（若提前清虫则继续玩到第 20 回合）。
+4. 否则 **Playing**。
+
+**放弃（v3.81）：** 玩家点击「放弃」→ 直接 `Close()`，不修改 `tile.pest`，不弹 `DefeatOverlay`。
+
+**English:** 5×5 grid; **Bug** (`Game_1_2`) and **Werewolf** (`Game_1_3`) tiles with power-of-two values. Initial layout and per-turn spawns come entirely from CSV (§9.11.8); multiple werewolves allowed. Swipe moves all pieces; same-type same-value merge doubles value; cross-type encounters apply eat rules; valid swipe increments turn then spawns; **Victory A** when `KillScore >= RequiredKillScore` (RequiredKill = pest icon count × 40, snapshotted at open); **Victory B** when no bugs and turn≥20; **Defeat** when no werewolves remain; **Give up** closes without clearing pests.
+
+#### 9.11.8 生成配置表 / Spawn Config Table (v3.64)
+
+**路径：** `Assets/Resources/Configs/Farm/pest_control_spawn.csv`
+
+**列定义：**
+
+| 列 | 类型 | 说明 |
+|---|---|---|
+| `turn` | int | 0=开局布置；N=第 N 次有效滑动后的生成阶段 |
+| `entityType` | string | `Bug` 或 `Werewolf` |
+| `value` | int | 数值，须为 2 的幂且 ≥ 2 |
+| `spawnCount` | int | 本行在**当前空格**中随机放置的数量 |
+
+**生成算法：** 按 `turn` 分组；同一 `turn` 多行按 CSV 顺序执行；每行从当前空格均匀随机选取 `spawnCount` 个位置放置；空格不足时放置能放下的数量并 `Debug.LogWarning`，不阻塞游戏。
+
+**加载：** `PestControlConfigCatalog.LoadSpawnEntriesFromCsv()`；缺表或解析失败时回退 `BuildDefaultSpawnEntries()`（覆盖 turn 0..35）。
+
+**数据结构（伪代码）：**
+
+```csharp
+enum PestControlEntityType { Bug, Werewolf }
+struct PestControlSpawnEntry { int turn; PestControlEntityType type; int value; int spawnCount; }
+class PestControlGameModel {
+  const int GridSize = 5;
+  int turn;
+  PestControlCell?[,] grid; // null = empty
+  bool TrySwipe(SwipeDirection dir);
+  void Reset(IReadOnlyList<PestControlSpawnEntry> config);
+  PestControlGameResult Result; // Playing / Victory / Defeat
+}
+```
 
 ---
 
-### 9.12 地鼠偷窃「打地鼠」全屏演示 / Mole Theft "Whack-a-Mole" Fullscreen Demo (v3.52)
+### 9.12 附魔转盘玩法（正式版）/ Enchant Wheel Gameplay (v3.82)
 
-**中文（v3.52，v3.59 修订衔接）：** 当某田触发地鼠偷窃（`tile.moleTheft == AwaitingMoleTheft`，详见 §4.1.6.1）时，在该田面中央叠加一枚可点击的 `WH_Tou` 图标；点击图标打开本节描述的全屏「打地鼠」演示界面；玩家在「胜利」后应先调用 `IPlantingService.CompleteMoleTheft(tileId)` 清除事件并关闭本全屏层，再立即打开 **§9.13** `WheelLotteryScreenView`；**不切换底栏 Tab**。  
-**English (v3.52, v3.59 handoff):** When a tile has mole theft (`tile.moleTheft == AwaitingMoleTheft`, see §4.1.6.1), overlay a tappable `WH_Tou` icon at the tile center. Tapping it opens the fullscreen whack-a-mole demo. After **Victory**, call `IPlantingService.CompleteMoleTheft(tileId)` to clear the event and close this layer, then immediately open §9.13 `WheelLotteryScreenView`; **no bottom-nav tab switch**.
+**中文（v3.82 正式版，取代 v3.52 「打地鼠」演示）：** 当某田触发地鼠偷窃（`tile.moleTheft == AwaitingMoleTheft`，详见 §4.1.6.1）时，在该田面中央叠加一枚可点击的 `WH_Tou` 图标；点击图标打开本节描述的全屏 **「附魔」转盘玩法** 界面（`EnchantScreenView`，**预制件实例化**，便于在 Unity 内手动微调布局）。玩法规则：分 **4 个回合** 操作指针，**累计 3 次命中目标区域即胜利**（满 3 胜立即提前结束）。胜利后**不再**走 §9.13 转盘摇奖：直接 `CompleteMoleTheft(tileId)` + `TriggerSingleTileMutation(tileId)` 将该植物置为「变异待收获」，停留 1 秒后自动 `TryHarvestMutation` 弹出收获弹窗（§4.1.10.5），随后关闭本层。失败（命中 < 3）可「重新挑战」或「放弃」；放弃调用 `AbandonMoleTheftPlant(tileId)` 直接删除该植物。**不切换底栏 Tab**。  
+**English (v3.82 full version, replaces v3.52 whack-a-mole demo):** When a tile has mole theft (`tile.moleTheft == AwaitingMoleTheft`), overlay a tappable `WH_Tou` icon. Tapping opens the fullscreen **Enchant wheel game** (`EnchantScreenView`, **instantiated from a prefab** for manual layout tuning). Rules: **4 rounds** of pointer operation; **3 hits on the target win** (ends early once 3 hits reached). On win it **no longer** chains §9.13: call `CompleteMoleTheft(tileId)` + `TriggerSingleTileMutation(tileId)` to set the plant to "mutation awaiting harvest", wait 1s, then auto `TryHarvestMutation` to show the reveal popup (§4.1.10.5), then close. On loss (< 3 hits) the player may **Retry** or **Abandon**; abandon calls `AbandonMoleTheftPlant(tileId)` to delete the plant. **No bottom-nav tab switch**.
 
 #### 9.12.1 田面地鼠图标 / Mole Overlay Icon on Tile
 
@@ -1968,22 +2113,40 @@ bool CompletePestControl(string tileId);
 ```csharp
 if (tile.moleTheft == MoleTheftFlag.AwaitingMoleTheft)
 {
-    MoleTheftScreenView.Instance?.Open(tileId);
+    EnchantScreenView.Resolve()?.Open(tileId);
     return;
 }
 ```
 
-#### 9.12.3 全屏界面结构 / Fullscreen Panel Structure
+#### 9.12.3 全屏界面结构 / Fullscreen Panel Structure（预制件 `EnchantScreen.prefab`）
 
 | 元素 | 规格 |
 |------|------|
-| 根节点 `MoleTheftModal` | stretch 全屏，初始 `SetActive(false)` |
-| `MoleGameBackground` | 铺满；Sprite = `Resources/AirUI/WH_Game_Tou`；`preserveAspect = false` |
-| `VictoryButton`（初始隐藏） | 尺寸 **280 × 110**，`anchoredPosition = (0, -520)`；文字「胜利」 |
+| 根节点 `EnchantScreen` | `RectTransform` stretch 全屏；挂 `EnchantScreenView`；初始 `SetActive(false)` |
+| `Background` | 铺满；Sprite = `Resources/AirUI/Game_2_1_0`；`preserveAspect = false`；`raycastTarget = true`（吃穿透） |
+| `PlantImage` | 中上部；展示激活本次玩法的植物（按 `appearanceSpriteIds[appearanceNode-1]`）；位置由人工微调 |
+| `Wheel`（容器） | 居中偏下；下含底座/指针/指示灯 |
+| `Wheel/Indicator` | Sprite = `Resources/AirUI/Game_2_1_3`；目标指示灯；**SiblingIndex 低于 `WheelBase`**（在底座之下） |
+| `Wheel/WheelBase` | Sprite = `Resources/AirUI/Game_2_1_2`；转盘底座；`Button` 或 `IPointerClickHandler` 点击区（点击立即停指针） |
+| `Wheel/Pointer` | Sprite = `Resources/AirUI/Game_2_1_1`；指针；旋转中心（pivot/anchoredPosition）人工微调；脚本只写 `localEulerAngles.z` |
+| `ResultPanel`（初始隐藏） | 失败结算面板，含 `RetryButton`（重新挑战）/ `AbandonButton`（放弃） |
 
-**打开流程（`Open(tileId)`）**：`SetActive(true)` → `SetAsLastSibling()` → 隐藏 `VictoryButton` → `WaitForSeconds(2f)` 后显示 `VictoryButton`。
+**几何与判定（`EnchantScreenView` 可序列化参数，默认值）**：
 
-**胜利流程**：`PlantingService.Instance.CompleteMoleTheft(tileId)` → `MoleTheftScreenView.Close()` → `WheelLotteryScreenView.Instance.Open(tileId)`（§9.13）。
+- 旋转速度 `rotateDegPerSec = 360f`（1 秒 360°）。
+- 目标角集合 `{0,45,90,135,180,225,270,315}`，每回合随机取一作为目标角 θ。
+- 角度约定：θ 自正上方（+Y）顺时针为正。指示灯中心放在底座中心偏移 `(radius·sinθ, radius·cosθ)`，`radius = 230f`（像素）。
+- 指针停止角与 θ 的**环形差** ≤ `winToleranceDeg = 30f` 判本回合胜。
+
+**回合循环（`Open(tileId)` 后）**：`wins=losses=0` → 每回合随机 θ、显示指示灯、指针从 0° 起 `360°/s` 顺时针匀速旋转；玩家点击 `WheelBase` → 指针立即停下并判定。
+
+- 命中：`wins++`；复制一份指示灯（临时副本）飞向 `PlantImage` 中心，飞达后销毁（原指示灯随本回合清除）；`PlantImage` 播放一次「放大缩小 + 震动」反馈。
+- 未命中：`losses++`。
+- 提前结束：`wins == 3` → 胜利；`losses == 2`（剩余回合已无法凑满 3 胜）或满 4 回合仍 `wins < 3` → 失败。
+
+**胜利流程**：`CompleteMoleTheft(tileId)` → `TriggerSingleTileMutation(tileId)`（经临时订阅 `OnMutationCreated` 捕获新 `mutationId`）→ **中上部 `PlantImage` 切换为「变异待收获」外形**（与 §5.2 `MutationOverlayView` 图标一致：Pet → `AirUI/ShiWu_2`、Skill → `AirUI/DaShouHuo_2`，按 `mutation.kind` 选择）→ `WaitForSeconds(1f)` → `TryHarvestMutation(mutationId)`（驱动 §4.1.10.5 `MutationRevealPopupView` 自动弹窗）→ `Close()`。
+
+**失败流程**：显示 `ResultPanel`；「重新挑战」→ 重置 `wins/losses` 重开 4 回合；「放弃」→ `AbandonMoleTheftPlant(tileId)` 删除植物 → `Close()`。
 
 #### 9.12.4 接口扩展 / Interface Addition
 
@@ -1992,24 +2155,39 @@ if (tile.moleTheft == MoleTheftFlag.AwaitingMoleTheft)
 // 成功：tile.moleTheft = MoleTheftResolved；若 tile.water != Empty 且 plant.state == Paused → Growing；
 // 触发 OnTileFlagsChanged(tileId)。
 bool CompleteMoleTheft(string tileId);
+
+// v3.82：按 tileId 取田（视图取植物精灵用）；未找到返回 null。
+CropTile GetTileById(string tileId);
+
+// v3.82：放弃附魔玩法 → 直接删除该田植物实例并复位田。失败：tileId 不存在 / 无有效植物实例。
+// 成功：从 session.plants / plantById 移除植物；tile.planting=AwaitingSeed，清空
+//   water/fertilizer/pest/moleTheft/harvest/plantInstanceId；触发 OnPlantStateChanged(Wilted) + OnTileFlagsChanged。
+bool AbandonMoleTheftPlant(string tileId);
 ```
 
 #### 9.12.5 装配 / Wiring
 
 ```csharp
 PestControlScreenView.BuildInto(canvasRect, service);
-MoleTheftScreenView.BuildInto(canvasRect, service);
-WheelLotteryScreenView.BuildInto(canvasRect, service); // §9.13，排在 Pest / Mole 全屏层之后
+EnchantScreenView.BuildInto(canvasRect, service, enchantScreenPrefab); // v3.82：实例化 EnchantScreen.prefab
+WheelLotteryScreenView.BuildInto(canvasRect, service); // §9.13，仅 §9.11 捉虫流程使用，保留
 ```
 
-（在 `AirMainMenuRuntimeBuilder.Build()` 内，`FarmGridView.BuildInto` 之后、与其它农场 UI 同帧装配；`WheelLotteryScreenView` 仅构建一次。）
+（在 `AirMainMenuRuntimeBuilder.Build()` 内，`FarmGridView.BuildInto` 之后、与其它农场 UI 同帧装配。`MoleTheftScreenView`（v3.52 演示）**不再装配**，文件保留但停用。`WheelLotteryScreenView` 仍由 §9.11 捉虫胜利后调用，不可删除。）
 
-#### 9.12.6 资源清单 / Asset Manifest
+#### 9.12.6 预制件生成 / Prefab Generation
+
+- Editor 菜单 `Tools/PetDemo/Generate Enchant Screen Prefab`（`EnchantScreenPrefabGenerator`）一次性生成 `Assets/Resources/Prefabs/Farm/EnchantScreen.prefab`，含上表命名子节点并把 `EnchantScreenView` 的 `[SerializeField]` 引用就位；生成后在 Unity 内手动微调位置（参考 §9.1 手动布局模式与 `FarmGridPrefabGenerator`）。
+
+#### 9.12.7 资源清单 / Asset Manifest
 
 | 路径 | 用途 |
 |------|------|
 | `Resources/AirUI/WH_Tou.png` | 田面地鼠偷窃闪烁图标 |
-| `Resources/AirUI/WH_Game_Tou.png` | 打地鼠全屏背景 |
+| `Resources/AirUI/Game_2_1_0.png` | 附魔玩法全屏背景 |
+| `Resources/AirUI/Game_2_1_1.png` | 转盘指针 |
+| `Resources/AirUI/Game_2_1_2.png` | 转盘底座（点击区） |
+| `Resources/AirUI/Game_2_1_3.png` | 目标指示灯 |
 
 ### 9.13 转盘抽奖（Wheel Lottery, v3.59）
 
@@ -2047,8 +2225,8 @@ WheelLotteryScreenView.BuildInto(canvasRect, PlantingService.Instance /* 或 IPl
 
 ## 10. 智能轮训操作机制 / Smart Polling Operation
 
-**中文：** 玩家在种植系统中只通过 **一枚统一按钮** 与 24 块农田交互。系统按 `orderIndex` 1..24 顺序扫描，定位首块「有事可做」的农田作为当前焦点，并执行该田的最高优先级动作；按钮的文字 / 图标始终反映"将要在焦点田执行的那一个动作"。  
-**English:** In the planting system the player interacts with all 24 tiles through a **single unified button**. The system scans tiles in `orderIndex` 1..24 order, picks the first actionable tile as the current focus, and executes the highest-priority action on it; the button's label/icon always reflects "the action that will be executed on the focus tile".
+**中文：** 玩家在种植系统中只通过 **一枚统一按钮** 与 20 块农田交互。系统按 `orderIndex` 1..20 顺序扫描，定位首块「有事可做」的农田作为当前焦点，并执行该田的最高优先级动作；按钮的文字 / 图标始终反映"将要在焦点田执行的那一个动作"。  
+**English:** In the planting system the player interacts with all 20 tiles through a **single unified button**. The system scans tiles in `orderIndex` 1..20 order, picks the first actionable tile as the current focus, and executes the highest-priority action on it; the button's label/icon always reflects "the action that will be executed on the focus tile".
 
 ### 10.1 优先级表 / Priority Table
 
@@ -2063,8 +2241,8 @@ WheelLotteryScreenView.BuildInto(canvasRect, PlantingService.Instance /* 或 IPl
 | 4 | `Water` 浇水3阶 | `tile.planting == Seeded && tile.water == W2` |
 | — | （无可执行 / none） | 上述均不满足，扫描跳过该田 / scan skips the tile |
 
-**中文：** 自 v2.9 起，`Seed` 已从该表移除：播种通过 §9.4.6 的仓库内按钮 + 手势直接驱动 `TrySeedTile(tileId)`；自 v2.10 起，`Fertilize` 也从该表移除：施肥通过 §9.7 的「主界面入口 + 肥料仓库 + 农田点击」三段式直接驱动 `ApplyFertilizerToTile(tileId)`。两者均不再参与统一按钮的全局扫描。本优先级按"动作层级"全局扫描：先在 24 田中寻找所有 `Harvest`，再寻找所有 `Water1`，依次类推；同一动作层级内再按 `orderIndex` 1..24 取首块田。`PestControl` 保留为后续外围事件动作，但不参与当前 P0 统一按钮优先级链。  
-**English:** Since v2.9, `Seed` is removed from this table: seeding is driven directly by `TrySeedTile(tileId)` via the in-warehouse button + gesture in §9.4.6; since v2.10, `Fertilize` is also removed: fertilization is driven directly by `ApplyFertilizerToTile(tileId)` through the §9.7 three-stage flow (main-menu entry + fertilizer warehouse + tile tap). Neither participates in the unified-button global scan anymore. This priority is scanned globally by action tier: find any `Harvest` among all 24 tiles first, then any `Water1`, and so on; within the same action tier, choose the first tile by `orderIndex` 1..24. `PestControl` remains reserved for later external events but is not part of the current P0 unified-button priority chain.
+**中文：** 自 v2.9 起，`Seed` 已从该表移除：播种通过 §9.4.6 的仓库内按钮 + 手势直接驱动 `TrySeedTile(tileId)`；自 v2.10 起，`Fertilize` 也从该表移除：施肥通过 §9.7 的「主界面入口 + 肥料仓库 + 农田点击」三段式直接驱动 `ApplyFertilizerToTile(tileId)`。两者均不再参与统一按钮的全局扫描。本优先级按"动作层级"全局扫描：先在 20 田中寻找所有 `Harvest`，再寻找所有 `Water1`，依次类推；同一动作层级内再按 `orderIndex` 1..20 取首块田。`PestControl` 保留为后续外围事件动作，但不参与当前 P0 统一按钮优先级链。  
+**English:** Since v2.9, `Seed` is removed from this table: seeding is driven directly by `TrySeedTile(tileId)` via the in-warehouse button + gesture in §9.4.6; since v2.10, `Fertilize` is also removed: fertilization is driven directly by `ApplyFertilizerToTile(tileId)` through the §9.7 three-stage flow (main-menu entry + fertilizer warehouse + tile tap). Neither participates in the unified-button global scan anymore. This priority is scanned globally by action tier: find any `Harvest` among all 20 tiles first, then any `Water1`, and so on; within the same action tier, choose the first tile by `orderIndex` 1..20. `PestControl` remains reserved for later external events but is not part of the current P0 unified-button priority chain.
 
 **中文：** **开局引导旁注（v2.11）**：自 v2.11 起，`PlantingService` 构造期硬编码 `orderIndex=2 / lajiao`、`orderIndex=3 / fanqie` 两块「已待收获」预置（详见 §B.8）。开局首次按下统一按钮，按本表 Rank 1 与同层级 `orderIndex` 升序规则，焦点会先落在 2 号田的 `Harvest`；执行后再次预览，焦点跳到 3 号田的 `Harvest`，依次走通 §4.1.5 `Wilt`（2 号田）与 `Regrow`（3 号田）两条收获结算分支，并触发 §9.5 主角 `wait_3` 收获动画。  
 **English:** **Opening guidance note (v2.11):** since v2.11, the `PlantingService` constructor hardcodes two "already awaiting-harvest" presets — `orderIndex=2 / lajiao` and `orderIndex=3 / fanqie` (see §B.8). The first unified-button press at game start, by Rank 1 of this table and the in-tier ascending `orderIndex` rule, focuses on tile 2's `Harvest`; after the next preview the focus jumps to tile 3's `Harvest`, walking through both §4.1.5 harvest branches (`Wilt` on tile 2 and `Regrow` on tile 3) and triggering the §9.5 villager `wait_3` harvest motion.
@@ -2077,7 +2255,7 @@ WheelLotteryScreenView.BuildInto(canvasRect, PlantingService.Instance /* 或 IPl
 # since v2.10, Fertilize no longer appears either
 function executeUnifiedAction():
   for priority in [Harvest, Water1, Water2, Water3]:
-    for i in [1..24]:                      # 同层级按 orderIndex 顺序 / in orderIndex order within the tier
+    for i in [1..20]:                      # 同层级按 orderIndex 顺序 / in orderIndex order within the tier
       tile = farmTiles[i]
       if matches(priority, tile):          # 见 §10.1 优先级表 / per §10.1 table
         action = actionOf(priority)
@@ -2085,7 +2263,7 @@ function executeUnifiedAction():
         apply(action, tile)                # 触发 OnTileFlagsChanged / OnPlantStateChanged 等
         fire OnUnifiedActionExecuted(tile.id, action)
         return
-  # 全部 24 田无事可做：按钮置灰 / no actionable tile: disable the button
+  # 全部 20 田无事可做：按钮置灰 / no actionable tile: disable the button
   setFocusTile(null)
 ```
 
@@ -2097,7 +2275,7 @@ function executeUnifiedAction():
 
 ### 10.3 焦点高亮 / Focus Highlight
 
-**中文：** 仅有「下一次按下按钮将作用于的那块田」显示 `FocusRing` 与 `FocusArrow`（箭头朝下指向该格，可使用轻微上下浮动动画，P0 允许静态）；点击执行后立即重新预览，焦点可能跳到下一块。当全部 24 田无事可做时，焦点为 `null`，`FocusRing/FocusArrow` 全部隐藏，按钮文字显示「暂无操作 / No Action」并置灰。  
+**中文：** 仅有「下一次按下按钮将作用于的那块田」显示 `FocusRing` 与 `FocusArrow`（箭头朝下指向该格，可使用轻微上下浮动动画，P0 允许静态）；点击执行后立即重新预览，焦点可能跳到下一块。当全部 20 田无事可做时，焦点为 `null`，`FocusRing/FocusArrow` 全部隐藏，按钮文字显示「暂无操作 / No Action」并置灰。  
 **English:** Only the tile "the next tap will act on" shows both `FocusRing` and `FocusArrow` (the arrow points downward to the slot and may use a subtle up-down floating animation; static is acceptable for P0). After a tap, preview is recalculated immediately and focus may jump to another tile. When no tile is actionable, focus is `null`, all `FocusRing/FocusArrow` indicators are hidden, and the button is disabled with "No Action".
 
 ### 10.4 与外围事件 / 主循环的协作 / Cooperation with External Events and Main Loop
@@ -2111,6 +2289,12 @@ function executeUnifiedAction():
 
 | 版本 / Ver | 日期 / Date | 说明 / Notes |
 |------------|-------------|--------------|
+| 3.84 | 2026-06-04 | **灭虫网格格尺寸 120→150**：§9.11.3 每格 **150×150**、外框 782×782；`PestControlGridView.CellSize=150`、数值字号 45、吃虫震动幅度 18；网格 `anchoredPosition (0,-75)`；HUD / 滑动热区 / 胜败 Overlay 纵向位置同步下移，避免与放大网格重叠。 / **Pest grid cell 120→150:** §9.11.3 layout constants; `PestControlGridView` + `PestControlScreenView` aligned. |
+| 3.83 | 2026-06-04 | **灭虫胜利 B 回合阈值 30→20**：§9.11.3 `HudTurnText`、§9.11.7/§9.11.10 胜利 B（`Count(Bug)==0 && turn>=20`）与 `PestControlGameModel.VictoryTurnThreshold` 同步；HUD 显示「回合: N / 20」。 / **Pest victory B turn threshold 30→20:** §9.11 HUD and victory B aligned with `VictoryTurnThreshold=20`. |
+| 3.82 | 2026-06-04 | **附魔转盘玩法（正式版，取代「打地鼠」演示）**：§9.12 重写为 `EnchantScreenView`（预制件 `EnchantScreen.prefab`，背景 `Game_2_1_0`、指针 `Game_2_1_1`、底座 `Game_2_1_2`、指示灯 `Game_2_1_3`）；规则 4 回合操作指针、3 次命中目标即胜（满 3 胜提前结束，指针 360°/s、点底座立即停、环形角差 ≤30° 判胜、指示灯半径 230px、8 角度随机）；胜利后**不再**走 §9.13 转盘，改为 `CompleteMoleTheft` + `TriggerSingleTileMutation`（变异待收获）→ 停留 1s 自动 `TryHarvestMutation` 弹收获弹窗；失败可「重新挑战」或「放弃」（放弃删除植物）。`IPlantingService` 新增 `GetTileById` / `AbandonMoleTheftPlant`；`TileSlotView` 点击路由改指向 `EnchantScreenView`；`AirMainMenuRuntimeBuilder` 装配附魔预制件，`MoleTheftScreenView` 停用；新增 `EnchantScreenPrefabGenerator`。§4.1.6.1 / §6 同步。 / **Enchant wheel gameplay (full version, replaces whack-a-mole demo):** §9.12 rewritten as `EnchantScreenView` (prefab; 4 rounds, 3-of-4 hits win, pointer 360°/s, tap base to stop, ±30° tolerance, indicator radius 230px); win chains `CompleteMoleTheft` + `TriggerSingleTileMutation` then auto `TryHarvestMutation` after 1s (no §9.13 wheel); loss offers Retry/Abandon (abandon deletes plant). Adds `GetTileById` / `AbandonMoleTheftPlant`; routing + wiring updated; `EnchantScreenPrefabGenerator` added. |
+| 3.81 | 2026-06-04 | **灭虫放弃 + 击杀分数胜利**：§9.11.3 新增左下角 `GiveUpButton`（直接 `Close()`，不弹败局 Overlay）；§9.11.4 `CountAwaitingPestControlTiles()`；§9.11.7/§9.11.10 击杀分数（狼吃虫累加虫子 value）、`RequiredKillScore = 虫灾田格数 × 40`、胜利 A 优先于「30 回合清虫」；`PestControlGameModel` / `PestControlScreenView` 实现。 / **Pest give-up + kill-score victory:** give-up button; pest tile count API; kill score win before legacy clear-bugs-at-turn-30. |
+| 3.80 | 2026-06-04 | **灭虫胜利清除全部虫灾**：§4.1.6/§9.11 胜利流程改为一次胜利清除农田内所有 `AwaitingPestControl` 田格（清除全部 `PestEventIcon`）；`IPlantingService` 新增 `int CompleteAllPestControl()`（§9.11.4），对每格套用与 `CompletePestControl` 相同的恢复逻辑并逐格触发 `OnTileFlagsChanged`；`PestControlScreenView.OnVictoryClicked` 改用该接口（以 `cleared > 0` 判成功，仍以 `currentTileId` 打开 §9.13 转盘）。 / **Pest victory clears all pests:** one win clears every `AwaitingPestControl` tile; add `CompleteAllPestControl()`; `PestControlScreenView` victory uses it. |
+| 3.109 | 2026-06-03 | **农田规模 24→20**：§4.1.1、§5 `farmTiles`、§6 API 扫描范围、§7 P0、§9.1 网格（**5 行 × 4 列** / `orderIndex` 1..20）、§9.2/§10 统一按钮与轮训、§9.7 收获计数、§B.8 预置旁注等正文同步；§4.1.10.1 分组改为共 5 组；建议网格高 **848 px**。实现层：`PlantingService.FarmTileTotal=20`、`FarmGridView.Rows=5`、读档 `ClampSessionFarmTiles`、运行时 `PruneExcessTileSlotViews` 剔除 `TileSlot_21..24`。 / **Farm tiles 24→20:** spec sections aligned; implementation: `PlantingService.FarmTileTotal=20`, `FarmGridView.Rows=5`, save clamp, runtime prune of `TileSlot_21..24`. |
 | 0.1 初稿 / Draft | 2026-05-06 | 首次建立双语 SPEC；定义 1080×1920、Role、农场与回合战斗最小闭环。 / Initial bilingual SPEC; defines 1080×1920, Role, minimal farm and turn-based loop. |
 | 0.2 | 2026-05-06 | 增加主界面、种子入口按钮与种子仓库弹窗的资源路径与运行时构建约定；Resources/AirUI 副本与 `AirMainMenuRuntimeBuilder` 入口。 / Added main menu, seed button, and seed warehouse modal paths plus runtime build notes; Resources/AirUI mirrors and `AirMainMenuRuntimeBuilder` bootstrap. |
 | 0.3 | 2026-05-06 | 实现：`Assets/Scripts/UI/AirMainMenuRuntimeBuilder.cs`；`SampleScene` 增加 `Boot` 物体挂载该组件；运行时自 `Resources/AirUI` 加载三张 Sprite。 / Implemented script, Boot in SampleScene, runtime load from Resources/AirUI. |
@@ -2191,6 +2375,17 @@ function executeUnifiedAction():
 | 3.38 | 2026-05-14 | §9.8.8 **`MainStoryLineScreen/Title`**：`anchoredPosition.y`（PosY）由 `-120` 调整为 **`-30`**；标题文案由「主线」改为 **「第1章」**；`MainStoryLineScreenView` 构建常量对齐。 / §9.8.8 **`MainStoryLineScreen/Title`**: `anchoredPosition.y` (PosY) changes from `-120` to **`-30`**; title copy changes from 「主线」 to **「第1章」**; `MainStoryLineScreenView` build constants aligned. |
 | 3.39 | 2026-05-14 | 底栏附属全屏面板布局抽取：新增 `BottomNavAttachedScreenLayout`（`CreateRootBelowBottomNav` / `AddStretchedResourcesBackground` / `StretchFull` / `CreateChildRect`），`MainStoryLineScreenView` 与 `BottomNavSimpleBackgroundScreenView` 复用；§9.8.8～§9.8.10 技术说明与变更表同步。 / Extract shared bottom-nav attached full-screen layout: add `BottomNavAttachedScreenLayout` for root/background/rect helpers reused by `MainStoryLineScreenView` and `BottomNavSimpleBackgroundScreenView`; §9.8.8–§9.8.10 notes and changelog updated. |
 | 3.55 | 2026-05-15 | §9.10 **`RoleGrowthTabBar` 页签槽位等宽**：三槽固定 `TabSlotWidth = 360`（`1080/3`），切换 Open/Closed 仅切子树显隐，不再使用底栏式 `Open=540 / Closed=270` 变宽；`RoleGrowthTabBarView` / `RoleGrowthPanelPrefabGenerator` / `AirMainMenuRuntimeBuilder` 兜底同步。 / §9.10 **`RoleGrowthTabBar` equal tab slots:** three fixed `TabSlotWidth = 360` slots; open/closed only toggles child visibility, not bottom-nav-style `540/270` resizing; `RoleGrowthTabBarView`, prefab generator, and runtime fallback aligned. |
+| 3.80 | 2026-06-04 | **仓库 Buff 图标尺寸**：§9.8.13.3.1 `BuffGainedStack` 每行 `Icon` 容器由 **56×56** 调整为 **128×128**（`WarehouseHubPanelView.BuffIconCell`）；`WarehouseHubPanelPrefabGenerator.BuffGainedStackSize` 宽度同步为 **144**。 / **Warehouse buff icon size:** §9.8.13.3.1 row cells **128×128** (`BuffIconCell=128`); prefab generator stack width **144**. |
+| 3.79 | 2026-06-04 | **灭虫狼吃虫反馈特效**：§9.11.7/§9.11.9 新增「狼吃虫前置阶段」——狼滑到虫子相邻格→在虫子格播放 `AirUI/Game_1_3_1` 并剧烈震动 0.5s→步入虫子格，期间其他棋子静止，多吃虫并行，仅狼吃虫生效；`PestControlSwipePlan` 增 `eatEvents`（`PestControlEatEvent` 含狼/虫起始格与最终格），`PestControlGameModel` 输出配对，`PestControlGridView` 重写 `PlaySwipePlanRoutine`。 / **Pest wolf-eats-bug feedback FX:** dedicated approach→`Game_1_3_1` shake 0.5s→step-in phase with others frozen; parallel; only wolf-eats-bug. |
+| 3.78 | 2026-06-04 | **灭虫同线动作顺序**：§9.11.7/§9.11.9 明确同一行/列内按滑动目标边线向远端依次播放移动、吃、合并表现；`PestControlSwipePlan` 增 `actionOrder`。 / **Pest target-edge action order:** play each line from target edge outward. |
+| 3.77 | 2026-06-03 | **灭虫棋子层级**：§9.11.3 狼人 UGUI sibling 高于虫子，重叠时狼人压在上层。 / **Pest piece draw order:** werewolf above bug. |
+| 3.76 | 2026-06-03 | **灭虫表现动作顺序**：§9.11.7/9.11.9 明确滑动后 **移动→捕食脉冲→合并脉冲**；`PestControlSwipePlan` 分 `eatConsumedTokenIds`/`mergeConsumedTokenIds`；`PestControlGridView` 三阶段协程。 / **Pest presentation order:** move → eat pulse → merge pulse. |
+| 3.75 | 2026-06-03 | **灭虫动画与分值底色**：§9.11.9 动画（0.2s/格、合并/吃脉冲、生成延后）；§9.11.10 + §B.15 `pest_control_value_colors.csv`；`TryPrepareSwipe`/`CommitSwipeAndSpawn`；浮动棋子 `PestControlGridView`。 / **Pest mini-game animation + value tile colors.** |
+| 3.74 | 2026-06-03 | **灭虫小游戏键盘操作**：§9.11.3 / §9.11.7 增补方向键（↑↓←→）与滑动等价；`PestControlScreenView.Update` 监听 `KeyCode.*Arrow`。 / **Pest mini-game keyboard:** arrow keys trigger same `HandleSwipe` as touch swipe. |
+| 3.73 | 2026-06-03 | **虫灾「灭虫」正式小游戏（v3.64）**：§9.11 由 2s 演示桩升级为 5×5 滑动合并玩法（虫子 `Game_1_2` / 狼人 `Game_1_3`、合并/捕食/30 回合清虫胜利）；新增 §9.11.7–§9.11.8 与附录 **B.14** `pest_control_spawn.csv`；`PestControlGameModel` / `PestControlConfigCatalog` / `PestControlGridView` / `PestControlSwipeInput`；`PestControlScreenView` 重构。 / **Pest extermination mini-game:** §9.11 upgraded from 2s stub to 5×5 swipe-merge game; §9.11.7–9.11.8 + Appendix B.14; new model/config/UI classes; `PestControlScreenView` refactored. |
+| 3.72 | 2026-06-03 | **主线关卡胜利固定掉落**：§9.8.8.8 新增 `main_story_levels.csv` 列 `victoryRewards`（`kind:id:count` 多条以 `;` 分隔，固定产出）；附录 B.13；`FixedRewardListParser` + `MainStoryLevelConfigCatalog` 解析；`InvasionService` 主线战读关表发放、非主线仍用 `invasion_victory_rewards.csv`。 / **Main story level fixed victory rewards:** §9.8.8.8 adds `victoryRewards` column; Appendix B.13; `FixedRewardListParser` + catalog parse; `InvasionService` grants per level on main-story wins only. |
+| 3.71 | 2026-06-03 | §9.1 **待浇水次数堆叠（修订 v3.70）**：`_pendingWaterCounts` 替代 `_pendingWaterTiles`；展示阶=待浇水次数 1..3（`JiaoShi_Dai_1/2/3`）；点击 ++、`CommitWaterTile` --；上限随 `tile.water`（Empty 3 / W1 2 / W2 1）；修复 commit 后误按水位显示 Dai_2。 / **Pending water count stack:** dictionary counts; overlay tier = count; increment on accept, decrement on commit; cap by water stage. |
+| 3.70 | 2026-06-03 | §9.1 **待浇水受理叠层 `PendingWaterIcon`（v3.70）**：统一按钮 `ExecuteUnifiedAction` 成功受理 `Water` 后、在 `CommitWaterTile` 之前，按受理时 `tile.water` 显示 `Resources/AirUI/JiaoShi_Dai_1/2/3`（150×150 居中，叠于 `NeedWaterIcon` 之上）；pending 时隐藏 `QueShui_1`；§6 新增 `GetPendingWaterDisplayTier` 与 `OnWaterPendingChanged`；`TileSlotView` / `FarmGridView` / `PlantingService` 实现。 / §9.1 **pending water overlay:** after unified `Water` accept, show `JiaoShi_Dai_1/2/3` until commit; hide `NeedWaterIcon` while pending; §6 APIs and UI wiring. |
 | 3.69 | 2026-05-15 | §12.3 **`ResultDialog` 缩放**：`InvasionBattleModal` 内结算弹窗根节点 `localScale` 调整为 **`(1.4, 1.4, 1)`**；预制体与生成器同步。 / §12.3 **`ResultDialog` scale:** root `localScale` **`(1.4, 1.4, 1)`** under `InvasionBattleModal`; prefab and generator aligned. |
 | 3.68 | 2026-05-15 | **修复升级弹窗「前往」首次打开属性页**：`NavigateToTianFuPage` 用 `pendingTabIndexWhenShowingJueSe` 避免 `ApplyMainBottomNavKey` 重置为 0；`RoleGrowthTabBarView.Start` 保留已设 `OpenTabIndex`。 / **Fix Go first-open landing on ShuXing:** pending tab index + Start respects pre-set index. |
 | 3.67 | 2026-05-15 | §12.10 **`LaterButton` / `GoButton` 文字隐藏**：不创建可见 `Label`；按钮根节点透明 `Image` 保持可点。 / §12.10 hide button labels; transparent hit target on button root. |
@@ -2825,7 +3020,7 @@ demo, 占位肥料, 1.5, Demo 占位描述。, AirUI/ShiFei-1
 
 ```text
 GuidanceTilePreset {
-  int    orderIndex;     // 1..24, must exist in farmTiles
+  int    orderIndex;     // 1..20, must exist in farmTiles
   string plantConfigId;  // must exist in PlantConfigCatalog (§B.2)
 }
 
@@ -2845,8 +3040,8 @@ PlantingService.kInitialGuidancePresets : readonly list of GuidanceTilePreset
 
 #### B.8.4 Demo 默认数据 / Demo Default Data
 
-**中文：** 与现有 §B.5.2「仅种子包」开局风格保持一致，预置仅覆盖 2 号、3 号田，剩余 22 田维持空田初始态：  
-**English:** Matching the existing §B.5.2 "seed-pack only" opening style, the preset covers only tiles `2` and `3`; the remaining 22 tiles keep the empty initial state:
+**中文：** 与现有 §B.5.2「仅种子包」开局风格保持一致，预置仅覆盖 2 号、3 号田，剩余 18 田维持空田初始态：  
+**English:** Matching the existing §B.5.2 "seed-pack only" opening style, the preset covers only tiles `2` and `3`; the remaining 18 tiles keep the empty initial state:
 
 | `orderIndex` | `plantConfigId` | `state` |
 |---:|---|---|
@@ -3048,6 +3243,73 @@ skill_1002, 寒霜护甲, 下一回合获得 30% 减伤。, SkilIcon/Skill1002
 
 **中文：** **P0**：2 行示例数据 + 图标 / 名称 / 描述展示；**P1**：补充冷却 / 资源消耗 / 类型字段；**P2**：技能装配槽与战斗实际生效。  
 **English:** **P0:** 2 example rows plus icon/name/description rendering; **P1:** add cooldown / cost / type fields; **P2:** skill loadout and actual in-battle effects.
+
+### B.13 主线关卡表（v3.72）/ Main Story Level Table (v3.72)
+
+**中文：** CSV 路径：`Assets/Resources/Configs/MainStory/main_story_levels.csv`（`Resources.Load<TextAsset>("Configs/MainStory/main_story_levels")`）。槽位布局见同目录 `main_story_level_slots.csv`（§9.8.8.7）。  
+**English:** CSV path: `Assets/Resources/Configs/MainStory/main_story_levels.csv`. Slot layout: `main_story_level_slots.csv` (§9.8.8.7).
+
+#### B.13.1 字段定义 / Field Definitions
+
+| 列 / Column | 类型 / Type | 必填 / Required | 说明 / Notes |
+|---|---|---|---|
+| `levelNumber` | int | 是 / yes | 关卡编号，≥1，全表唯一 / level id, ≥1, unique |
+| `isBoss` | 0/1 或 bool | 是 / yes | 是否 BOSS 关 / boss flag |
+| `displayName` | string | 是 / yes | UI 展示名 / display name |
+| `infoSpritePath` | string | 否 / no | 关卡信息图 `Resources` 路径（可空）/ info sprite path |
+| `victoryRewards` | string | 否 / no | **固定产出**奖励串；空=无掉落。格式 §9.8.8.8：`kind:id:count` 多条以 `;` 分隔 / fixed rewards; see §9.8.8.8 |
+
+**`victoryRewards` 编码示例 / Encoding example:**
+
+```text
+Seed:fanqie:2;Fertilizer:demo:1;SeedPack:Common:1
+```
+
+#### B.13.2 Demo 默认数据 / Demo Default Data
+
+**中文：** 与当前 `main_story_levels.csv` 一致；P0 为第 1～5 关配置示例掉落，6～20 关可留空待策划填写。  
+**English:** Matches the checked-in CSV; levels 1–5 ship sample rewards, 6–20 may be empty for designers.
+
+#### B.13.3 加载与回退 / Loading and Fallback
+
+**中文：** `MainStoryLevelConfigCatalog.LoadLevelConfigsFromCsv()` 解析 `victoryRewards` 列；缺失列或空单元格 → 该关 `victoryRewards` 为空列表。文件缺失时 `BuildDefaultLevels()` 回退（第 1 关默认 `Seed:fanqie:2`）。  
+**English:** `MainStoryLevelConfigCatalog.LoadLevelConfigsFromCsv()` parses `victoryRewards`; missing column or empty cell → empty list. Missing file → `BuildDefaultLevels()` (level 1 default `Seed:fanqie:2`).
+
+### B.14 灭虫小游戏生成表（v3.73）/ Pest Control Spawn Table (v3.73)
+
+**中文：** CSV 路径：`Assets/Resources/Configs/Farm/pest_control_spawn.csv`（`Resources.Load<TextAsset>("Configs/Farm/pest_control_spawn")`）。详见 §9.11.8。  
+**English:** CSV path: `Assets/Resources/Configs/Farm/pest_control_spawn.csv`. See §9.11.8.
+
+#### B.14.1 字段定义 / Field Definitions
+
+| 列 / Column | 类型 / Type | 必填 / Required | 说明 / Notes |
+|---|---|---|---|
+| `turn` | int | 是 / yes | 0=开局；N=第 N 次有效滑动后生成 / 0=initial; N=after Nth valid swipe |
+| `entityType` | string | 是 / yes | `Bug` 或 `Werewolf` / `Bug` or `Werewolf` |
+| `value` | int | 是 / yes | 2 的幂且 ≥ 2 / power of 2, ≥ 2 |
+| `spawnCount` | int | 是 / yes | 本行随机空格放置数 / count to place on random empty cells |
+
+#### B.14.2 Demo 默认数据 / Demo Default Data
+
+**中文：** `turn=0`：`Werewolf×1 value=2` + `Bug×2 value=2`；`turn=1..29`：每回合 `Bug×1 value=2`；`turn=30..35`：每回合 `Bug×1 value=2` 或 `Bug×1 value=4`（交替）。缺表时由 `PestControlConfigCatalog.BuildDefaultSpawnEntries()` 内置等价数据。  
+**English:** `turn=0`: one werewolf (2) + two bugs (2); turns 1–29: one bug (2) per turn; turns 30–35: one bug (2 or 4 alternating). Missing CSV falls back to `BuildDefaultSpawnEntries()`.
+
+#### B.14.3 加载与回退 / Loading and Fallback
+
+**中文：** `PestControlConfigCatalog.LoadSpawnEntriesFromCsv()`；非法行 Warning 跳过；全部非法或缺文件 → `BuildDefaultSpawnEntries()`。  
+**English:** `PestControlConfigCatalog.LoadSpawnEntriesFromCsv()`; invalid rows warned and skipped; missing or all-invalid → `BuildDefaultSpawnEntries()`.
+
+### B.15 灭虫分值底色表（v3.75）/ Pest Control Value Tile Colors (v3.75)
+
+**路径：** `Assets/Resources/Configs/Farm/pest_control_value_colors.csv`
+
+| 列 | 说明 |
+|---|---|
+| `分值` | 棋子数值 |
+| `狼人底色色号` | `#RRGGBB` |
+| `虫子底色色号` | `#RRGGBB` |
+
+**加载：** `PestControlValueColorCatalog.GetColors(value, out wolfBg, out bugBg)`；缺表回退内置 2/4/8/16/32 行。
 
 ---
 
