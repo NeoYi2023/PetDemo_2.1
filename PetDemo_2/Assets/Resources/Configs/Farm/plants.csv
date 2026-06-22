@@ -1,15 +1,66 @@
-﻿# 植物配置表（对应 SPEC §B.2 / §B.2.1）,,,,,,,,,,,,,,,,,
-# 列：id, displayName, sprite1..sprite5, fruitIcon, harvestFruitCount, baseStageSeconds, fertilizerSpeedMul, afterHarvest, pestEventIntervalSec, pestEventProb, pestSpriteProb, moleSpriteProb, harvestRoleReward, eatBuffIcon,,,,
-# harvestRoleReward：属性键，或 stat:任意（冒号后仅作文案/历史兼容，解析时只取 stat）；harvestFruitCount：每次收获入包果实数量（正整数）,,,,,,,,,,,,,,,,,
-# eatBuffIcon：吃下果实时的演示用 Buff 图标 Resources 路径（可空）；不参与战斗结算,,,,,,,,,,,,,,,,,
-# afterHarvest 仅支持 Wilt / Regrow；sprite/fruitIcon/eatBuffIcon 路径均不含 .png,,,,,,,,,,,,,,,,,
-# pestSpriteProb：进入 sprite2/sprite3 节点时各抽一次虫灾的概率（0..1）,,,,,,,,,,,,,,,,,
-# moleSpriteProb：进入 sprite4/sprite5 节点时各抽一次地鼠偷窃的概率（0..1）,,,,,,,,,,,,,,,,,
-# 注意：节点 5 暂复用节点 4 路径占位；P0 验收期 baseStageSeconds 临时取 15s 便于快速验证,,,,,,,,,,,,,,,,,
-id, displayName, sprite1, sprite2, sprite3, sprite4, sprite5, fruitIcon, harvestFruitCount, baseStageSeconds, fertilizerSpeedMul, afterHarvest, pestEventIntervalSec, pestEventProb, pestSpriteProb, moleSpriteProb, harvestRoleReward, eatBuffIcon
-fanqie,    番茄,    NongZuoWu/MoRen_1,    NongZuoWu/MoRen_2, NongZuoWu/FanQie-1,    NongZuoWu/FanQie-2,    NongZuoWu/FanQie-3,    NongZuoWu/FanQie-5,6,15,1.5, Regrow,60,0.2,0.05,0.05, maxHp:50,AirUI/Buff-1
-xigua,     西瓜,    NongZuoWu/MoRen_1,    NongZuoWu/MoRen_2, NongZuoWu/XiGua-1,     NongZuoWu/XiGua-2,     NongZuoWu/XiGua-3,     NongZuoWu/XiGua-5,6,15,1.5, Wilt,90,0.15,0.05,0.05, maxHp:150,AirUI/Buff-2
-lajiao,    辣椒,    NongZuoWu/MoRen_1,    NongZuoWu/MoRen_2, NongZuoWu/LaJiao-1,    NongZuoWu/LaJiao-2,    NongZuoWu/LaJiao-3,    NongZuoWu/LaJiao-5,6,15,1.5, Wilt,60,0.25,0.05,0.05, atk:20,AirUI/Buff-3
-chaomei,   草莓,    NongZuoWu/MoRen_1,    NongZuoWu/MoRen_2, NongZuoWu/ChaoMei-1,   NongZuoWu/ChaoMei-2,   NongZuoWu/ChaoMei-3,   NongZuoWu/ChaoMei-5,6,15,1.5, Wilt,50,0.2,0.05,0.05, agility:25,AirUI/Buff-4
-nangua,    南瓜,    NongZuoWu/MoRen_1,    NongZuoWu/MoRen_2, NongZuoWu/NanGua-1,    NongZuoWu/NanGua-2,    NongZuoWu/NanGua-3,    NongZuoWu/NanGua-5,6,15,1.5, Wilt,90,0.15,0.05,0.05, def:80,AirUI/Buff-5
-huasheng,  花生,    NongZuoWu/MoRen_1,    NongZuoWu/MoRen_2, NongZuoWu/HuaSheng-1,  NongZuoWu/HuaSheng-2,  NongZuoWu/HuaSheng-3,  NongZuoWu/HuaSheng-5,6,15,1.5, Wilt,75,0.18,0.05,0.05, def:30,AirUI/Buff-6
+﻿# 植物配置表（对应 SPEC §B.2 / §B.2.1）,,,,,,,,,,,,,,,,,,,,,,
+
+,,,,,,,,,,,,,,,,,,,,,,
+
+# 列：id, displayName, sprite1..sprite5, spine1..spine5, fruitIcon, harvestFruitCount, baseStageSeconds, fertilizerSpeedMul, afterHarvest, pestEventIntervalSec, pestEventProb, pestSpriteProb, moleSpriteProb, harvestRoleReward, eatBuffIcon,,,,,,,,
+
+,,,,,,,,,,,,,,,,,,,,,,
+
+# harvestRoleReward：属性键，或 stat:任意（冒号后仅作文案/历史兼容，解析时只取 stat）；harvestFruitCount：每次收获入包果实数量（正整数）,,,,,,,,,,,,,,,,,,,,,,
+
+,,,,,,,,,,,,,,,,,,,,,,
+
+# eatBuffIcon：吃下果实时的演示用 Buff 图标 Resources 路径（可空）；不参与战斗结算,,,,,,,,,,,,,,,,,,,,,,
+
+,,,,,,,,,,,,,,,,,,,,,,
+
+# afterHarvest 仅支持 Wilt / Regrow；sprite/fruitIcon/eatBuffIcon 路径均不含 .png,,,,,,,,,,,,,,,,,,,,,,
+
+,,,,,,,,,,,,,,,,,,,,,,
+
+# spine1..5：可选 SkeletonDataAsset Resources 路径（不含扩展名）；空则农田主视觉回退对应 spriteN,,,,,,,,,,,,,,,,,,,,,,
+
+,,,,,,,,,,,,,,,,,,,,,,
+
+# pestSpriteProb：进入 sprite2/sprite3 节点时各抽一次虫灾的概率（0..1）,,,,,,,,,,,,,,,,,,,,,,
+
+,,,,,,,,,,,,,,,,,,,,,,
+
+# moleSpriteProb：进入 sprite4/sprite5 节点时各抽一次地鼠偷窃的概率（0..1）,,,,,,,,,,,,,,,,,,,,,,
+
+,,,,,,,,,,,,,,,,,,,,,,
+
+# 注意：sprite5 为待收获外观；空 spine 列须连续 5 个逗号占位，禁止额外 ,, 导致列错位；字段内禁止换行/引号（CsvTable 不支持）,,,,,,,,,,,,,,,,,,,,,,
+
+,,,,,,,,,,,,,,,,,,,,,,
+
+# P0 验收期 baseStageSeconds 临时取 15s 便于快速验证,,,,,,,,,,,,,,,,,,,,,,
+
+,,,,,,,,,,,,,,,,,,,,,,
+
+id, displayName, sprite1, sprite2, sprite3, sprite4, sprite5, spine1, spine2, spine3, spine4, spine5, fruitIcon, harvestFruitCount, baseStageSeconds, fertilizerSpeedMul, afterHarvest, pestEventIntervalSec, pestEventProb, pestSpriteProb, moleSpriteProb, harvestRoleReward, eatBuffIcon
+
+,,,,,,,,,,,,,,,,,,,,,,
+
+fanqie,    番茄,    NongZuoWu/MoRen_1,    NongZuoWu/MoRen_2,    NongZuoWu/FanQie-1,    NongZuoWu/FanQie-2,    NongZuoWu/FanQie-3,    NongZuoWu/FanQie/MoRen_1_SkeletonData,    NongZuoWu/FanQie/MoRen_2_SkeletonData,    NongZuoWu/FanQie/FanQie_1_SkeletonData,    NongZuoWu/FanQie/FanQie_2_SkeletonData,    NongZuoWu/FanQie/FanQie_3_SkeletonData,    NongZuoWu/FanQie-5,6,15,1.5, Regrow,60,0.2,0.05,0.05, maxHp:50,AirUI/Buff-1
+
+,,,,,,,,,,,,,,,,,,,,,,
+
+xigua,     西瓜,    NongZuoWu/MoRen_1,    NongZuoWu/MoRen_2,    NongZuoWu/XiGua-1,     NongZuoWu/XiGua-2,     NongZuoWu/XiGua-3,     ,,,,,    NongZuoWu/XiGua-5,6,15,1.5, Wilt,90,0.15,0.05,0.05, maxHp:150,AirUI/Buff-2
+
+,,,,,,,,,,,,,,,,,,,,,,
+
+lajiao,    辣椒,    NongZuoWu/MoRen_1,    NongZuoWu/MoRen_2,    NongZuoWu/LaJiao-1,    NongZuoWu/LaJiao-2,    NongZuoWu/LaJiao-3,    ,,,,,    NongZuoWu/LaJiao-5,6,15,1.5, Wilt,60,0.25,0.05,0.05, atk:20,AirUI/Buff-3
+
+,,,,,,,,,,,,,,,,,,,,,,
+
+chaomei,   草莓,    NongZuoWu/MoRen_1,    NongZuoWu/MoRen_2,    NongZuoWu/ChaoMei-1,   NongZuoWu/ChaoMei-2,   NongZuoWu/ChaoMei-3,   ,,,,,    NongZuoWu/ChaoMei-5,6,15,1.5, Wilt,50,0.2,0.05,0.05, agility:25,AirUI/Buff-4
+
+,,,,,,,,,,,,,,,,,,,,,,
+
+nangua,    南瓜,    NongZuoWu/MoRen_1,    NongZuoWu/MoRen_2,    NongZuoWu/NanGua-1,    NongZuoWu/NanGua-2,    NongZuoWu/NanGua-3,    ,,,,,    NongZuoWu/NanGua-5,6,15,1.5, Wilt,90,0.15,0.05,0.05, def:80,AirUI/Buff-5
+
+,,,,,,,,,,,,,,,,,,,,,,
+
+huasheng,  花生,    NongZuoWu/MoRen_1,    NongZuoWu/MoRen_2,    NongZuoWu/HuaSheng-1,  NongZuoWu/HuaSheng-2,  NongZuoWu/HuaSheng-3,  ,,,,,    NongZuoWu/HuaSheng-5,6,15,1.5, Wilt,75,0.18,0.05,0.05, def:30,AirUI/Buff-6
+

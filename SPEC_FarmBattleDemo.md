@@ -583,6 +583,7 @@ struct PlantConfig {
   string id;
   string displayName;
   list<string> appearanceSpriteIds; // 长度 5：节点 1..5 / length 5: node 1..5
+  list<string> appearanceSpineIds;  // 可选，长度 0 或 5；空串 = 该节点回退 sprite / optional; empty → sprite fallback
   string fruitIconResource;
   int harvestFruitCount;
   string eatBuffIconResource;
@@ -783,6 +784,7 @@ struct GameSession {
 - `OnTileFlagsChanged(tileId)` — 农田任一维度状态变化（UI 刷新单格） / any of a tile's five dimensions changed
 - `OnPlantStateChanged(plantInstanceId, newState)` — 植物状态机切换 / plant state-machine transition
 - `OnAppearanceNodeChanged(plantInstanceId, node)` — 植物外观节点变化（驱动精灵切换） / plant appearance node change (drives sprite swap)
+- `OnPlantTileInteracted(tileId)` — **自 v3.94 起新增**：农田 Tile 发生浇水/施肥/精灵协助浇水类互动时派发（`CommitWaterTile` / `CommitFertilizeToTile` / `TryWaterTile` 成功路径）；**不含收获**；驱动该田 Spine 植物播 `work_1` / **Since v3.94:** fired on successful water/fertilize/pet-water assist; **not harvest**; drives `work_1` on that tile's Spine plant
 - `OnFocusChanged(tileId)` — 当前焦点田变化（UI 高亮迁移） / focused tile changed
 - `OnUnifiedActionExecuted(tileId, actionType)` — 一次统一按钮操作执行完成 / a unified action has been executed
 - `OnSeedBagChanged()` — 仓库 = 背包内容变化（种子 / 种子包数量、当前 `active` 选择等） / warehouse/bag content changed (seed / pack counts, current `active`, etc.)
@@ -889,8 +891,20 @@ struct GameSession {
 **中文：** **`orderIndex` 编号规则**：自上而下、每行内自左而右；第 1 行 = `1..4`、第 2 行 = `5..8`、…、第 5 行 = `17..20`。这一编号同时决定 §10 智能轮训的扫描顺序与每组 4 块的视觉分组。  
 **English:** **`orderIndex` numbering:** top-to-bottom, left-to-right within each row; row 1 = `1..4`, row 2 = `5..8`, …, row 5 = `17..20`. This numbering drives the scan order of §10 smart polling and the visual 4-tile grouping.
 
-**中文：** **每个 `TileSlot` 的子层级建议**：底图 `SoilImage`（土壤）→ 植物精灵 `PlantImage`（按 `appearanceNode` 切换）→ **（v3.24）** 缺水提示 `NeedWaterIcon`（条件显示，叠于田面中央，见下段）→ **（v3.70）** 待浇水受理叠层 `PendingWaterIcon`（见「待浇水受理叠层」段）→ 状态徽标层 `StatusBadges`（小图标显示当前 `water` 阶、`fertilizer`、`pest`、`harvest` 提示）→ 焦点高亮 `FocusRing`（默认隐藏，由 `OnFocusChanged` 事件驱动显示）→ 焦点箭头 `FocusArrow`（默认隐藏，位于格子上方，指示「统一按钮下一次将操作的目标田」）。  
-**English:** **Suggested child hierarchy for each `TileSlot`:** `SoilImage` (soil) → `PlantImage` (swapped by `appearanceNode`) → **(v3.24)** conditional `NeedWaterIcon` (center overlay; see next paragraph) → **(v3.70)** pending-water accept overlay `PendingWaterIcon` (see "Pending water accept overlay") → `StatusBadges` (icons for current `water` stage, `fertilizer`, `pest`, `harvest`) → `FocusRing` (hidden by default, shown when driven by `OnFocusChanged`) → `FocusArrow` (hidden by default, positioned above the slot, indicating the tile that the unified button will operate on next).
+**中文：** **每个 `TileSlot` 的子层级建议**：底图 `SoilImage`（土壤）→ 植物展示双通道（**v3.93**）`PlantImage`（`Image`，静态精灵）与运行时懒创建的 `PlantSpineHost`（`SkeletonGraphic`）；`TileSlotView.Refresh` 经 `PlantConfig.ResolveFarmAppearance(appearanceNode)` 决定当前节点用 Spine 或 Sprite，**同一时刻仅一种可见**；小图标场景（种子仓库、果实背包、战斗奖励等）仍只用 `appearanceSpriteIds` → **（v3.24）** 缺水提示 `NeedWaterIcon`（条件显示，叠于田面中央，见下段）→ **（v3.70）** 待浇水受理叠层 `PendingWaterIcon`（见「待浇水受理叠层」段）→ 状态徽标层 `StatusBadges`（小图标显示当前 `water` 阶、`fertilizer`、`pest`、`harvest` 提示）→ 焦点高亮 `FocusRing`（默认隐藏，由 `OnFocusChanged` 事件驱动显示）→ 焦点箭头 `FocusArrow`（默认隐藏，位于格子上方，指示「统一按钮下一次将操作的目标田」）。  
+**English:** **Suggested child hierarchy for each `TileSlot`:** `SoilImage` (soil) → plant display dual channel (**v3.93**): `PlantImage` (`Image`, static sprite) and a runtime-lazy `PlantSpineHost` (`SkeletonGraphic`); `TileSlotView.Refresh` uses `PlantConfig.ResolveFarmAppearance(appearanceNode)` so only one channel is visible per node; icon UIs (seed bag, fruit bag, battle rewards, etc.) still use `appearanceSpriteIds` only → **(v3.24)** conditional `NeedWaterIcon` (center overlay; see next paragraph) → **(v3.70)** pending-water accept overlay `PendingWaterIcon` (see "Pending water accept overlay") → `StatusBadges` (icons for current `water` stage, `fertilizer`, `pest`, `harvest`) → `FocusRing` (hidden by default, shown when driven by `OnFocusChanged`) → `FocusArrow` (hidden by default, positioned above the slot, indicating the tile that the unified button will operate on next).
+
+**中文：** **农田植物 Spine 回退链（v3.93）**：CSV 可选列 `spine1..5` 非空时，农田主视觉优先 `Resources.Load<SkeletonDataAsset>(spineN)`；加载失败或列为空则回退 `spriteN`。Spine 路径示例：`NongZuoWu/FanQie/FanQie_1_SkeletonData`（不含扩展名）。  
+**English:** **Farm plant Spine fallback (v3.93):** when optional CSV columns `spine1..5` are non-empty, the farm tile prefers `Resources.Load<SkeletonDataAsset>(spineN)`; on load failure or empty column, fall back to `spriteN`. Example Spine path: `NongZuoWu/FanQie/FanQie_1_SkeletonData` (no extension).
+
+**中文：** **Spine 植物动画约定（v3.94）**：仅农田主视觉 Spine 通道参与；动画名大小写不敏感，缺失时 Warning 并回 `idle`。`appearanceNode` 变化且当前节点为 Spine → 播 1 次 `Grow` → 回退；默认循环 `idle`；`OnPlantTileInteracted(tileId)`（浇水/施肥/精灵协助浇水，**不含收获**）→ 目标田播 1 次 `work_1` → 回退；家园风效播放期间所有 Spine 植物循环 `work_2`，风效结束后回 `idle`。单次动画结束后：风效仍进行中 → `work_2`，否则 → `idle`。  
+**English:** **Spine plant animation convention (v3.94):** farm Spine channel only; case-insensitive clip names with idle fallback. On `appearanceNode` change at a Spine node: play `Grow` once then resume; default loop `idle`; `OnPlantTileInteracted(tileId)` (water/fertilize/pet water assist, **not harvest**) plays `work_1` once on that tile; while home wind FX is active all Spine plants loop `work_2`, then return to `idle` when wind ends.
+
+**中文：** **家园风效资源与挂载（v3.98/v3.99）**：运行时 `Resources.Load<GameObject>("SpecialEffects/Wind")`；资源由 `Assets/Resources/SpecialEffects/wind.unitypackage` 解压为 `Wind.prefab` + 依赖材质/贴图/Shader（**须入库，不可仅保留 .unitypackage**）。`JiaYuanWindEffectController` 在 **`JiaYuanWorldScreen` 根节点**下创建全屏 `WindEffectHolder`（**不挂** `JiaYuanWorldContent`，避免视口平移；**作为根层最后子节点**，叠在 `JiaYuanViewport` 之上、低于 MainCanvas 其余 HUD 兄弟节点）；播放时 `SetAsLastSibling`、粒子 `scalingMode=Hierarchy`、`renderAlignment=View`、`sortingOrder≈5` 并 `Play()`。**渲染前提（v3.99）**：`MainCanvas` 使用 `Screen Space - Camera` + `Main Camera`（`planeDistance=100`）；`Screen Space - Overlay` 下粒子在 Game 视图恒被 UI 盖住（Scene 可见、Game 不可见）。逻辑状态仍经 `OnWindStateChanged` 驱动植物 `work_2`（与视觉层解耦）。  
+**English:** **Home wind FX assets and parenting (v3.98/v3.99):** runtime loads `Resources/SpecialEffects/Wind`; assets extracted from `wind.unitypackage` into `Wind.prefab` plus deps (package alone is insufficient). `JiaYuanWindEffectController` creates full-screen `WindEffectHolder` under **`JiaYuanWorldScreen` root** (not `JiaYuanWorldContent`; **last root child** above `JiaYuanViewport`, below other MainCanvas HUD siblings); on play: `SetAsLastSibling`, `scalingMode=Hierarchy`, `renderAlignment=View`, `sortingOrder≈5`, `Play()`. **Render prerequisite (v3.99):** `MainCanvas` uses `Screen Space - Camera` + `Main Camera` (`planeDistance=100`); under `Screen Space - Overlay`, particles are always behind UI in Game view (visible in Scene only). Logic still via `OnWindStateChanged` → plant `work_2`.
+
+**中文：** **`PlantSpineHost` 布局约定（v3.97 / v3.98）**：当 `TileSlot` 主视觉走 Spine 通道（`PlantSpineHost` 激活并播放动画）时：`localScale.x/y` **固定为 `0.75`**（Z 继承 `PlantImage.localScale.z`）；`anchoredPosition.y` **固定为 `0`**（X 继承 `PlantImage.anchoredPosition.x`）。静态 `PlantImage` 通道不受影响。`TileSlotView.TryShowPlantSpine` 在显示 Spine 时写入上述布局。  
+**English:** **`PlantSpineHost` layout convention (v3.97 / v3.98):** when the tile uses the Spine channel: **`localScale.x/y = 0.75`** (Z from `PlantImage`); **`anchoredPosition.y = 0`** (X from `PlantImage`). The static `PlantImage` channel is unchanged. `TileSlotView.TryShowPlantSpine` applies this layout when showing Spine.
 
 **中文：** **`WaterBadge` 激活态着色（`Image.color`，与 `tile.water` 对应）**：`W1` = `#4E8AA1`，`W2` = `#346274`，`W3` = `#1E4452`；**Alpha（0–255）统一为 `80`**（Unity `float` α ≈ `80/255`）。由 `TileSlotView.Refresh` → `GetWaterColor` 在运行时写入；`TileSlot.prefab` 中 `WaterBadge` 的序列化 `m_Color` 仅作编辑器默认参考，应以本段为权威。  
 **English:** **`WaterBadge` active tint (`Image.color`, mapped from `tile.water`):** `W1` = `#4E8AA1`, `W2` = `#346274`, `W3` = `#1E4452`; **Alpha (0–255) is uniformly `80`** (Unity `float` α ≈ `80/255`). Applied at runtime by `TileSlotView.Refresh` → `GetWaterColor`; serialized `m_Color` on `WaterBadge` in `TileSlot.prefab` is editor reference only — this paragraph is authoritative.
@@ -938,6 +952,60 @@ struct GameSession {
 
 **中文：** **`GridLayoutGroup` 与手动模式互斥**：手动布局模式下不应在 `FarmGridRoot` 上启用 `GridLayoutGroup`（否则其每帧重新排版会覆盖手工位置）；自动布局模式下若挂 `GridLayoutGroup`，则其 `cellSize` 与 `spacing` 接管单格尺寸/间距。  
 **English:** **`GridLayoutGroup` is mutually exclusive with manual mode:** in manual layout, do not enable `GridLayoutGroup` on `FarmGridRoot` (it would re-arrange children every frame and overwrite handcrafted positions); in auto layout, if `GridLayoutGroup` is present, its `cellSize` and `spacing` take over per-cell size and gaps.
+
+#### 9.1.4 家园世界 Y 轴深度排序（v3.111） / Home World Y-Axis Depth Sort
+
+**中文：** 自 v3.111 起，家园世界层内**主角、上场精灵、植物及田格内全部可见 UI** 不再依赖 `FarmGridRoot` / `VillagerRoleRoot` / `PetCompanionRoot` 之间的静态 sibling 顺序决定互遮关系，而由 `JiaYuanWorldDepthSorter` 按 **`JiaYuanWorldContent` 局部 Y 坐标** 动态写入各实体 `Canvas.overrideSorting`。  
+**English:** Since v3.111, protagonist, deployed pets, plants, and all visible per-tile UI in the home world no longer rely on static sibling order among `FarmGridRoot` / `VillagerRoleRoot` / `PetCompanionRoot`; `JiaYuanWorldDepthSorter` drives occlusion via dynamic `Canvas.overrideSorting` keyed by **local Y in `JiaYuanWorldContent`**.
+
+**中文：** **遮挡规则**：**Y 越低（屏幕越靠下）越靠前**，应遮挡 Y 更高的对象。  
+**English:** **Occlusion rule:** **lower Y (closer to screen bottom) draws in front** and occludes higher-Y objects.
+
+**中文：** **主排序键 `sortY`（`JiaYuanWorldContent` 局部空间）**：
+
+| 实体 | sortY 来源 |
+|------|-----------|
+| 田格内全部可见 UI（`SoilImage`、植物、`NeedWaterIcon`、`PendingWaterIcon`、状态徽标、虫灾/地鼠图标、`FocusRing`/`FocusArrow`） | 对应 `TileSlot` 中心点（`pivot=0.5,0.5` 的 `RectTransform.position` 转局部后的 Y） |
+| 主角 | **`VillagerRole` 子节点中心点**转局部后的 Y（`VillagerRoleRoot` 仅作坐标锚点，**不作**排序判定点） |
+| 上场精灵 | 各 `PetCompanion_*` 中心点转局部后的 Y |
+| 变异果实图标 | 四格中心平均点转局部后的 Y（同 `MutationOverlayView.ComputeCenterAnchoredPosition` 的世界坐标算法） |
+
+**English:** **Primary key `sortY` (local to `JiaYuanWorldContent`):** see table above; protagonist uses **`VillagerRole` center**, not `VillagerRoleRoot`.
+
+**中文：** **次排序键 `layerOffset`（同 Y 时保持 §9.1 格内语义）**：
+
+```text
+Soil(0) < WaterBadge(5) < Plant(10) < NeedWater(20) < PendingWater(30)
+  < StatusBadges(40) < PestMoleIcon(50) < FocusRing(60)
+  < Villager(70) < Pet(80) < MutationIcon(90)
+```
+
+**中文：** **`WaterBadge` 与植物**：`WaterBadge` 的 `layerOffset=5`，**低于** `Plant`/`PlantSpineHost`（`10`），使植物 Spine 遮挡水分徽标；其余 `StatusBadges`（施肥/虫/收获）仍为 `40`。  
+**English:** **`WaterBadge` vs plant:** `WaterBadge` uses `layerOffset=5`, **below** `Plant`/`PlantSpineHost` (`10`), so plant Spine occludes the water tint badge; other status badges remain at `40`.
+
+**中文：** **sortingOrder 公式（v3.112 修订）**：`sortingOrder = Clamp(BaseOrder - Round(sortY * SortPrecision) + layerOffset, 0, WorldMax)`（`BaseOrder=WorldMax=499`，`SortPrecision=2`）。世界 Y 排序**必须**落在家园世界带 `0..499` 内，不得侵入 §9.8.17 HUD 带 `1000+`。  
+**English:** **Formula (revised v3.112):** clamped to world band `0..499`; must not overlap §9.8.17 HUD band `1000+`.
+
+**中文：** **不参与排序**：`JiaYuanWorldContent/Background`；`MainHudLayerRoot` 及全部 HUD 子树（见 §9.8.17）。  
+**English:** **Excluded:** `Background`; `MainHudLayerRoot` and all HUD subtrees (§9.8.17).
+
+**中文：** **`JiaYuanWorldDepthSorter` API**：
+
+```csharp
+void Initialize(RectTransform worldContent);
+void RegisterOrUpdate(in DepthSortEntry entry);
+void Unregister(RectTransform visual);
+void MarkDirty();
+float ResolveSortYFromWorldPoint(Vector3 worldPosition);
+```
+
+`DepthSortEntry`：`RectTransform visual`、`float sortY`、`int layerOffset`、`bool active`、`bool useVisualCenterY`（主角/精灵为 `true`，田格 UI 为 `false`）。
+
+**中文：** **刷新时机**：`LateUpdate` 在脏标记为真时批量刷新；主角拖动/寻路移动、精灵拖动/巡逻、田格 `Refresh()`、变异图标创建/销毁时调用 `MarkDirty()`。  
+**English:** **Refresh:** batched in `LateUpdate` when dirty; mark dirty on role/pet moves, tile refresh, mutation icon changes.
+
+**中文：** **实现优先级**：P0 必做「主角/精灵/植物/田格 UI Y 轴互遮 + 格内 layerOffset 保序 + 不破坏寻路/拖动/镜头跟随」；P1 可按「仅 Y 变化实体」优化刷新频率。  
+**English:** **Priority:** P0 ships correct Y-sort occlusion without breaking movement/follow APIs.
 
 ### 9.2 统一「操作」按钮 / Unified Action Button
 
@@ -1209,8 +1277,8 @@ struct MainRoleCunminConfig {
 - 默认每只精灵循环播放 `idle` 动画。
 - 若骨骼数据中缺少名为 `idle` 的动画，按以下顺序回退：先取 `PetConfig.randomAnimations` 中的第一项；再回退到骨骼数据 `Animations[0]`；皆缺失时仅记录 Warning，不阻塞渲染（精灵以静默 Pose 显示）。
 
-**中文：** **UGUI 层级**：`PetCompanionRoot` 在主画布上挂载于 `MainRoleCunminPresenter` 之后（与 `VillagerRoleRoot` 同为 `MainCanvas` 直接子节点），位于农田网格、统一按钮之上、种子/肥料/变异弹窗之下；弹窗打开时仍由弹窗的更高 sortingOrder 覆盖伴侣。  
-**English:** **UGUI layering:** `PetCompanionRoot` is appended to the main canvas **after** `MainRoleCunminPresenter` (sibling of `VillagerRoleRoot` under `MainCanvas`), drawing above farm grid / unified button and below seed / fertilizer / mutation modals; modals with higher `sortingOrder` still cover the companions when open.
+**中文：** **UGUI 层级（v3.111 修订）**：`PetCompanionRoot` 与 `VillagerRoleRoot` 仍同挂 `JiaYuanWorldContent`（构建顺序：农田 → 主角 → 精灵），但**互遮关系**改由 §9.1.4 `JiaYuanWorldDepthSorter` 按 Y 轴动态决定，不再以静态 sibling 保证「角色永远在网格之上」。弹窗打开时仍由弹窗的更高 `sortingOrder` 覆盖伴侣。  
+**English:** **UGUI layering (revised v3.111):** `PetCompanionRoot` and `VillagerRoleRoot` remain under `JiaYuanWorldContent` (build order: farm → hero → pets), but **occlusion** is driven by §9.1.4 `JiaYuanWorldDepthSorter` Y-sort, not static siblings; modals with higher `sortingOrder` still cover companions when open.
 
 #### 9.5.1.1 数据结构与接口 / Data Structure and APIs
 
@@ -1375,6 +1443,83 @@ struct HeroMainMenuStatsDisplayConfig {
 
 **中文：** **实现优先级**：P0 必做「入口按钮 + 弹窗（预制体_icon 条 + 详情 + 双按钮）+ 空态提示 + 农田点击应用 + 三连事件 + `attack_3` 联动 + 「全部施肥」一键批量施肥（自 v3.22 起）」；肥料类型扩展、获取途径（战斗掉落 / 商店 / 任务）等留待后续版本扩展。  
 **English:** **Implementation priority:** P0 must ship the entry button, modal (prefab with icon strip + detail + two buttons), empty hint, tile-tap apply, three-event sequence, `attack_3` linkage, and the 「全部施肥」 one-tap batch-fertilize flow (since v3.22); extending fertilizer types and acquisition channels (battle drop / shop / quest) are deferred to later versions.
+
+#### 9.7.1 收获视角入口与自由拖动镜头 / Harvest View Entry and Free Camera Pan
+
+**中文：** 自 v3.90 起，主 Canvas 追加全屏层 `HarvestViewEntryLayer`（`HarvestViewEntryView`），仅在底栏 `JiaYuan` Tab 打开时显示；位置 `(450, 438)`、尺寸 `150×150`，与 §9.7 肥料入口纵向错开。**自 v3.110 起**，该层扩展为三态 UI 状态机，并在家园视口 `JiaYuanViewport` 底层挂载 `HarvestViewPanInput` 以接收滑动手势。  
+**English:** Since v3.90, the main Canvas adds a full-screen `HarvestViewEntryLayer` (`HarvestViewEntryView`), visible only when the bottom-nav `JiaYuan` tab is open; position `(450, 438)`, size `150×150`. **Since v3.110**, it uses a three-state UI machine and mounts `HarvestViewPanInput` under `JiaYuanViewport` for swipe-driven camera pan.
+
+**中文：** **节点层级**：
+
+```text
+MainCanvas
+└── HarvestViewEntryLayer (RectTransform stretch + HarvestViewEntryView)
+    ├── HarvestViewEntryButton (Image + Button, 默认显示)
+    │   └── CountLabel (可收获数量, 仅 Entry 态显示)
+    └── HarvestViewCloseButton (Image + Button, HarvestLock 态显示)
+
+JiaYuanViewport
+├── HarvestViewPanInput (透明 Image + 滑动手势, Entry/FreePan 时 raycastTarget=true)
+└── JiaYuanWorldContent
+```
+
+**English:** **Node hierarchy:** see tree above.
+
+**中文：** **三态状态机**（`HarvestViewUiState`）：
+
+| 状态 | 可见按钮 | 图标资源 | 镜头行为 | 滑动手势 |
+|------|----------|----------|----------|----------|
+| `Entry` | `HarvestViewEntryButton` | `Resources/AirUI/ShouHuo_0` | `JiaYuanViewportFollowController` 跟随村民 | 视口非按钮区滑动 → 进入 `FreePan` 并开始平移 |
+| `FreePan` | `HarvestViewEntryButton` | `Resources/AirUI/ShouHuo_2` | 手动平移 `JiaYuanWorldContent.anchoredPosition` | 持续拖动平移；点击入口钮 → `Entry` |
+| `HarvestLock` | `HarvestViewCloseButton` | `Resources/AirUI/ShouHuo_1`（仅图标，无黑底/×） | `SetSowAnchorLock(true, ZhongTian)` 锁定种田区锚点 | **忽略**，不改变镜头；点击关闭钮 → `Entry` |
+
+**English:** **Three-state machine (`HarvestViewUiState`):** see table above.
+
+**中文：** **状态转移**：`Entry` + 点击入口钮 → `HarvestLock`；`Entry` + 视口滑动 → `FreePan`；`FreePan` + 点击入口钮 → `Entry`（`ExitFreePanMode` + `SnapOnce` 恢复跟随）；`HarvestLock` + 点击关闭钮 → `Entry`（`ExitAnchorViewLock`）；离开 `JiaYuan` Tab 或 `OnDestroy` 强制复位为 `Entry` 并清理镜头锁/自由模式。  
+**English:** **Transitions:** `Entry` + tap entry → `HarvestLock`; `Entry` + viewport swipe → `FreePan`; `FreePan` + tap entry → `Entry` (`ExitFreePanMode` + `SnapOnce`); `HarvestLock` + tap close → `Entry` (`ExitAnchorViewLock`); leaving `JiaYuan` tab or `OnDestroy` resets to `Entry` and clears locks.
+
+**中文：** **自由模式镜头钳位（v3.110 固定坐标，覆盖动态 `ClampContentPosition`）**：`JiaYuanWorldContent.anchoredPosition.x ∈ [-696, 507]`，`y ∈ [-748, 1050]`。  
+**English:** **Free-pan clamp (v3.110 fixed coords, overrides dynamic `ClampContentPosition`):** `anchoredPosition.x ∈ [-696, 507]`, `y ∈ [-748, 1050]`.
+
+**中文：** **`JiaYuanViewportFollowController` API 契约（v3.110 增补）**：
+
+```csharp
+void EnterFreePanMode();              // 停止跟随/锚点锁，保持当前 content 位置
+void ExitFreePanMode();               // 退出手动模式，恢复 LateUpdate 跟随
+void ApplyFreePanScreenDelta(Vector2 screenDelta);  // 屏幕位移 → content 位移 + 固定钳位
+void ExitAnchorViewLock();            // 收获视角退出（既有，清除 ZhongTian 锁）
+```
+
+**English:** **`JiaYuanViewportFollowController` API (v3.110):** see pseudocode above.
+
+**中文：** **可收获数量**：`IPlantingService.GetHarvestablePlantCount()`（田格 `AwaitingHarvest` + 待收获变异各计 1）；`count==0` 时入口图标置灰（`DimEntryColor`），仅在 `Entry` 态刷新并显示 `CountLabel`。  
+**English:** **Harvestable count:** `GetHarvestablePlantCount()`; dim icon when zero; `CountLabel` only in `Entry` state.
+
+**中文：** **手势互斥**：`HarvestViewPanInput` 在 `SowGestureController.IsSlideMode` 为 true，或种子/肥料/果实等全屏 Modal 打开时暂停（`raycastTarget=false`），避免与 §9.4.6 播种手势及仓库弹窗冲突。农田格、主角/精灵拖动等同层子节点射线优先级高于 `HarvestViewPanInput`，不触发自由模式。  
+**English:** **Gesture mutex:** pause `HarvestViewPanInput` during sow slide mode or open warehouse modals; farm tiles and character drags take raycast priority over the pan layer.
+
+**中文：** **实现优先级**：P0 必做三态切换、三图标、视口滑动平移、固定钳位、Tab 互斥复位；与 §9.8.14 家园视口跟随及 §9.4.6 播种镜头锁共用 `JiaYuanViewportFollowController`，互斥由状态标志位保证。  
+**English:** **Implementation priority:** P0 ships three-state switching, three icons, viewport swipe pan, fixed clamp, and tab-reset; shares `JiaYuanViewportFollowController` with §9.8.14 follow and §9.4.6 sow anchor lock, mutexed by state flags.
+
+#### 9.8.17 主界面 HUD 排序分层（v3.112） / Main HUD Sort Tiers
+
+**中文：** 自 v3.112 起，`MainCanvas` 下分为**世界层**与 **HUD 层**两频段，避免 §9.1.4 世界 `overrideSorting` 盖住底栏/按钮/弹窗。`AirMainMenuRuntimeBuilder` 在 `MainCanvas` 下创建 `MainHudLayerRoot`（`Canvas.overrideSorting=true`，`sortingOrder=HudChrome`），全部 HUD 挂入该根或其子树；`JiaYuanWorldScreen` 仍直挂 `MainCanvas`。  
+**English:** Since v3.112, `MainCanvas` splits into **world** and **HUD** bands; all HUD under `MainHudLayerRoot`; `JiaYuanWorldScreen` stays on `MainCanvas`.
+
+**中文：** **`MainUiSortTier` 常量**：
+
+| 常量 | 值 | 典型内容 |
+|------|-----|----------|
+| `WorldMax` | `499` | §9.1.4 世界 Y 排序上界 |
+| `HudChrome` | `1000` | 底栏、属性条、种子/肥料/果实入口、统一操作钮、播种钮、家园订单/仓库入口、入侵入口、收获视角入口 |
+| `HudScreen` | `1100` | 底栏 Tab 全屏（公会/角色成长/主线/竞技场等） |
+| `HudModal` | `1200` | 种子/肥料/果实仓库弹窗、订单弹窗、统一仓库 Hub |
+| `HudOverlay` | `1300` | 虫灾/附魔/转盘、入侵战斗全屏 |
+| `HudTop` | `1400` | `TopDingBarView` |
+| `HudPopup` | `1500` | 变异收获弹窗、升级对话框、TileTips、存档选择等顶层弹窗 |
+
+**中文：** **`MainHudLayerRoot` API**：`BuildUnder(mainCanvas)` 创建 HUD 根；`ApplySortTier(node, tier)` 为 Modal/Screen/Overlay 根节点写入独立 `overrideSorting`；`EnsureGraphicRaycaster(go)` 为带 `Canvas` 的节点补齐 `GraphicRaycaster`。**凡启用 `overrideSorting` 的嵌套 Canvas 必须自带 `GraphicRaycaster`**（父级 `MainCanvas` 射线不会穿透子 Canvas）；`MainHudLayerRoot`、`ApplySortTier` 目标节点及 §9.1.4 `JiaYuanWorldDepthSorter` 动态 Canvas 均须调用。  
+**English:** See `MainHudLayerRoot.BuildUnder` / `ApplySortTier` / `EnsureGraphicRaycaster`; **each nested `overrideSorting` Canvas needs its own `GraphicRaycaster`** (parent raycaster does not reach child canvases); applies to HUD tiers and §9.1.4 world depth sorter canvases.
 
 ### 9.8 主界面底部一级导航切换栏 / Main Menu Bottom Primary Navigation Switch Bar
 
@@ -1938,8 +2083,9 @@ if (tile.pest == PestFlag.AwaitingPestControl)
 | 根节点 `PestControlModal` | stretch 全屏，初始 `SetActive(false)` |
 | `DimOverlay` | 黑色半透明遮罩 `Color(0,0,0,0.65)`，铺满 |
 | `PestControlGridView` | 5×5 网格，居中 `anchoredPosition (0, -75)`；每格 **150 × 150** px，间距 **8** px，外框 **782 × 782** px；空格深灰底；棋子数值字号 **45**；浮动棋子 **狼人绘制层级高于虫子**（`SetSiblingIndex`：槽位底 → 虫子 → 狼人） |
-| `HudTurnText` | 顶部 `anchoredPosition (0, 820)`，显示「回合: N / 20」 |
-| `HudCountText` | `anchoredPosition (0, 760)`；显示虫子/狼人数量与「击杀分数: X / Y」（Y = 虫灾图标数 × 40） |
+| `HudKillScoreText`（v3.85） | `HudTurnText` 上方 `anchoredPosition (0, 880)`；**42** 号字；`击杀分数: X / Y`（Y = 虫灾图标数 × 40） |
+| `HudTurnText` | `anchoredPosition (0, 820)`；**30** 号字；`回合: N / 20` |
+| `HudCountText` | `anchoredPosition (0, 760)`；**30** 号字；仅虫子/狼人数量 |
 | `PestControlSwipeInput` | 与网格同位置、同尺寸 **782 × 782**（`PestControlGridView.GridTotalSize`）；四向滑动阈值约 **40** px |
 | 键盘方向键 | `PestControlScreenView.Update` 监听 `Up/Down/Left/Right Arrow`；每次按下触发 1 次与滑动等价的 `HandleSwipe`；仅在 `Playing` 且全屏层激活时生效 |
 | `GiveUpButton`（v3.81） | 左下角 `anchorMin/Max=(0,0)`、`pivot=(0,0)`，约 **200 × 80** px，灰/红底，文案「放弃」；仅 `Result==Playing` 时显示 |
@@ -2289,6 +2435,12 @@ function executeUnifiedAction():
 
 | 版本 / Ver | 日期 / Date | 说明 / Notes |
 |------------|-------------|--------------|
+| 3.85 | 2026-06-05 | **灭虫 HUD 击杀分数上移**：§9.11.3 新增 `HudKillScoreText`（`HudTurnText` 上方，42 号字）；`HudTurnText` 改为 30 号字；`HudCountText` 仅显示虫子/狼人数量。 / **Pest HUD kill-score layout:** separate `HudKillScoreText` above turn line; turn text 30pt. |
+| 3.114 | 2026-06-05 | **嵌套 Canvas 射线修复（v3.114）**：§9.8.17 更正——`overrideSorting` 子 Canvas 须自带 `GraphicRaycaster`；`MainHudLayerRoot` / `ApplySortTier` / `JiaYuanWorldDepthSorter` / `MutationRevealPopupView`（挂 HUD 时）补齐射线组件，修复主界面全部 UI 点击无响应。 / **Nested canvas raycast fix (v3.114):** §9.8.17 corrected; each override-sorting canvas needs `GraphicRaycaster`; restores main-menu click handling. |
+| 3.113 | 2026-06-05 | **WaterBadge 格内层级**：§9.1.4 新增 `WaterBadge(5)`，低于 `Plant(10)`，使 `PlantSpineHost` 遮挡水分徽标。 / **WaterBadge depth:** §9.1.4 `WaterBadge(5)` below `Plant(10)` so plant Spine occludes water badge. |
+| 3.112 | 2026-06-05 | **HUD 与世界层分离（v3.112）**：新增 §9.8.17 `MainUiSortTier` + `MainHudLayerRoot`；世界 Y 排序钳制 `0..499`；全部 HUD 迁入 `1000+` 分级层，修复世界实体盖住底栏/按钮/弹窗。 / **HUD/world layer split (v3.112):** §9.8.17 tiered HUD; world Y-sort clamped 0..499. |
+| 3.111 | 2026-06-05 | **家园世界 Y 轴深度排序（v3.111）**：新增 §9.1.4 `JiaYuanWorldDepthSorter`；主角（`VillagerRole` 中心）、精灵、植物及田格全部可见 UI 按 `JiaYuanWorldContent` 局部 Y 动态 `Canvas.overrideSorting`；Y 低者在前；修订 §9.5.1 静态 sibling 层级描述。 / **Home world Y-axis depth sort (v3.111):** §9.1.4 `JiaYuanWorldDepthSorter`; dynamic occlusion for hero/pets/plants/tile UI by local Y; lower Y in front. |
+| 3.110 | 2026-06-05 | **收获视角自由拖动镜头（v3.110）**：新增 §9.7.1 三态状态机（`Entry`/`FreePan`/`HarvestLock`）；图标 `ShouHuo_0`/`ShouHuo_2`/`ShouHuo_1`；`JiaYuanViewport` 底层 `HarvestViewPanInput` 滑动手势；`JiaYuanViewportFollowController` 增补 `EnterFreePanMode`/`ExitFreePanMode`/`ApplyFreePanScreenDelta`；自由模式镜头钳位 PosX∈[-696,507]、PosY∈[-748,1050]；关闭钮改为纯 `ShouHuo_1` 图标。 / **Harvest view free camera pan (v3.110):** §9.7.1 three-state machine; `HarvestViewPanInput` on viewport; free-pan API on `JiaYuanViewportFollowController`; fixed position clamp; close button uses `ShouHuo_1` icon only. |
 | 3.84 | 2026-06-04 | **灭虫网格格尺寸 120→150**：§9.11.3 每格 **150×150**、外框 782×782；`PestControlGridView.CellSize=150`、数值字号 45、吃虫震动幅度 18；网格 `anchoredPosition (0,-75)`；HUD / 滑动热区 / 胜败 Overlay 纵向位置同步下移，避免与放大网格重叠。 / **Pest grid cell 120→150:** §9.11.3 layout constants; `PestControlGridView` + `PestControlScreenView` aligned. |
 | 3.83 | 2026-06-04 | **灭虫胜利 B 回合阈值 30→20**：§9.11.3 `HudTurnText`、§9.11.7/§9.11.10 胜利 B（`Count(Bug)==0 && turn>=20`）与 `PestControlGameModel.VictoryTurnThreshold` 同步；HUD 显示「回合: N / 20」。 / **Pest victory B turn threshold 30→20:** §9.11 HUD and victory B aligned with `VictoryTurnThreshold=20`. |
 | 3.82 | 2026-06-04 | **附魔转盘玩法（正式版，取代「打地鼠」演示）**：§9.12 重写为 `EnchantScreenView`（预制件 `EnchantScreen.prefab`，背景 `Game_2_1_0`、指针 `Game_2_1_1`、底座 `Game_2_1_2`、指示灯 `Game_2_1_3`）；规则 4 回合操作指针、3 次命中目标即胜（满 3 胜提前结束，指针 360°/s、点底座立即停、环形角差 ≤30° 判胜、指示灯半径 230px、8 角度随机）；胜利后**不再**走 §9.13 转盘，改为 `CompleteMoleTheft` + `TriggerSingleTileMutation`（变异待收获）→ 停留 1s 自动 `TryHarvestMutation` 弹收获弹窗；失败可「重新挑战」或「放弃」（放弃删除植物）。`IPlantingService` 新增 `GetTileById` / `AbandonMoleTheftPlant`；`TileSlotView` 点击路由改指向 `EnchantScreenView`；`AirMainMenuRuntimeBuilder` 装配附魔预制件，`MoleTheftScreenView` 停用；新增 `EnchantScreenPrefabGenerator`。§4.1.6.1 / §6 同步。 / **Enchant wheel gameplay (full version, replaces whack-a-mole demo):** §9.12 rewritten as `EnchantScreenView` (prefab; 4 rounds, 3-of-4 hits win, pointer 360°/s, tap base to stop, ±30° tolerance, indicator radius 230px); win chains `CompleteMoleTheft` + `TriggerSingleTileMutation` then auto `TryHarvestMutation` after 1s (no §9.13 wheel); loss offers Retry/Abandon (abandon deletes plant). Adds `GetTileById` / `AbandonMoleTheftPlant`; routing + wiring updated; `EnchantScreenPrefabGenerator` added. |
@@ -2398,6 +2550,14 @@ function executeUnifiedAction():
 | 3.60 | 2026-05-15 | **捉虫转盘无变异奖励**：§9.11 胜利后 `WheelLotteryScreenView.Open(tileId, grantMutationOnConfirm: false)`；`WheelLotteryScreenView` 增加参数；捉虫流点击「确定」不调用 `TriggerSingleTileMutation`（两种变异概率 0）；地鼠流保持原 50/50 单格变异。§9.11 / §9.13 / §6 `TriggerSingleTileMutation` 说明同步。 / **Pest wheel no mutation:** §9.11 chains `Open(..., false)`; `WheelLotteryScreenView` adds flag; Confirm skips `TriggerSingleTileMutation`; mole path unchanged. |
 | 3.59 | 2026-05-15 | **转盘抽奖 + 单格变异（v3.59）**：§9.13 新增全屏 `WheelLotteryScreenView`（`JL_ZhuanPan_1/2/3`，第 3 层旋转 1520..2830° / 3s；黑透底 +「选择摇奖」/「确定」双态）；§9.11 / §9.12 胜利后串联 `WheelLotteryScreenView.Open`；§4.1.10 扩展 `MutationPlant.tileIds` 可为 1，`IPlantingService.TriggerSingleTileMutation` 写入；`MutationOverlayView` 图标 Pet→`AirUI/ShiWu_2`、Skill→`AirUI/DaShouHuo_2`（覆盖 v3.20）。 / **Wheel lottery + single-tile mutation (v3.59):** §9.13 adds `WheelLotteryScreenView`; §9.11/§9.12 chain Open after victory; §4.1.10 allows `tileIds.Count==1` and `TriggerSingleTileMutation`; `MutationOverlayView` icon mapping updated (Pet `ShiWu_2`, Skill `DaShouHuo_2`). |
 | 3.58 | 2026-05-15 | §12.10 **主角升级弹窗布局修复**：`ButtonRow` 用 `offsetMin/Max.y` 实现 `PosY=400`（避免与底边 `offsetMax` 冲突）；`BuildInto` 对已存在实例 `RebuildPanel`；按钮无 `Image` 组件。 / §12.10 layout fix: ButtonRow offsets for Y=400; rebuild on existing instance; buttons without Image. |
+| 3.99 | 2026-06-05 | **修复风效 Scene 可见、Game 不可见**：`MainCanvas` 改为 `Screen Space - Camera` + `Main Camera`；风效挂 `JiaYuanWorldScreen` 根层末子节点；粒子 `Hierarchy/View` 缩放与排序。 / **Fix wind FX visible in Scene but not Game:** MainCanvas → Screen Space Camera; wind under JiaYuanWorldScreen root last child; particle Hierarchy/View setup. |
+| 3.98 | 2026-06-05 | **修复家园风效不可见**：从 `wind.unitypackage` 解压导入 `Resources/SpecialEffects/Wind.prefab` 及依赖材质/贴图/Shader；`JiaYuanWindEffectController` 改挂 `JiaYuanViewport`（不随 `JiaYuanWorldContent` 平移）；播放时 `SetAsLastSibling` + 重置粒子 SortingOrder 并 `Play()`。 / **Fix invisible home wind FX:** import `Wind.prefab` assets from `wind.unitypackage`; parent wind under viewport not world content; refresh sorting and restart particles on play. |
+| 3.98 | 2026-06-05 | **`PlantSpineHost` PosY = 0**：Spine 通道 `anchoredPosition.y` 固定为 `0`（X 继承 `PlantImage`）；§9.1 布局约定同步。 / **`PlantSpineHost` PosY = 0:** Spine channel `anchoredPosition.y = 0`; §9.1 layout note updated. |
+| 3.97 | 2026-06-05 | **`PlantSpineHost` Spine 播放缩放**：农田 Spine 通道激活时 `localScale.x/y = 0.75`（Z 继承 `PlantImage`）；§9.1 增补缩放约定。 / **`PlantSpineHost` Spine playback scale:** `localScale.x/y = 0.75` when Spine channel active; §9.1 scale note added. |
+| 3.96 | 2026-06-05 | **修复新存档 Play 时 Unity 原生崩溃（SIGSEGV）**：`PlantSpineGraphicBuilder` 改为共享 UI 材质、禁止 `Destroy(graphic.material)`；`FarmGridView` 首次 `RefreshAllSlots` 推迟到 `OnEnable`（家园层激活后再初始化农田 Spine）。 / **Fix native crash on new-game Play:** shared Spine UI material, no material Destroy; defer farm grid refresh until OnEnable. |
+| 3.95 | 2026-06-05 | **修复 plants.csv 列错位导致待收获外观回退为 *-4**：空 `spine1..5` 行去掉多余 `,,`；`fanqie` 的 `spine1` 合并为单行；`BuildDefaultPlantConfigs` 与 CSV 对齐（`MoRen_1/2` + 作物 `-1/-2/-3`）；`CsvTable` 跳过全空逗号占位行以免误吞 header；§B.2.1 增补 CSV 格式约束。 / **Fix plants.csv column misalignment showing *-4 at harvest:** correct empty spine placeholders; single-line `fanqie` spine1; default fallback aligned with CSV; `CsvTable` skips all-empty comma rows; §B.2.1 format rules added. |
+| 3.94 | 2026-06-05 | **Spine 植物动画与家园风效**：`PlantSpineAnimationPlayer`（`Grow`/`idle`/`work_1`/`work_2`）；`TileSlotView` 动画状态机；`OnPlantTileInteracted`；`JiaYuanWindEffectController`（家园 Tab 停留 30s → 播放 `Resources/SpecialEffects/Wind` 10s → 重计）；风效期间 Spine 植物 `work_2`。 / **Spine plant anims + home wind FX:** animation player; tile FSM; interact event; wind dwell scheduler; `work_2` during wind. |
+| 3.93 | 2026-06-05 | **农田植物按节点双轨制（Sprite + 可选 Spine）**：`plants.csv` 在 `sprite5` 与 `fruitIcon` 之间新增可选列 `spine1..5` → `PlantConfig.appearanceSpineIds`；`ResolveFarmAppearance` 按节点优先 Spine、失败或空列回退 `spriteN`；`TileSlotView` 双通道 `PlantImage` + 运行时 `PlantSpineHost`（`PlantSpineGraphicBuilder`）；小图标 UI 仍只用 `appearanceSpriteIds`；番茄 `fanqie` 节点 3/4/5 首批接入 `NongZuoWu/FanQie/FanQie_{1,2,3}_SkeletonData`。 / **Per-node farm plant dual track (Sprite + optional Spine):** optional `spine1..5` CSV columns; `ResolveFarmAppearance`; `TileSlotView` dual channel; icon UIs unchanged; tomato nodes 3–5 first Spine crop. |
 | 3.62 | 2026-05-18 | **精灵巡逻**：§9 新增 §9.5.2（双状态 FSM：待机循环 idle 每圈后 65%/35% 抽签；协助种植 = 随机有植物田 → 移动 → 攻击×2 → `TryHarvestTile` / `TryWaterTile` / 无效果）；§6 新增 `TryWaterTile`；`PetCompanionPresenter` 增 `PetCompanionAgent`、`BindBottomNavBar` 与 `JiaYuan` Tab 暂停/重抽签；§9.5.1 修订为默认进入巡逻 FSM。 / **Pet patrol:** new §9.5.2 dual-state FSM; §6 adds `TryWaterTile`; `PetCompanionPresenter` gains agents + bottom-nav home-tab pause/re-roll; §9.5.1 points to patrol FSM. |
 | 3.57 | 2026-05-15 | §12.10 **主角升级弹窗排版**：`Panel` `1080×1920`；`ButtonRow` `PosY=400`；`LaterButton` `PosX=388`、`GoButton` `PosX=-332`；两按钮 `Image` 不显示（仅文字可点）。 / §12.10 protagonist level-up dialog layout: `Panel` 1080×1920; `ButtonRow` Y=400; button X offsets; button images hidden. |
 | 3.56 | 2026-05-15 | **战斗结算后「主角升级」弹窗**：新增 §12.10；`ProtagonistLevelUpDialogView`（`548×831`、`ShengJi_1`、底部「后续再说/前往」）；手动关闭 `ResultDialog` 后弹出；「前往」→ `RoleGrowthScreenView.NavigateToTianFuPage`；自动连战链不弹窗。 / **Post-battle protagonist level-up dialog:** §12.10; `ProtagonistLevelUpDialogView`; shown after manual result close; Go → `Page_TianFu`; skipped on auto-chain. |
@@ -2781,6 +2941,7 @@ interface IInvasionService {
 | `id` | string | — | 唯一植物 ID / unique plant id |
 | `displayName` | string | — | 显示名（中文） / display name |
 | `appearanceSpriteIds` | list&lt;string&gt; (length 5) | — | 节点 1..5 精灵资源路径（去掉 `.png`） / sprite paths for nodes 1..5 (without `.png`) |
+| `appearanceSpineIds` | list&lt;string&gt; (length 0 或 5) | 全空 | 可选；节点 1..5 的 `SkeletonDataAsset` Resources 路径（不含扩展名）；空串 = 该节点农田主视觉回退 `appearanceSpriteIds` / optional per-node Spine paths; empty → sprite fallback |
 | `fruitIconResource` | string | 空 | 果实背包与收获飞入动效专用 `Resources.Load<Sprite>` 路径（不含扩展名）；空则回退为 `appearanceSpriteIds` 末项（成熟节点） / dedicated fruit icon path for bag + harvest FX; empty → last growth sprite |
 | `harvestFruitCount` | int | **1** | 每次收获写入 `PlayerFruitBag` 的果实份数（实现层 `max(1,·)` clamp） / fruit units granted per harvest |
 | `baseStageSeconds` | float | **30.0** | 每阶水倒计时基础秒数（5 阶 = 一个完整生长周期） / per-stage base seconds (5 stages = one full growth cycle) |
@@ -2810,11 +2971,11 @@ interface IInvasionService {
 
 #### B.2.1 配置表落地 / Config Table Landing
 
-**中文：** 自 v1.3 起，§B.2 表格的运行时装载来源迁移为外部 CSV 配置表 `Assets/Resources/Configs/Farm/plants.csv`。列顺序（**v3.52** 修订）为：`id, displayName, sprite1, sprite2, sprite3, sprite4, sprite5, fruitIcon, harvestFruitCount, baseStageSeconds, fertilizerSpeedMul, afterHarvest, pestEventIntervalSec, pestEventProb, pestSpriteProb, moleSpriteProb, harvestRoleReward, eatBuffIcon`。其中 `sprite1..5` → `appearanceSpriteIds[0..4]`；`fruitIcon` → `fruitIconResource`（可选）；**`harvestFruitCount`**（必填，正整数）→ 每次收获入包果实数；**`pestSpriteProb`**（必填，浮点 0..1）→ 进入 sprite2/sprite3 节点时各抽一次的虫灾概率；**`moleSpriteProb`**（必填，浮点 0..1）→ 进入 sprite4/sprite5 节点时各抽一次的地鼠偷窃概率；**`harvestRoleReward`** 仅解析属性键（`stat` 或 `stat:后缀`，后缀忽略）→ `harvestRewardStat`；**`eatBuffIcon`**（可选）→ `eatBuffIconResource`（吃下果实 Buff 演示图标，不参与战斗结算）。  
-**English:** Runtime CSV is `Assets/Resources/Configs/Farm/plants.csv`. Column order (**v3.52**): `id, displayName, sprite1, sprite2, sprite3, sprite4, sprite5, fruitIcon, harvestFruitCount, baseStageSeconds, fertilizerSpeedMul, afterHarvest, pestEventIntervalSec, pestEventProb, pestSpriteProb, moleSpriteProb, harvestRoleReward, eatBuffIcon`. `sprite1..5` map to growth sprites; `fruitIcon` maps to `fruitIconResource` (optional); **`harvestFruitCount`** (required, positive int) is per-harvest fruit grant; **`pestSpriteProb`** (required, float 0..1) is the per-node pest roll at `sprite2`/`sprite3`; **`moleSpriteProb`** (required, float 0..1) is the per-node mole theft roll at `sprite4`/`sprite5`; **`harvestRoleReward`** parses only the stat key (suffix after `:` ignored); **`eatBuffIcon`** (optional) maps to `eatBuffIconResource` (presentation-only eat buff icon).
+**中文：** 自 v1.3 起，§B.2 表格的运行时装载来源迁移为外部 CSV 配置表 `Assets/Resources/Configs/Farm/plants.csv`。列顺序（**v3.93** 修订）为：`id, displayName, sprite1, sprite2, sprite3, sprite4, sprite5, spine1, spine2, spine3, spine4, spine5, fruitIcon, harvestFruitCount, baseStageSeconds, fertilizerSpeedMul, afterHarvest, pestEventIntervalSec, pestEventProb, pestSpriteProb, moleSpriteProb, harvestRoleReward, eatBuffIcon`。其中 `sprite1..5` → `appearanceSpriteIds[0..4]`；**`spine1..5`**（可选，缺列视为全空）→ `appearanceSpineIds[0..4]`，农田主视觉按节点优先 Spine、否则回退对应 `spriteN`；`fruitIcon` → `fruitIconResource`（可选）；**`harvestFruitCount`**（必填，正整数）→ 每次收获入包果实数；**`pestSpriteProb`**（必填，浮点 0..1）→ 进入 sprite2/sprite3 节点时各抽一次的虫灾概率；**`moleSpriteProb`**（必填，浮点 0..1）→ 进入 sprite4/sprite5 节点时各抽一次的地鼠偷窃概率；**`harvestRoleReward`** 仅解析属性键（`stat` 或 `stat:后缀`，后缀忽略）→ `harvestRewardStat`；**`eatBuffIcon`**（可选）→ `eatBuffIconResource`（吃下果实 Buff 演示图标，不参与战斗结算）。  
+**English:** Runtime CSV is `Assets/Resources/Configs/Farm/plants.csv`. Column order (**v3.93**): `id, displayName, sprite1, sprite2, sprite3, sprite4, sprite5, spine1, spine2, spine3, spine4, spine5, fruitIcon, harvestFruitCount, baseStageSeconds, fertilizerSpeedMul, afterHarvest, pestEventIntervalSec, pestEventProb, pestSpriteProb, moleSpriteProb, harvestRoleReward, eatBuffIcon`. `sprite1..5` map to growth sprites; **`spine1..5`** (optional; missing columns → all empty) map to `appearanceSpineIds[0..4]` with per-node Spine preference on farm tiles and `spriteN` fallback; `fruitIcon` maps to `fruitIconResource` (optional); **`harvestFruitCount`** (required, positive int) is per-harvest fruit grant; **`pestSpriteProb`** (required, float 0..1) is the per-node pest roll at `sprite2`/`sprite3`; **`moleSpriteProb`** (required, float 0..1) is the per-node mole theft roll at `sprite4`/`sprite5`; **`harvestRoleReward`** parses only the stat key (suffix after `:` ignored); **`eatBuffIcon`** (optional) maps to `eatBuffIconResource` (presentation-only eat buff icon).
 
-**中文：** **解析约定**（与 §B.4 / §B.5 共用）：UTF-8（建议带 BOM，便于 Windows/Excel 编辑链路稳定识别）、首行为 header、`#` 起始的整行视为注释、空行跳过、字段两端 `Trim()`；`afterHarvest` 仅接受 `Wilt / Regrow` 两个枚举字面量（大小写敏感）。明确禁止 ANSI/GBK 等本地代码页编码，避免中文在导入后出现乱码。  
-**English:** **Parsing convention** (shared with §B.4 / §B.5): UTF-8 (BOM recommended for robust recognition in Windows/Excel editing flows); first line is header; whole lines starting with `#` are comments; blank lines are skipped; each cell is `Trim()`-ed; `afterHarvest` accepts only `Wilt / Regrow` (case-sensitive). ANSI/GBK and other locale code pages are explicitly disallowed to prevent Chinese mojibake after import.
+**中文：** **解析约定**（与 §B.4 / §B.5 共用）：UTF-8（建议带 BOM，便于 Windows/Excel 编辑链路稳定识别）、首行为 header、`#` 起始的整行视为注释、空行跳过、字段两端 `Trim()`；`afterHarvest` 仅接受 `Wilt / Regrow` 两个枚举字面量（大小写敏感）。明确禁止 ANSI/GBK 等本地代码页编码，避免中文在导入后出现乱码。**v3.95 起**：`spine1..5` 为空时须恰好 5 个连续逗号占位（`sprite5,,,,,,fruitIcon`），禁止在 `spine5` 与 `fruitIcon` 之间多写 `,,` 导致列错位；**禁止字段内换行或双引号包裹**（`CsvTable` 按物理行切分、不处理引号转义）。  
+**English:** **Parsing convention** (shared with §B.4 / §B.5): UTF-8 (BOM recommended for robust recognition in Windows/Excel editing flows); first line is header; whole lines starting with `#` are comments; blank lines are skipped; each cell is `Trim()`-ed; `afterHarvest` accepts only `Wilt / Regrow` (case-sensitive). ANSI/GBK and other locale code pages are explicitly disallowed to prevent Chinese mojibake after import. **Since v3.95:** empty `spine1..5` must use exactly five consecutive commas (`sprite5,,,,,,fruitIcon`); do not insert an extra `,,` between `spine5` and `fruitIcon`; **no embedded newlines or quoted fields** (`CsvTable` splits on physical lines only).
 
 **中文：** **加载流程与回退**：`PlantConfigCatalog.LoadPlantConfigsFromCsv()` 通过 `Resources.Load<TextAsset>("Configs/Farm/plants")` 读取；当文件缺失、列数不齐、必填字段为空、或 `afterHarvest` 不在枚举集合内时，记录 `Debug.LogWarning` 并回退到 `BuildDefaultPlantConfigs()` 的内置默认值，确保 P0 闭环不被破坏。  
 **English:** **Loading and fallback:** `PlantConfigCatalog.LoadPlantConfigsFromCsv()` reads via `Resources.Load<TextAsset>("Configs/Farm/plants")`; on missing file, malformed rows, empty required fields, or invalid `afterHarvest`, it logs `Debug.LogWarning` and falls back to `BuildDefaultPlantConfigs()` so the P0 loop stays intact.

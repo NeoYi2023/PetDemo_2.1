@@ -66,8 +66,12 @@
     <Compile Include="Assets\Scripts\UI\ProtagonistLevelUpDialogView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\SowGestureController.cs" />
     <Compile Include="Assets\Scripts\Core\FixedRewardListParser.cs" />
+    <Compile Include="Assets\Scripts\UI\MainHudLayerRoot.cs" />
     <Compile Include="Assets\Scripts\UI\VillagerDragRelay.cs" />
     <Compile Include="Assets\Scripts\UI\ArenaChallengeOverlayView.cs" />
+    <Compile Include="Assets\Scripts\UI\JiaYuanWorldDepthSorter.cs" />
+    <Compile Include="Assets\Scripts\UI\JiaYuanWindEffectController.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\PlantSpineAnimationPlayer.cs" />
     <Compile Include="Assets\Scripts\Core\CsvTable.cs" />
     <Compile Include="Assets\Scripts\UI\LevelSelectLevelInfoOverlayView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\PetBagSpineGraphicBuilder.cs" />
@@ -81,6 +85,7 @@
     <Compile Include="Assets\Scripts\UI\ArenaScreenPanelView.cs" />
     <Compile Include="Assets\Scripts\Farm\IPlantingService.cs" />
     <Compile Include="Assets\Fantazia Animated 2D Monsters\Example\MonsterSpawner_Fantazia.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\PlantSpineGraphicBuilder.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\InvasionBattleRewardRowView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\SeedWarehouseListView.cs" />
     <Compile Include="Assets\Scripts\UI\LevelSelectScreenPanelView.cs" />
@@ -91,12 +96,14 @@
     <Compile Include="Assets\Scripts\UI\HomeCharacterDragUtility.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\PlantHarvestSwingAnimator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\RoleGrowthPetBagCellView.cs" />
+    <Compile Include="Assets\Scripts\UI\MainUiSortTier.cs" />
     <Compile Include="Assets\Scripts\UI\JiaYuanViewportFollowController.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\MutationRevealPopupView.cs" />
     <Compile Include="Assets\Scripts\Farm\FarmBootstrap.cs" />
     <Compile Include="Assets\Scripts\UI\PetSkeletonGraphicFacingEnforcer.cs" />
     <Compile Include="Assets\Scripts\UI\RoleGrowthScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\InvasionEntryView.cs" />
+    <Compile Include="Assets\Scripts\UI\HarvestViewPanInput.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\FertilizerWarehousePanelView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\MoleTheftScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\JiaYuanWorldScreenView.cs" />
@@ -153,6 +160,8 @@
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_41_42_43_Bat\monster_12.atlas.txt" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_Bitmap.shader" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_21_22_23_Skeleton\monster 06 skeleton SMALL 512_512.atlas.txt" />
+    <None Include="Assets\Resources\NongZuoWu\FanQie\MoRen_2.atlas.txt" />
+    <None Include="Assets\Resources\NongZuoWu\FanQie\FanQie_3.atlas.txt" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_82_83_84_Raptor\monster_24.atlas.txt" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_70_71_72_Book\monster_20.atlas.txt" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_97_98_99_Masked\monster_29.atlas.txt" />
@@ -161,6 +170,7 @@
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_18_Axe Shadow\monster_05.atlas.txt" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_2_Skulled Salamander\monster_small.atlas.txt" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_24_25_26_Floating\monster_07.atlas.txt" />
+    <None Include="Assets\Resources\NongZuoWu\FanQie\MoRen_1.atlas.txt" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_64_65_66_Mushroom\monster_18.atlas.txt" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_73_74_75_Corrupted Knight\monster_21.atlas.txt" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_19_Crescent Shadow\monster_05.atlas.txt" />
@@ -180,6 +190,7 @@
     <None Include="Assets\TextMesh Pro\Shaders\TMP_Bitmap-Custom-Atlas.shader" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_11_Pure Slime\monster_03.atlas.txt" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF.shader" />
+    <None Include="Assets\Resources\NongZuoWu\FanQie\FanQie_2.atlas.txt" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_12_Glop Slime\monster_03.atlas.txt" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile SSD.shader" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_20_Saw Shadow\monster_05.atlas.txt" />
@@ -189,6 +200,7 @@
     <None Include="Assets\TextMesh Pro\Shaders\TMPro_Properties.cginc" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_67_68_69_Ghost\monster_19.atlas.txt" />
     <None Include="Assets\TextMesh Pro\Shaders\TMPro_Surface.cginc" />
+    <None Include="Assets\Resources\SpecialEffects\GameProject\Slg\Art\Battle\Effect\Shader\Particle Alpha Blend UI.shader" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_8_Slime\monster_03.atlas.txt" />
     <None Include="Assets\Fantazia Animated 2D Monsters\readme.txt" />
     <None Include="Assets\Scenes\Air\Boss\Boss_langmeiren\Boss_langmeiren.atlas.txt" />
@@ -197,6 +209,7 @@
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_94_95_96_Lizard\monster_28.atlas.txt" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_4_Armored Salamander\monster_small.atlas.txt" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile Masking.shader" />
+    <None Include="Assets\Resources\NongZuoWu\FanQie\FanQie_1.atlas.txt" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_38_39_40_Wolf\monster_11.atlas.txt" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_35_36_37_Tree\monster_10.atlas.txt" />
     <None Include="Assets\Fantazia Animated 2D Monsters\Source_Animations\Monster_50_51_52_Flower\monster_14.atlas.txt" />
