@@ -824,6 +824,32 @@ struct GameSession {
 
 ## 8. 技术实现建议 / Technical Notes (Unity)
 
+### 8.1 开发规则：界面优先预制体 / Development Rule: Prefab-First UI
+
+**中文：** 遇到**新增功能界面**（全屏页、弹窗、面板、可复用控件、列表项模板等）的需求时，**必须优先采用预制体（Prefab）方式制作**，**禁止**在运行时脚本中硬写 UI 层级与样式。本条为全局开发约束，与 §9 中 `FarmGridRoot`、`WarehouseBackground`、`UnifiedActionButton`、`BottomNavBar` 等既有「预制体驱动」约定一致，并适用于后续所有新界面（如创角、公会、商店、仓库等）。
+
+**English:** When adding **new feature screens** (full-screen pages, modals, panels, reusable widgets, list item templates, etc.), **prefabs must be the primary delivery path**; **do not** assemble full UI hierarchies and styling in runtime scripts. This is a global development constraint, aligned with existing prefab-driven patterns in §9 (`FarmGridRoot`, `WarehouseBackground`, `UnifiedActionButton`, `BottomNavBar`, etc.) and applies to all future screens (character creation, guild, shop, warehouse, etc.).
+
+**中文：** **推荐流程**：
+
+1. **先在编辑器制作 `.prefab`**：在 Unity Inspector 中配置 `RectTransform`、锚点、层级挂点、`Image` / `Text` / `Button` 样式、子节点命名（如 `Title`、`CloseButton`、`ListContent`）等视觉与布局；美术图源写入预制体或 `Resources` 引用，而非在 C# 中 `Resources.Load` 后逐字段赋值样式。
+2. **运行时只做装配与绑定**：`*View` / `*Presenter` / `AirMainMenuRuntimeBuilder` 等脚本负责 `Resources.Load` 或 Inspector 序列化引用 → `Instantiate` → 查找子节点 → 订阅服务事件 → 刷新数据与文案；**不得**覆盖预制体已设定的位置、尺寸、颜色、字体、按钮过渡色等样式属性。
+3. **列表与重复项用模板克隆**：需要动态数量的条目时，在父预制体内提供隐藏的 `*Template` 子节点（见 §9 `SeedPackOptionTemplate`），运行时 `Instantiate` 模板并写入图标/数量/文案；模板缺失时才允许最小化代码兜底。
+4. **仅缺失资源时回退代码**：当预制体路径为空或 `Resources.Load` 失败时，才允许用极简代码创建占位节点以保证 Play 模式不中断，并 **`Debug.LogWarning` / `Debug.LogError`** 提示执行对应 `Tools/PetDemo/Generate … Prefab` 菜单补做正式预制体；回退产物**不得**作为正式视觉验收标准。
+5. **独立生成入口**：每个新界面宜提供 `Tools/PetDemo/Generate <Name> Prefab`（或等价菜单），支持**单独创建/更新**该预制体，不与 `FarmGridRoot/TileSlot` 等批量生成流程耦合（见 §9 `WarehouseBackground` 独立编辑约定）。
+
+**English:** **Recommended workflow:**
+
+1. **Author `.prefab` in the editor first:** configure `RectTransform`, anchors, hierarchy mounts, `Image` / `Text` / `Button` styling, and child naming (`Title`, `CloseButton`, `ListContent`, etc.) in the Unity Inspector; wire art via prefab or `Resources` references, not by assigning style fields from C# after `Resources.Load`.
+2. **Runtime scripts assemble and bind only:** `*View` / `*Presenter` / `AirMainMenuRuntimeBuilder` load or reference the prefab → `Instantiate` → resolve child nodes → subscribe to services → refresh data/copy; **must not** override prefab-authored position, size, colors, fonts, or button transition colors.
+3. **Clone templates for lists:** for dynamic item counts, embed a hidden `*Template` child in the parent prefab (see §9 `SeedPackOptionTemplate`); runtime clones the template and fills icons/counts/labels; minimal code fallback only when the template is absent.
+4. **Code fallback only when assets are missing:** if the prefab path is empty or `Resources.Load` fails, a minimal placeholder hierarchy is allowed so Play mode does not break, with **`Debug.LogWarning` / `Debug.LogError`** pointing to the matching `Tools/PetDemo/Generate … Prefab` menu; fallback output is **not** acceptable for visual sign-off.
+5. **Dedicated generate menu:** each new screen should expose `Tools/PetDemo/Generate <Name> Prefab` (or equivalent) for **standalone create/update**, decoupled from batch generators such as `FarmGridRoot/TileSlot` (see §9 `WarehouseBackground` standalone editing convention).
+
+**中文：** **反模式（应避免）**：在 `Build()` / `Awake()` 中连续 `new GameObject` + `AddComponent<Image/Text/Button>` 拼出完整面板；在代码里写死 `anchoredPosition`、`sizeDelta`、`fontSize`、`color` 作为主界面布局来源；把美术调参需求改写成 C# 常量而非回预制体编辑。
+
+**English:** **Anti-patterns (avoid):** building entire panels in `Build()` / `Awake()` via chained `new GameObject` + `AddComponent<Image/Text/Button>`; treating hard-coded `anchoredPosition`, `sizeDelta`, `fontSize`, and `color` in C# as the source of truth for main UI layout; encoding art/layout tweaks as C# constants instead of editing the prefab.
+
 **中文：** **Canvas**：使用 Screen Space - Overlay 或 Camera 模式均可；**Canvas Scaler** 建议 **Scale With Screen Size**，参考分辨率 **1080×1920**，Match 可设为 **0.5** 或按宽度优先微调，使竖屏手机接近设计稿。  
 **English:** **Canvas:** Overlay or Camera mode is fine; **Canvas Scaler** should use **Scale With Screen Size** with reference resolution **1080×1920**; Match around **0.5** or width-biased tuning for phones.
 
@@ -1509,11 +1535,22 @@ void ExitAnchorViewLock();            // 收获视角退出（既有，清除 Zh
 **中文：** **显隐规则**：订阅 `BottomNavBarView.OnOpenChanged`；当 `newKey` 为 `JiaYuan` / `JueSe` / `GongHui` / `ShangDian` 之一且 DingUI 资源存在时显示并 `SetAsLastSibling()`，否则隐藏。  
 **English:** Visibility follows bottom-nav key among `JiaYuan` / `JueSe` / `GongHui` / `ShangDian` when the DingUI sprite exists.
 
-**中文（v3.122 家园跳转创角）**：当底栏 `OpenKey == "JiaYuan"` 且 `TopDingBar` 可见时，整条 DingUI **可点击**（`Image.raycastTarget=true` + `Button.transition=None`）；点击后打开 §9.14 创角界面：`CharacterCreationScreenView.Show()`，并同步执行与 §9.14.6 首次进入存档相同的遮挡——`MainHudLayerRoot.SetVisible(false)`、`JiaYuanWorldScreenView.SetWorldScreenEnabled(false)`。若创角界面已显示则忽略重复点击。玩家经创角界面「进入家园」页签列表「跳转」仍走 `OnNavigateToBottomNav` 恢复 HUD 与世界层。其它 Tab（`JueSe` / `GongHui` / `ShangDian`）下 DingUI 仅装饰，**不可**跳转创角。  
-**English:** **Since v3.122:** when `OpenKey == "JiaYuan"` and `TopDingBar` is visible, the bar is clickable and opens §9.14 character creation with the same HUD/world hide as first launch; no-op if already shown. Other tabs keep the bar decorative only.
+**中文（v3.122 家园跳转创角；v3.158 公会同步）**：当底栏 `OpenKey == "JiaYuan"` 或 `OpenKey == "GongHui"` 且 `TopDingBar` 可见时，整条 DingUI **可点击**（`Image.raycastTarget=true` + `Button.transition=None`）；点击后打开 §9.14 创角界面：`CharacterCreationScreenView.Show()`，并同步执行与 §9.14.6 首次进入存档相同的遮挡——`MainHudLayerRoot.SetVisible(false)`、`JiaYuanWorldScreenView.SetWorldScreenEnabled(false)`。若创角界面已显示则忽略重复点击。玩家经创角界面「进入家园」页签列表「跳转」仍走 `OnNavigateToBottomNav` 恢复 HUD 与世界层。其它 Tab（`JueSe` / `ShangDian`）下 DingUI 仅装饰，**不可**跳转创角。  
+**English:** **Since v3.122 (JiaYuan) / v3.158 (GongHui):** when `OpenKey` is `JiaYuan` or `GongHui` and `TopDingBar` is visible, the bar is clickable and opens §9.14 character creation with the same HUD/world hide as first launch; no-op if already shown. `JueSe` / `ShangDian` keep the bar decorative only.
 
 **中文：** **API**：`TopDingBarView.BindNavigateToCharacterCreation(Action navigate)` — 由 `AirMainMenuRuntimeBuilder` 在创角界面构建完成后注入导航委托。  
 **English:** `BindNavigateToCharacterCreation(Action)` is wired from `AirMainMenuRuntimeBuilder` after the character-creation screen is built.
+
+##### 9.8.15.1 公会跟随 NPC 头像列（v3.159）
+
+**中文：** 当底栏 `OpenKey == "GongHui"` 且玩家在公会场景内点击任意 NPC 名牌 `InteractButton`（拉手）后，`TopDingBar` 左下角出现该 NPC 的 **84×84** 头像（资源与名牌 Avatar 一致，取自 `FriendCatalog` 或 Inspector 覆盖）。多名 NPC 依次拉手时，头像按点击顺序以**单列向下**追加（`FollowerAvatarSpacing=8px`，左下内边距 `16px`）；同一 NPC 重复拉手不追加。头像子节点 `FollowerAvatarStack` 挂于 `TopDingBar` 根下，锚点左下，`raycastTarget=false` 不阻挡 DingUI 点击跳转创角。  
+**English:** On `GongHui` tab, each successful NPC `InteractButton` tap appends an **84×84** avatar at the bottom-left of `TopDingBar`, stacked downward in click order; duplicates ignored; stack does not block DingUI clicks.
+
+**中文：** **生命周期**：头像与 §9.8.9.6 NPC 跟随会话绑定；`GuildNpcFollowController.StartFollow` 成功后通过 `FollowerAdded` 事件驱动 `TopDingBarView` 追加头像；底栏切离 `GongHui` 时 `TopDingBarView` 调用 `ClearFollowerAvatars()` 清空并隐藏；再次进入公会时头像为空（跟随列表已在 `OnDisable` 复位）。`GongHuiScreenView.BindTopDingBar` + `AirMainMenuRuntimeBuilder` 构建后连线；`npcFollowController` 仍为懒创建，实际订阅在 `EnsureSceneSpawned`。  
+**English:** Avatar lifetime matches the guild follow session; cleared when leaving `GongHui`; wired via `BindTopDingBar` after HUD build.
+
+**中文：** **API**：`TopDingBarView.BindGuildFollowController(GuildNpcFollowController)`；`GuildNpcFollowController.FollowerAdded`；`GuildNpcMarker.ApplyAvatarToImage(Image)`。  
+**English:** APIs: `BindGuildFollowController`, `FollowerAdded`, `ApplyAvatarToImage`.
 
 #### 9.8.17 主界面 HUD 排序分层（v3.112） / Main HUD Sort Tiers
 
@@ -1617,6 +1654,9 @@ public class BottomNavButtonView : MonoBehaviour
 **中文：** **互斥实现**：`SetOpenIndex(i)` 内部强制 `for k in 0..4: buttons[k].ApplyState(k == i, k == i ? 364 : 179)`，并按 §9.8.2 公式逐个写入 `anchoredPosition.x`；执行完毕后触发 `OnOpenChanged(i, buttons[i].Key)`。每个 `BottomNavButtonView` 的 `hitButton.onClick` 在 Awake 时统一指向自身 `OnClicked` 事件，`BottomNavBarView` 在 Start 阶段订阅全部 5 个按钮的 `OnClicked` 并转发到 `SetOpenIndex(indexOfClicked)`。  
 **English:** **Mutex enforcement:** `SetOpenIndex(i)` forces `for k in 0..4: buttons[k].ApplyState(k == i, k == i ? 364 : 179)` and writes each `anchoredPosition.x` per §9.8.2; after the pass it fires `OnOpenChanged(i, buttons[i].Key)`. Each `BottomNavButtonView` wires `hitButton.onClick` to its own `OnClicked` event in `Awake`; `BottomNavBarView` subscribes to all five buttons' `OnClicked` in `Start` and forwards each click to `SetOpenIndex(indexOfClicked)`.
 
+**中文：** **Start 生命周期（v3.152）**：选档后创角界面覆盖 HUD，`BottomNavBarView` 的 `Start` 会延迟到 `RestoreFromOverlay` 首次 `MainHudLayerRoot.SetVisible(true)` 才执行。`Start` 初始化 `OpenIndex` 时：若 `OpenIndex >= 0`（说明同帧或更早已通过 `SetOpenKey`/`SetOpenIndex` 写入目标 Tab），**保留该索引**；否则才回落 `defaultOpenIndex`（默认 2 = `JiaYuan`）。避免「进入家园 → 前往 社区」首次跳转被 `Start` 覆盖为家园。  
+**English:** **Start lifecycle (v3.152):** After save-slot entry the character-creation overlay hides the HUD, so `BottomNavBarView.Start` runs only when `RestoreFromOverlay` first shows the HUD. On `Start`, if `OpenIndex >= 0` (already set via `SetOpenKey`/`SetOpenIndex`), **keep that index**; otherwise fall back to `defaultOpenIndex` (default 2 = `JiaYuan`). Prevents the first Enter-home → Navigate-to-Guild jump from being overwritten by `Start`.
+
 #### 9.8.5 预制件生成与资源约定 / Prefab Generation and Asset Convention
 
 **中文：** 切换栏以 **预制件形式** 制作并提供独立的 `Tools/PetDemo/Generate Bottom Nav Bar Prefab` 菜单：菜单触发 `BottomNavBarPrefabGenerator.Generate()` 在 `Assets/Resources/Prefabs/Farm/BottomNavBar.prefab` 重新生成预制件，含完整的 5 × 3 子节点骨架与已挂载的 `BottomNavBarView` / `BottomNavButtonView` 组件，并把 `buttons / selfRt / openState / closedState / hitButton` 等引用通过 `SerializedObject` 写入。**5 × 4 = 20 个 Sprite 槽位**（每个按钮的 `OpenBg / OpenIcon / ClosedBg / ClosedIcon`）由用户在预制件 Inspector 中手动指定，脚本侧不做硬编码资源路径绑定。  
@@ -1719,7 +1759,7 @@ Each `ChapterPin` `RectTransform` uses `anchorMin = anchorMax = (0.5, 0.5)`, `pi
 3. **建筑**：`Buildings/` 下由人工摆放 **`GuildBuildingMarker`**（占位 `Image` + 建筑名 + 交互半径）；主角进入半径时在建筑上方显示「建筑名 + 功能按钮（占位）」名牌，离开隐藏。
 4. **NPC**：`Npcs/` 下由人工摆放 **`GuildNpcMarker`**（固定出生点）；运行时为每个 NPC 实例化同款村民 Spine 待机；主角进入半径时在 NPC 头顶显示「头像 + 名字 + 互动按钮（占位）」名牌（头像/名字默认取 §9.14.2 `FriendCatalog`，可被 Inspector 覆盖），离开隐藏。
 5. **按钮占位**：建筑功能按钮本期点击仅 `Debug.Log`，具体功能后续版本扩展；NPC 互动按钮自 v3.124 起触发「NPC 跟随」（见第 6 点）。
-6. **NPC 跟随（v3.124）**：点击任意 NPC 名牌上的 `InteractButton` 后，该 NPC 进入**跟随主角**状态：与主角（content 局部空间）距离 **> 40px** 时朝主角直线移动（速度与主角一致 `420px/s`，自然形成"跟在身后"的效果），**≤ 40px** 时停下待机；跟随移动**不做障碍碰撞与边界钳位**。移动中播放 `move_1`（回退 `move`/`animation`），停止播放 `exclusive_2`（回退 `standby_1`/`animation`/`idle`），按水平方向翻转朝向。支持**多个 NPC 同时跟随**；重复点击同一 NPC 无额外效果。跟随状态持续到**离开公会界面**（底栏切到其它 Tab）：此时所有跟随 NPC 复位回各自出生点 `anchoredPosition` 并恢复待机，跟随列表清空；再次进入界面后 NPC 回到初始静止状态。跟随移动的是 `GuildNpcMarker` 节点本身，名牌随 NPC 一起移动；因跟随距离 40px 小于交互半径 220px，跟随期间名牌保持显示，属预期表现。
+6. **NPC 跟随（v3.124；TopDingBar 头像 v3.159）**：点击任意 NPC 名牌上的 `InteractButton` 后，该 NPC 进入**跟随主角**状态：与主角（content 局部空间）距离 **> 40px** 时朝主角直线移动（速度与主角一致 `420px/s`，自然形成"跟在身后"的效果），**≤ 40px** 时停下待机；跟随移动**不做障碍碰撞与边界钳位**。移动中播放 `move_1`（回退 `move`/`animation`），停止播放 `exclusive_2`（回退 `standby_1`/`animation`/`idle`），按水平方向翻转朝向。支持**多个 NPC 同时跟随**；重复点击同一 NPC 无额外效果。跟随状态持续到**离开公会界面**（底栏切到其它 Tab）：此时所有跟随 NPC 复位回各自出生点 `anchoredPosition` 并恢复待机，跟随列表清空；再次进入界面后 NPC 回到初始静止状态。跟随移动的是 `GuildNpcMarker` 节点本身，名牌随 NPC 一起移动；因跟随距离 40px 小于交互半径 220px，跟随期间名牌保持显示，属预期表现。**（v3.159）** 拉手成功后同步在 §9.8.15.1 `TopDingBar` 左下角登记该 NPC 头像（84×84 单列向下）；离开公会 Tab 时清空头像列。
 
 **English (gameplay):** (1) player uses the home villager Spine (`Prefabs/Air/Hero_Role_cunmin`, built as `SkeletonGraphic` like §9.5) driven by a **transparent virtual joystick** (invisible until press; semi-transparent base+knob appear at press point; outputs a direction vector; hidden on release), with `move_1` / `exclusive_2` animations and horizontal flip; (2) hand-placed **`GuildObstacleArea`** rectangles block movement via per-axis AABB tests (wall sliding, no clipping), plus world-bounds clamping; (3) hand-placed **`GuildBuildingMarker`** shows a "name + placeholder action button" plate when the player enters its radius; (4) hand-placed **`GuildNpcMarker`** spawns an idle villager Spine and shows "avatar + name + interact button" overhead within radius (defaults from §9.14.2 `FriendCatalog`, Inspector-overridable); (5) the building button only `Debug.Log`s this release, while the NPC interact button triggers **NPC follow** since v3.124; (6) **NPC follow (v3.124):** tapping a plate's `InteractButton` puts that NPC into follow mode — it walks straight toward the player at `420px/s` while farther than **40px** (content-local space) and idles within 40px, with **no obstacle/bounds checks**, `move_1`/`exclusive_2` animations and horizontal flip; multiple NPCs may follow at once and re-tapping is a no-op; leaving the GongHui screen resets every following NPC to its spawn `anchoredPosition`, restores idle, and clears the follow list. The marker node itself moves, so the plate travels with the NPC and stays visible (40px < 220px radius) by design.
 
@@ -1840,6 +1880,67 @@ class JiaYuanGuildVisitorPresenter : MonoBehaviour {
     const float MoveSpeed = 420f;             // 离场速度（与公会跟随一致）
     const float StaggerX = 150f;              // 多 NPC 错开间距
     void Build(RectTransform worldContent, RectTransform playerRoleRt, BottomNavBarView bottomNav);
+}
+```
+
+##### 9.8.9.9 公会 NPC 骨骼分化与 work_2 互动 (v3.156)
+
+**中文：** 自 v3.156 起，§9.8.9 `Npcs/` 下三个 `GuildNpcMarker` 按点位使用不同 Spine 骨骼，并统一默认循环 `standby_1`；`Npc_1`（`friend-01`）名牌显示时，在 NamePlate **正上方**增加动作图标按钮 `HuDong_DongZuo_1`（`Resources.Load<Sprite>("AirUI/HuDong_DongZuo_1")`），点击后编排玩家与 Npc_1 各播放 1 遍 `work_2`（玩家先播，**0.5s 后** Npc_1 播），结束后双方恢复待机。名牌 `NamePlate/InteractButton/Label` 文案固定为「**拉手**」（**自 v3.157** 由「互动」更名；`GuildSceneUiFactory.NpcInteractButtonLabel`；`SetPlateVisible(true)` 每次显示时强制同步 Label，避免 Play 会话内旧名牌缓存）；预制体生成器烘焙同名节点（默认 `active=false`，运行时 `TryAcquirePlateFromHierarchy` 复用）。仍接 `GuildNpcFollowController.StartFollow`，与动作图标并存。
+
+| NPC | 骨骼 | Resources 探针 |
+|-----|------|----------------|
+| `Npc_1` / `friend-01` | LangMeiRen `Role_langmeiren_SkeletonData` | `Prefabs/Air/Hero_Role_langmeiren` |
+| `Npc_2` / `friend-02` | LangRen `Role_cslangren_SkeletonData` | `Prefabs/Air/Hero_Role_cunmin` |
+| `Npc_3` / `friend-03` | 同上 | 同上 |
+
+**默认动画：** 三者生成后 `GuildSpineCharacterBuilder.PlayLoop(sg, "standby_1", "animation", "idle", "exclusive_2")`；跟随停步/离开界面复位时同样以 `standby_1` 为首选。
+
+**名牌 UI（仅 `showActionIcon=true` 的 Npc_1）：** `ActionIconButton` 挂在 marker 下、`NamePlate` 顶边之上（`anchoredPosition.y = plateOffsetY + 180 + actionIconOffsetAbovePlate`，默认 `actionIconOffsetAbovePlate=24`，尺寸 `80×80`），与名牌同显隐；跟随时一并隐藏。
+
+**work_2 编排：** `GuildNpcWork2InteractionController`（挂在 `GongHuiScreen` 根）在 `OnActionIconClick` 时：`GuildPlayerController.SetAnimationLocked(true)` + `GuildNpcFollowController.SetActionAnimationLocked(npc, true)` → `PlayOnce(player, "work_2")` → `WaitForSeconds(0.5f)` → `PlayOnce(npc, "work_2")` → 轮询 `TrackEntry.IsComplete`（超时 `12s`）→ 解锁并按当前移动/跟随状态恢复动画。编排中忽略连点。
+
+**English:** Since v3.156, guild NPCs use per-slot Spine skeletons (Npc_1 = LangMeiRen, Npc_2/3 = LangRen via Resources probe prefabs), default looping `standby_1`. When Npc_1's NamePlate is visible, an `HuDong_DongZuo_1` icon button appears above the plate; tapping it plays `work_2` once on the player, then on Npc_1 after **0.5s**, then restores idle. The legacy "Interact" follow button remains. Animation locks pause player idle/move switching and per-NPC follow-driven anim updates during the sequence.
+
+**数据结构 / Data Structures:**
+
+```csharp
+enum GuildNpcSkeletonKind { LangRen, LangMeiRen }
+
+class GuildNpcMarker {
+    GuildNpcSkeletonKind skeletonKind;   // Npc_1=LangMeiRen, Npc_2/3=LangRen
+    bool showActionIcon;                 // Npc_1=true
+    string actionIconResource = "AirUI/HuDong_DongZuo_1";
+    float actionIconOffsetAbovePlate = 24f;
+    Action<GuildNpcMarker> OnActionIconClick;
+}
+
+class GuildNpcWork2InteractionController : MonoBehaviour {
+    void Initialize(GuildPlayerController player, GuildNpcFollowController follow);
+    void TryPlayWork2WithNpc(GuildNpcMarker npc);
+}
+```
+
+##### 9.8.9.10 公会社区入口与 App_4 全屏弹层 (v3.165)
+
+**中文：** 当底栏 `OpenKey == "GongHui"` 时，在 §9.8.15 `TopDingBar` **左下方**显示 **`GongHuiCommunityEntryLayer`** 入口按钮「**打开社区**」：图标 **`Resources.Load<Sprite>("AirUI/SheQu_Icon")`**（`preserveAspect=true`），文案白字 `fontSize≈36`；按钮锚点左上 `(0,1)`、`pivot=(0,1)`，`anchoredPosition.x=16`，`anchoredPosition.y = -(DingUI 原生高度 + 12)`（运行时读 `TopDingBarView.ResDingSprite` 的 `rect.height`，缺图回退 `y=-12`）；水平 `HorizontalLayoutGroup`（图标约 **72×72** + 文字，`spacing=8`）。点击后全屏打开 **`GongHuiCommunityOverlay`**：背景 **`Resources.Load<Sprite>("AirUI/App_4")`**，`Image.preserveAspect=false` 铺满；根节点 `Button.transition=None`，**任意位置点击关闭**（同 §9.8.16 `ArenaChallengeOverlayView` / `JingJi-3` 模式）。`newKey != "GongHui"` 时隐藏入口并 `HideIfAny()` 强制关闭弹层。
+
+**中文（层级与构建）：** 入口层为 `MainHudLayerRoot` 子节点，`MainUiSortTier.HudTop`（1400），由 `GongHuiCommunityEntryView.BuildInto(hudRoot, bottomNavBar, canvasRect)` 在 `TopDingBarView.BuildInto` 之后构建；弹层挂主 `Canvas`，`MainUiSortTier.HudPopup`（1500），`Show()` 时 `SetAsLastSibling()`。本期 `App_4` 仅静态展示 + 点击关闭，不实现 Feed 内交互热区。
+
+**English:** On `GongHui` tab, show an **Open Community** entry below `TopDingBar` (top-left, icon `AirUI/SheQu_Icon`, label 「打开社区」). Tap opens a full-screen `App_4` overlay; tap anywhere to close. Entry hides and overlay closes when leaving the guild tab. Entry tier `HudTop`; overlay tier `HudPopup`.
+
+**API：**
+
+```csharp
+class GongHuiCommunityEntryView : MonoBehaviour {
+    const string ResEntryIcon = "AirUI/SheQu_Icon";
+    static GongHuiCommunityEntryView BuildInto(RectTransform hudRoot, BottomNavBarView barView, RectTransform canvasRect);
+}
+
+class GongHuiCommunityOverlayView : MonoBehaviour {
+    const string ResCommunitySprite = "AirUI/App_4";
+    static GongHuiCommunityOverlayView GetOrCreate(RectTransform canvasRect);
+    void Show(); void Hide();
+    static void HideIfAny();
 }
 ```
 
@@ -2546,6 +2647,12 @@ public class FriendProfile
     public string avatarResource; // 头像 Resources 路径，如 "AirUI/WanJia_icon_1"
     public bool   online;         // 是否在线
     public int    intimacy;       // 亲密度 0..100
+
+    // 自 v3.158（§9.14.8 第 1 点）起，由 TopFriends.csv 提供的扩展字段（仅 TopFriend 列表使用）：
+    public bool   isFemale;            // 性别：true=女(friends_icon_woman)，false=男(friends_icon_man)
+    public bool   intimacyInterrupted; // 亲密度是否中断：true=Xing_2_1，false=Xing_2
+    public string avatarFrameResource; // 头像框 Resources 路径，留空=无头像框，如 "AirUI/friends_Avatar_frame_1"
+    public string spinePrefabPath;     // 模型 Spine 预制体 Resources 路径，如 "Prefabs/Air/Hero_Role_cunmin"
 }
 
 public class CharacterCreationState
@@ -2587,7 +2694,7 @@ bool CreateCharacterDirect();                          // v3.117：无伙伴直�
 
 #### 9.14.6 装配与导航流程 / Assembly and Flow
 
-**中文：** 在 `AirMainMenuRuntimeBuilder.Build()` 末尾（底栏与家园层构建完成后）调用 `CharacterCreationScreenView.BuildInto(canvasRect, PlantingService.Instance)` 与 §9.15 `AppScreenView.BuildInto`，均置 `MainUiSortTier.HudPopup`；**自 v3.143 起默认 `Show()` 的是创角界面**（`OpenCharacterCreationScreen()`），APP 界面预构建但不自动显示。APP/创角期间须调用 `MainHudLayerRoot.SetVisible(false)` 隐藏整个 HUD 层，并调用 `JiaYuanWorldScreenView.SetWorldScreenEnabled(false)`；订阅 **`OnNavigateToBottomNav(string navKey)`** → `Hide()` 并恢复 HUD 与世界层后 `bottomNavBar.SetOpenKey(navKey)`（`GongHui` / `JiaYuan` / `ZhuXian`，见 §9.14.10）。**自 v3.138 起**，创角界面右上角 `ScreenCloseButton`（72×72「×」，与 §9.14.9 关闭按钮范式一致）点击触发 `OnCloseRequested` → 隐藏创角界面并 `AppScreenView.Show()` 回退 APP 首页（HUD/世界层保持隐藏）。**自 v3.122 起**，玩家已在家园 Tab 时还可通过 §9.8.15 `TopDingBar` 点击再次打开创角界面（复用上述隐藏/恢复流程，不新增独立导航栈）。
+**中文：** 在 `AirMainMenuRuntimeBuilder.Build()` 末尾（底栏与家园层构建完成后）调用 `CharacterCreationScreenView.BuildInto(canvasRect, PlantingService.Instance)` 与 §9.15 `AppScreenView.BuildInto`，均置 `MainUiSortTier.HudPopup`；**自 v3.143 起默认 `Show()` 的是创角界面**（`OpenCharacterCreationScreen()`），APP 界面预构建但不自动显示。APP/创角期间须调用 `MainHudLayerRoot.SetVisible(false)` 隐藏整个 HUD 层，并调用 `JiaYuanWorldScreenView.SetWorldScreenEnabled(false)`；订阅 **`OnNavigateToBottomNav(string navKey)`** → `Hide()` 并恢复 HUD 与世界层后 `bottomNavBar.SetOpenKey(navKey)`（`GongHui` / `JiaYuan` / `ZhuXian`，见 §9.14.10）。**自 v3.138 起**，创角界面右上角 `ScreenCloseButton`（72×72「×」，与 §9.14.9 关闭按钮范式一致）点击触发 `OnCloseRequested` → 隐藏创角界面并 `AppScreenView.Show()` 回退 APP 首页（HUD/世界层保持隐藏）。**自 v3.122 起**（**v3.158** 扩展至公会 Tab），玩家已在家园或公会 Tab 时还可通过 §9.8.15 `TopDingBar` 点击再次打开创角界面（复用上述隐藏/恢复流程，不新增独立导航栈）。
 
 ```mermaid
 flowchart TD
@@ -2611,23 +2718,48 @@ flowchart TD
 - `PetDemo.Save.FriendProfileSave` / `CharacterCreationSave`（存档 DTO）。
 - `PetDemo.UI.CharacterCreationScreenView`（界面：三态切换 + 好友列表 + Spine 主角 + 好友展示 + **底部页签栏控制**；`BuildInto` / `Show` / `Hide` / **`OnNavigateToBottomNav`** / `OnCloseRequested` / **`OnVisitFriendHome`**；底部 4 页签互斥高亮切换由本类管理，见 §9.14.10）。
 - `PetDemo.UI.CharacterCreationFriendCellView`（好友选择行：头像/名字/亲密度/在线）。
-- `PetDemo.UI.TopFriendCellView`（**自 v3.139**：亲密度页签好友长框行 — 头像/名字/亲密度 + 右侧「去找Ta/去Ta家/发消息」三按钮；`AutoWire` / `Bind`）。
+- `PetDemo.UI.TopFriendCellView`（**自 v3.139**；**v3.158 重构**：亲密度页签好友双列网格单元 — 九宫格背景 `friends_bg_1` + 头像/头像框/名字/性别图标/在线图标 + 左上 `friends_bg_2` 叠 `IntimacyIcon`/`IntimacyText`；整体点击打开好友详情弹窗；`AutoWire` / `Bind(FriendProfile, Action<FriendProfile> onClick)`）。
+- `PetDemo.Core.TopFriendCatalog`（**自 v3.158**：亲密度好友列表配置表加载；CSV `Resources/Configs/TopFriends.csv` → `List<FriendProfile>`；`Load` / `ClearCache`，缺表回退 `FriendCatalog.BuildDefault()`）。
+- `PetDemo.EditorTools.TopFriendCellPrefabGenerator`（**自 v3.158**：`Tools/PetDemo/Generate Top Friend Cell Prefab` 生成 `Resources/Prefabs/Farm/TopFriendCell.prefab`）。
 - `PetDemo.UI.EnterHomeNavCellView`（**自 v3.141**：进入家园页签跳转长框行 — 图标/名称 + 右侧「跳转」按钮；`AutoWire` / `Bind`）。
 - `PetDemo.EditorTools.CharacterCreationScreenPrefabGenerator`（`Tools/PetDemo/Generate Character Creation Screen Prefab`）。
 - `PetDemo.UI.DressUpPanelView` / `PetDemo.UI.DressUpPanelLayout`（装扮界面：上下分栏 + 商店 4 页签；`GetOrCreate` / `Bind` / `Show` / `Hide`，见 §9.14.9）。
+- `PetDemo.UI.DressUpActionSpinePresenter`（**自 v3.153**：装扮 Tab2 动作页 Spine 预览；LangRen/LangMeiRen 骨骼构建、`standby_1` 待机、`dz_001` `work_2` 协程序列，见 §9.14.9）。
 - `PetDemo.Core.DressUpItemCatalog` / `PetDemo.Core.DressUpItemConfig`（**自 v3.145**：装扮商店道具配置表加载与排序；CSV `Resources/Configs/DressUpItems.csv`；`Load` / `GetItemsByTab`，见 §9.14.9）。
+- `PetDemo.UI.DressUpItemCellView`（**自 v3.160**：装扮商店道具单元独立预制体；`AutoWire` / `Bind(DressUpItemConfig, Action)` / `SetSelected`；选中叠加层 `SelectionOverlay`，见 §9.14.9）。
+- `PetDemo.EditorTools.DressUpItemCellPrefabGenerator`（**自 v3.160**：`Tools/PetDemo/Generate Dress-Up Item Cell Prefab` 生成 `Resources/Prefabs/Farm/DressUpItemCell.prefab`）。
 - `PetDemo.EditorTools.DressUpPanelPrefabGenerator`（`Tools/PetDemo/Generate Dress-Up Panel Prefab`）。
 
 #### 9.14.8 好友展示 / Friend Showcase (v3.118)
 
 **中文：** 创角界面新增「亲密度好友展示」，所有展示用好友均按**纯亲密度从高到低**排序（忽略在线状态，亲密度相同按 `id` 升序兜底）。
 
-1. **亲密度好友列表（自 v3.139 起，预制体编排）**：原「左上角 Top3 头像」改为「亲密度」页签（§9.14.10）下的**全量好友竖向滚动列表**（`ScrollRect`，vertical），结构由 [CharacterCreationScreenLayout.cs](PetDemo_2/Assets/Scripts/UI/CharacterCreationScreenLayout.cs) 编排进 prefab（不再由 `View` 运行时构建），`View` 仅按 `TopFriendCellTemplate` 模板实例化并填充数据（仿 §9.14.3 列表范式）。每条 `TopFriendCell` 采用**长框列表样式**，背景图 `AirUI/TopFriendCellBJ`（缺图回退纯色）：左侧好友头像（`avatarResource`），中部好友名字与亲密度文字（"亲密度 X"），**右侧并排三按钮**「去找Ta / 去Ta家 / 发消息」，功能与 §13.2 `FriendListPanel` 一致（去Ta家→打开好友家园 `FriendHomeScreenView.ShowFor`；去找Ta / 发消息暂为占位 `Debug.Log`，后续迭代同步演进）。**自 v3.147 起**布局数值：`GoFindButton` / `VisitHomeButton` / `MessageButton` 尺寸 **125×80**，锚点右中 `(1, 0.5)`，PosX 分别为 **-266 / -137 / -8**；`IntimacyText` 锚点左下 `(0, 0)`，PosX **350**，PosY **24**；`IntimacyText` 正上方新增可点击 `IntimacyIcon`（**50×50**，锚点左下 `(0, 0)`，PosX **350**，PosY **74**），`TopFriendCellView.Bind` 时以 **50%** 概率随机展示 `AirUI/Xing_2` 或 `AirUI/Xing_2_1`；点击 `Xing_2` 打开 `QinMiDuPopup`（`AirUI/QinMiDu_0`），点击 `Xing_2_1` 打开 `ZhongDuanPopup`（`AirUI/ZhongDuan_1`），与其它创角弹窗互斥。
-2. **好友角色立绘弹窗**：点击 Top3 面板中某位好友的头像（`friend != null` 时），弹出全屏角色立绘弹窗（半透明遮罩 + 居中内容，点击遮罩关闭；`Show()` 时自动隐藏）。立绘资源按 Top3 **排名**映射（非亲密度数值区间）：
-   - 第 1 名（亲密度最高）→ `AirUI/WanJia_6`
-   - 第 2 名 → `AirUI/WanJia_5`
-   - 第 3 名 → `AirUI/WanJia_3`
-   布局：居中角色立绘 → 正下方好友头像（`avatarResource`）→ 正下方好友名字（`displayName`）。
+1. **亲密度好友列表（自 v3.158 起：配置表驱动 + 独立预制体 + 双列网格）**：「亲密度」页签（§9.14.10）下的**全量好友滚动列表**（`ScrollRect`，vertical）。
+   - **数据源（替换 Service 默认数据）**：列表数据完全由**配置表** `Resources/Configs/TopFriends.csv` 驱动（经 `TopFriendCatalog.Load()` 解析为 `List<FriendProfile>`，缺表回退 `FriendCatalog.BuildDefault()`），按**纯亲密度降序**展示。字段：`id, displayName, avatar, gender, intimacy, intimacyInterrupted, online, avatarFrame, spinePrefab`（见 §9.14.2 扩展字段与下表）。
+   - **预制体（独立资源）**：单元改为**独立预制体** `Resources/Prefabs/Farm/TopFriendCell.prefab`（由 `TopFriendCellPrefabGenerator` 经 `CharacterCreationScreenLayout.BuildTopFriendCellRoot` 生成），`View` 运行时 `Resources.Load<GameObject>("Prefabs/Farm/TopFriendCell")` 实例化进 `TopFriendContent` 并 `Bind` 填充数据。
+   - **布局（双列网格）**：`TopFriendContent` 使用 `GridLayoutGroup`（`cellSize = 500×430`、`constraint = FixedColumnCount`、`constraintCount = 2`，配合 `spacing` / `padding` 与 `ContentSizeFitter(Vertical=PreferredSize)`）；即**每行 2 个**单元。
+   - **单元内容**：背景图 `AirUI/friends_bg_1` 以**九宫格（Sliced）**方式铺满单元（边缘造型不变、中心可拉伸，需在 `friends_bg_1.png.meta` 设置 `spriteBorder`）；内部含：好友头像 `Avatar`（`avatarResource`，可选叠加头像框 `avatarFrame`，留空则不显示头像框）、好友名字 `NameText`（`displayName`）、性别图标（女 `AirUI/friends_icon_woman` / 男 `AirUI/friends_icon_man`）、在线图标（在线 `AirUI/friends_ing_1` / 离线 `AirUI/friends_ing_2`）及图标右侧 `OnlineText`（在线→「在线」，离线→「离线」，黑色文字，字号 32）。
+   - **左上角亲密度区**：单元**左上角**放置 `AirUI/friends_bg_2`；在其**更高层级**（子节点）显示亲密度图标 `IntimacyIcon` 与亲密度文字 `IntimacyText`（"亲密度 X"）。`IntimacyIcon` 按配置 `intimacyInterrupted` 取值（中断 `AirUI/Xing_2_1`，未中断 `AirUI/Xing_2`，**不再随机**）。
+   - **点击行为**：整个单元可点击（`Button`），点击后打开**好友详情弹窗**（见下第 2 点）；单元自身**不再含**「去找Ta / 去Ta家 / 发消息」三按钮（迁移至弹窗）。
+   - 缺图按既有模式回退纯色并 `Debug.LogWarning`。
+
+   **TopFriends.csv 字段表：**
+
+   | 列 | 含义 | 取值/映射 |
+   |----|------|-----------|
+   | `id` | 角色 ID | 如 `friend-01` |
+   | `displayName` | 角色名字（`NameText`） | 文本 |
+   | `avatar` | 角色头像（`Avatar`） | Resources 路径，如 `AirUI/WanJia_icon_1` |
+   | `gender` | 性别 | `male`→`friends_icon_man`，`female`→`friends_icon_woman` |
+   | `intimacy` | 亲密度值（`IntimacyText`） | 0..100 |
+   | `intimacyInterrupted` | 亲密度是否中断（`IntimacyIcon`） | `true`→`Xing_2_1`，`false`→`Xing_2` |
+   | `online` | 是否在线 | `true`→`friends_ing_1` + `OnlineText`「在线」；`false`→`friends_ing_2` +「离线」 |
+   | `avatarFrame` | 头像框 | Resources 路径，留空=无框，如 `AirUI/friends_Avatar_frame_1` |
+   | `spinePrefab` | 模型 Spine 名称 | Resources 预制体路径，如 `Prefabs/Air/Hero_Role_cunmin` |
+
+2. **好友详情弹窗（自 v3.158 起：Spine + 三按钮）**：点击 `TopFriendCell` 弹出全屏好友详情弹窗（半透明遮罩 + 居中内容，点击遮罩关闭；`Show()` 时自动隐藏，与其它创角弹窗互斥）。
+   - 中央展示该角色的**模型 Spine**：按配置 `spinePrefabPath` 加载预制体探针取 `SkeletonDataAsset`，经 `SkeletonGraphic.AddSkeletonGraphicComponent` 构建并循环播放待机动作（动画候选链同 §9.14.1），缺资源时回退纯色占位。
+   - 底部并排三按钮 `GoFindButton` / `VisitHomeButton` / `MessageButton`（去找Ta / 去Ta家 / 发消息），功能与原单元三按钮一致：去Ta家→`OnVisitFriendHome` 事件接 `FriendHomeScreenView.ShowFor`；去找Ta / 发消息暂为占位 `Debug.Log`。
 3. **介绍图弹窗**：点击上述任一 `Xing_2` / `Xing_2_0` 图标，弹出全屏介绍图 `AirUI/QinMiDu_0`（半透明遮罩 + 居中大图，点击遮罩关闭）。与好友角色立绘弹窗互斥（同时只显示其一）。
 4. **赚钱介绍图弹窗（v3.121）**：主角态点击 `RoleAddFavorButton`（「加好感」），全屏展示 `AirUI/ZhuanQian`（铺满弹窗区域，`preserveAspect=true`）；**右上角**提供 `CloseButton`（72×72，锚点右上，偏移 `(-20,-20)`，显示「×」，与 §9.14.9 关闭按钮范式一致），点击关闭；与其它创角弹窗互斥（`Show()` 时自动隐藏）。
 5. **ZhongDuan 角标与提示弹窗（v3.131）**：当 Top3 面板中某位好友的图标为 `AirUI/Xing_2_0`（当前为第 2 格 / `index=1`）时，在该图标**右下角**叠加可点击角标 `AirUI/ZhongDuan`（**48×48**，锚点右下，相对图标右下角偏移 `(-4, 4)`）。点击角标弹出 **ZhongDuan 提示弹窗**：全屏 stretch + 纯黑半透明遮罩（`rgba(0,0,0,0.65)`，与 `QinMiDuPopup` 一致）+ 居中 `AirUI/ZhongDuan_1`（`preserveAspect=true`，尺寸 **900×1200**）；点击遮罩关闭。点击 `Xing_2_0` 主图标（非角标区域）仍打开 `QinMiDu_0` 介绍图。与好友立绘弹窗、`QinMiDu` 弹窗、`ZhuanQian` 弹窗互斥（`Show()` 时自动隐藏）。
@@ -2641,11 +2773,12 @@ flowchart TD
 1. **上半部分（角色展示）**：**自 v3.151 起**按商店页签切换单/双立绘展示模式（由 `DressUpPanelView.SelectTab` → `DressUpPanelLayout.ApplyTopHalfRoleLayout` 驱动）：
    - **Tab0 / Tab1 / Tab3**（装扮 / 幻化 / 聊天）：仅 `PlayerRole` **居中**独占 TopHalf（锚点 `(0.29, 0.08)` ~ `(0.71, 0.9)`，宽度与单侧立绘一致）；`FriendRole`（含子节点 `PlayerTag` 头像与名字）、`IntimacyPanel` **隐藏**。
    - **Tab2**（动作）：恢复双立绘并排——`PlayerRole` 左 `(0.04, 0.08)` ~ `(0.46, 0.9)`、`FriendRole` 右 `(0.54, 0.08)` ~ `(0.96, 0.9)`；`IntimacyPanel` 与 `PlayerTag` **显示**（与 v3.119 原设计一致）。
-   - 玩家角色立绘默认 `AirUI/WanJia_1`；好友角色立绘默认 `AirUI/WanJia_6`（与 §9.14.8 rank1 立绘一致）。
+   - 玩家角色立绘默认 `AirUI/WanJia_1`；好友角色立绘默认 `AirUI/WanJia_6`（与 §9.14.8 rank1 立绘一致）。**自 v3.152 起**，Tab0 / Tab1 支持**立绘预览**：点击道具后将 `PlayerRole` 切换为配置表 `icon`；切换至 Tab0 时恢复 `AirUI/WanJia_1`、切换至 Tab1 时恢复 `AirUI/WanJia_6`（不保留跨 Tab 预览状态）；Tab3 点击不改变 `PlayerRole`。**自 v3.153 起**，Tab2（动作）点击道具后将 `PlayerRole` / `FriendRole` 由静态 `Image` 切换为 Spine UI 预览（见下「Tab2 Spine 动作预览」）；切离 Tab2 或离开装扮界面时销毁 Spine 子节点并恢复 `Image`。
    - 在**好友角色头上**展示**玩家的头像**（`AirUI/WanJia_icon_1`）与**该好友的名字**（`displayName`；不读写存档；仅 Tab2 可见）。
    - 在两张立绘**中间上部**展示与该好友的**亲密度数值**与**亲密度图标**（图标与 §9.14.8 `IntimacyTopPanel` 保持一致：`AirUI/Xing_2`；仅 Tab2 可见）。
-2. **下半部分（商店页签）**：商店主体背景 `AirUI/SheJiao_JieMian_0`，含 **4 个页签**（**自 v3.145 起**页签名为）：「装扮（Tab0）、幻化（Tab1）、动作（Tab2）、聊天（Tab3）」。
-   - 页签按钮素材：**选中**用 `AirUI/SheJiao_Sheet_1`、**未选中**用 `AirUI/SheJiao_Sheet_0`；默认打开「装扮（Tab0）」页签。
+2. **下半部分（商店页签）**：商店主体背景 `ShopBg` 的 `Image` **由预制体直接配置**（Sprite / Color 在 `DressUpPanel.prefab` 编辑器中设置）；`DressUpPanelView` **运行时不再**通过 `Resources` 覆盖 `ShopBg` 的 sprite 或 color。含 **4 个页签**（**自 v3.145 起**页签名为）：「装扮（Tab0）、幻化（Tab1）、动作（Tab2）、聊天（Tab3）」。
+   - 页签按钮素材：**选中**时 Tab 根 `Image` 显示 `AirUI/SheJiao_Sheet_3` 且 `color = #FFFFFF`；**未选中**时根 `Image` **隐藏**（`sprite = null`、`color.a = 0`，与 `DressUpPanel.prefab` 预制体默认一致）。默认打开「装扮（Tab0）」页签。
+   - **自 v3.162 起，页签 Label 双态样式**：`DressUpPanelView.SelectTab` **仅**修改**当前打开**页签的 `Label`（`Text`）：`fontSize = 40`、`color = #FFFFFF`；切离时恢复预制体默认（`fontSize = 36`、`color ≈ #97A3CB`）。**从未被选中的**页签 `Image` 与 `Label` **均不修改**；**曾被选中后切离**的页签须调用 `ApplyTabImageSprite(..., selected:false)` 清除 `SheJiao_Sheet_3` 并恢复透明。
    - **自 v3.145 起**：各页签内容不再是单张整图，而是由**道具配置表**（§"道具配置表"）驱动的**售卖道具网格**（见下）。
 
 **中文：** 数据来源：最高亲密度好友取自 `IPlantingService.GetFriends()` 按纯亲密度降序（同 §9.14.8 排序）。所有立绘 / 头像 / 图标 / 页签 / 道具图标缺图时回退纯色占位并 `Debug.LogWarning`；`Show()` 时默认选中「装扮（Tab0）」页签。
@@ -2665,10 +2798,26 @@ flowchart TD
    | `description` | 道具介绍文本（点击道具弹出的介绍界面后续使用） |
 
 2. **排序规则**：`DressUpItemCatalog.GetItemsByTab(tabIndex)` 取该 Tab 全部道具，按 `sortOrder` **降序**、并列按 CSV **原行序**稳定排序后返回。
-3. **道具单元结构**（自上而下）：① 道具图标（`icon`）；② 使用亲密度条件（**可无**）：图标 `AirUI/Xing_2` + 符号 `">"` + 具体数值（`intimacyRequire`）；③ 道具价格：图标 `AirUI/Xing_1` + 价格数值（`price`）。**自 v3.149 起**各子区域 `RectTransform` 拉伸偏移（Unity Inspector Top/Bottom 语义）由 `DressUpPanelLayout.BuildItemCell` 固定：`Icon` Top=25.7、Bottom=-25.7；`Condition` Top=4，`ConditionText` 文字 `Color.black`；`Price` Top=-21、Bottom=21，`PriceText` 文字 `Color.black`。
-4. **统一背景**：所有 Tab 内的道具单元统一使用背景图 `AirUI/ZhuangBan_sheetBJ2`。
-5. **网格与滚动**：每行**固定 3 个**道具，超出换行（`GridLayoutGroup`，`FixedColumnCount=3` + `ContentSizeFitter` 竖向）；超出镜头部分可通过**竖向滑动**（`ScrollRect`）拖动道具列表。容器层级 `ShopBg → ItemScroll(ScrollRect) → Viewport(Mask) → ItemContent(GridLayoutGroup)`；道具单元由 `DressUpPanelView.SelectTab` 运行时按配置实例化（复用 `DressUpPanelLayout.BuildItemCell`）。
-6. **点击钩子**：点击道具背景图或道具图标（图标点击转发至同一回调）触发 `DressUpPanelView.OnItemClicked(config)`，**弹出道具介绍界面**——该界面**暂不实现**，后续补充（当前仅记录日志占位）。
+3. **道具单元结构（自 v3.160 起：独立预制体）**：单元改为**独立预制体** `Resources/Prefabs/Farm/DressUpItemCell.prefab`（由 `DressUpItemCellPrefabGenerator` 经 `DressUpPanelLayout.BuildDressUpItemCellRoot` 生成），`DressUpPanelView` 运行时 `Resources.Load<GameObject>("Prefabs/Farm/DressUpItemCell")` 实例化进 `ItemContent` 并 `DressUpItemCellView.Bind` 填充数据；缺 prefab 时回退 `BuildDressUpItemCellRoot` 运行时模板（与 TopFriendCell 范式一致）。层级（自上而下内容 + 最上层选中叠加）：
+   - 根 `ItemCell`：`Image` 背景 `AirUI/ZhuangBan_sheetBJ2` + `Button`（`transition=None`，点击命中背景；子节点 `raycastTarget=false` 时点击仍落到根按钮）。
+   - `Icon`：道具图标（CSV `icon`）；Top=25.7、Bottom=-25.7。
+   - `Condition`（**可无**）：`ConditionIcon`=`AirUI/Xing_2` + `ConditionText`=`">"`+数值；Top=4，`ConditionText` 纯黑。
+   - `Price`：`PriceIcon`=`AirUI/Xing_1` + `PriceText`=价格；Top=-21、Bottom=21，`PriceText` 纯黑。
+   - `SelectionOverlay`（**最末子节点，渲染在最上层**）：全拉伸 `Image`，素材 `AirUI/common_bg_2`，`raycastTarget=false`，默认 `SetActive(false)`。
+4. **统一背景**：所有 Tab 内道具单元根背景图 `AirUI/ZhuangBan_sheetBJ2`（预制体烘焙；运行时 Bind 仍可回退加载）。
+5. **网格与滚动**：每行**固定 3 个**道具，超出换行（`GridLayoutGroup`，`FixedColumnCount=3` + `ContentSizeFitter` 竖向）；超出镜头部分可通过**竖向滑动**（`ScrollRect`）拖动道具列表。容器层级 `ShopBg → ItemScroll(ScrollRect) → Viewport(Mask) → ItemContent(GridLayoutGroup)`；道具单元由 `DressUpPanelView.PopulateItems` 按配置表实例化 prefab。
+6. **点击钩子**：点击道具背景或图标触发 `DressUpPanelView.OnItemClicked(config)`。**自 v3.152 起**，当 `activeTab ∈ {0,1}` 时将 `PlayerRole` 切换为 `config.icon`；Tab3 不改变 `PlayerRole`。**自 v3.153 起**，Tab2 点击触发 Spine 动作预览；`dz_001` 额外编排 `work_2`。**自 v3.160 起（替代 v3.154 背景变暗）**，当 `activeTab ∈ {0,1,2}` 时显示被点击单元 `SelectionOverlay`（`common_bg_2`）；同 Tab **单选互斥**；Tab3 点击不改变单元视觉；切换页签重建网格时选中态清除。**自 v3.160 起 Tab0 默认选中**：打开/切到 Tab0（装扮）时，网格渲染完成后自动选中**排序后第一个**道具（`GetItemsByTab(0)[0]`，当前为 `zb_001`），显示 `SelectionOverlay`，并将 `PlayerRole` 预览为该道具 `icon`（与手动点击一致）。Tab1/2/3 **不**自动默认选中。介绍界面**暂不实现**（当前仅日志占位）。
+
+**中文（Tab2 Spine 动作预览，自 v3.153 起）：** Tab2 点击道具后，`DressUpActionSpinePresenter` 在 `PlayerRole` / `FriendRole` 挂点下运行时构建 `SkeletonGraphic` 子节点 `ActionSpine`，并禁用父节点 `Image`（保留组件以便 Tab0/Tab1 恢复）。
+
+1. **骨骼资源**：
+   - `PlayerRole`：`Assets/Scenes/Air/LangRen/Role_cslangren/Role_cslangren_SkeletonData.asset`（运行时优先 `DressUpPanelView` 序列化引用；可回退 `Resources/Prefabs/Air/Hero_Role_cunmin` 探针，与 LangRen 同源）。
+   - `FriendRole`：`Assets/Scenes/Air/LangMeiRen/Role_langmeiren/Role_langmeiren_SkeletonData.asset`（运行时依赖 `DressUpPanelView` 序列化引用或 Editor `AssetDatabase` 路径；Player 包体须由 `DressUpPanelPrefabGenerator` 写入 prefab）。
+2. **朝向**：`PlayerRole` 展示时**水平镜像**（`GuildSpineCharacterBuilder.SetFacing(faceRight: true)`）；`FriendRole` 不镜像。
+3. **默认动画**：任意 Tab2 道具点击后，双方循环播放 `standby_1`（缺失时回退 `animation` / 骨骼首条动画）。
+4. **`dz_001` 特殊编排**：`PlayerRole` 单次播放 `work_2` → **0.5 秒**后 `FriendRole` 单次播放 `work_2` → 双方动画结束后回到 `standby_1` 循环。其它动作道具（`dz_002` / `dz_003` 等）本次仅 `standby_1`；`itemId → 动作策略` 映射表预留扩展。
+5. **生命周期**：进入 Tab2 时仍显示静态默认立绘（点击后才切 Spine）；`SelectTab` 切离 Tab2、`Hide()`、`OnDestroy()` 时调用 `Teardown()` 销毁 Spine 并恢复 `Image`。
+6. **布局（自 v3.155 起）**：`PlayerRole/ActionSpine` 与 `FriendRole/ActionSpine` 共用同一套 `RectTransform` 约定——`anchoredPosition = (0, -218)`，`localScale = (0.7, 0.7, 1)`（由 `DressUpActionSpinePresenter` 构建时写入）。
 
 **中文（自 v3.142 起）：** 装扮界面在创角界面中作为 §9.14.10「装扮」页签的**内容型页签**呈现，不再全屏覆盖：**移除右上角 `CloseButton`** 与全屏 `Dim` 的点击关闭逻辑，靠底部页签互斥/再次点击收起；背景图（`ShopBg` 等）采用**底部对齐**。`DressUpPanelView.WireOnce` 对已移除的 `closeButton` / `dimButton` 做空判断。
 
@@ -2683,7 +2832,12 @@ flowchart TD
     D -->|点击页签| E["切换 Sheet_0/1 + 按配置表渲染道具网格(3列可滑动) + TopHalf单/双立绘"]
     E -->|Tab2 动作| C2["双立绘: 玩家+好友+头像名字+亲密度"]
     E -->|Tab0/1/3| C1["单立绘: PlayerRole居中"]
-    E -->|点击道具背景或图标| G["OnItemClicked 介绍界面(后续补充)"]
+    E -->|点击道具背景或图标| G["OnItemClicked"]
+    G -->|Tab0/Tab1| P["PlayerRole 切换为 config.icon 预览立绘"]
+    G -->|Tab2| S["Spine 预览 standby_1; dz_001 编排 work_2"]
+    G -->|Tab0/1/2| Sel["ItemCell SelectionOverlay common_bg_2"]
+    E -->|Tab0 默认| DefSel["自动选中第一个道具+预览 icon"]
+    G -->|Tab3| G2["介绍界面(后续补充) 当前仅日志"]
     B -->|再次点击装扮或切页签| F[收起并恢复 DisplayArea]
 ```
 
@@ -2708,6 +2862,8 @@ flowchart TD
 3. **背景图底部对齐**：各页签内容的背景图统一采用**底部对齐**模式（水平拉伸、`pivot.y=0`、贴内容区底边、`preserveAspect`）。
 4. **无关闭按钮**：删除「装扮」`DressUpPanel` 与「加好感」`ZhuanQian` 原右上角 `CloseButton`；二者由全屏覆盖层改为**嵌入内容区**的内容型页签，靠页签互斥/再次点击收起，不再依赖独立关闭按钮（`DressUpPanel` 亦不再使用全屏 `Dim` 关闭）。
 
+**中文（自 v3.159 起，页签双态图标）：** 每个页签按钮（`IntimacyTab` / `DressUpButton` / `EnterHomeButton` / `RoleAddFavorButton`）除 `Label` 外含 **`IconOpen`** / **`IconClosed`** 两个 `Image` 子节点；**打开态 sprite 由预制体作者挂载**，代码不在 Resources 中硬编码各页签图标路径。`CharacterCreationScreenView.SetTabHighlight(button, active)` **仅切换 `IconOpen`/`IconClosed` 显隐**，**不再修改根 `Image.color`**（开关态背景均不变色）。`EnsureBottomTabButton` 在 `WireOnce` 时启用透明命中区（根 `Image` 可禁用/透明）、`Button.transition = None`，并关闭图标 `raycastTarget` 以免挡点击。子节点缺失时静默跳过，兼容旧 prefab。
+
 **中文（自 v3.141）：`EnterHomeTopPanel` 跳转列表** — 结构镜像 `IntimacyTopPanel`（`EnterHomeScrollView` / `Viewport` / `EnterHomeContent` / `EnterHomeNavCellTemplate`），固定 **3 条**（非动态数据）：
 
 | navKey | 显示名 | 对应底栏槽位 | 图标资源（缺图回退纯色） |
@@ -2716,7 +2872,7 @@ flowchart TD
 | `JiaYuan` | 农场 | `BottomNavSlot_JiaYuan` | `AirUI/Game_NongChang` |
 | `ZhuXian` | 冒险 | `BottomNavSlot_ZhuXian` | `AirUI/Game_MaoXian` |
 
-每条 `EnterHomeNavCell` 采用与 `TopFriendCell` 相同的长框样式（背景 `AirUI/TopFriendCellBJ`），左侧图标 + 名称，**右侧「前往」按钮**；点击「前往」→ `Hide()` 创角界面 → `OnNavigateToBottomNav(navKey)` → 装配层 `RestoreFromOverlay(navKey)` 恢复 HUD/世界层并 `SetOpenKey`。
+每条 `EnterHomeNavCell` 采用与 `TopFriendCell` 相同的长框样式（背景 `AirUI/TopFriendCellBJ`），**固定尺寸 1014×290**（`CharacterCreationScreenLayout.EnterHomeCellWidth` / `EnterHomeCellHeight`；`EnterHomeContent` 的 `VerticalLayoutGroup.childForceExpandWidth=false` 以保持宽度），左侧图标 + 名称，**右侧「前往」按钮**；点击「前往」→ `Hide()` 创角界面 → `OnNavigateToBottomNav(navKey)` → 装配层 `RestoreFromOverlay(navKey)` 恢复 HUD/世界层并 `SetOpenKey`。
 
 **中文：** `IntimacyTopPanel` / `EnterHomeTopPanel` 与 `BottomTabBar` 均由 [CharacterCreationScreenLayout.cs](PetDemo_2/Assets/Scripts/UI/CharacterCreationScreenLayout.cs) 编排进 prefab，`View` 按节点名 `EnsureFieldsFromHierarchy` 绑定并控制页签切换与列表填充。每条 `TopFriendCell` 右侧「去Ta家」经 `View.OnVisitFriendHome` 事件由 `AirMainMenuRuntimeBuilder` 接入 `FriendHomeScreenView.ShowFor`（仍默认 `navKey=JiaYuan`）。结构调整后须执行菜单 `Tools/PetDemo/Generate Character Creation Screen Prefab` 重新生成预制体。
 
@@ -2874,6 +3030,21 @@ function executeUnifiedAction():
 
 | 版本 / Ver | 日期 / Date | 说明 / Notes |
 |------------|-------------|--------------|
+| 3.165 | 2026-06-25 | **公会社区入口与 App_4 全屏弹层**：§9.8.9.10 公会 Tab 下 TopDingBar 左下方「打开社区」按钮（`SheQu_Icon`）；点击全屏 `App_4`，任意位置关闭；`GongHuiCommunityEntryView` + `GongHuiCommunityOverlayView`。 / **Guild community entry & App_4 overlay:** §9.8.9.10 Open Community button below TopDingBar on GongHui tab; full-screen `App_4` tap-to-close. |
+| 3.164 | 2026-06-25 | **装扮商店页签选中图切离隐藏**：§9.14.9 切离 Tab 时根 `Image` 清除 `SheJiao_Sheet_3` 并恢复 `alpha=0`（修复 `SheJiao_Sheet_2` 缺失导致旧选中图残留）；`DressUpPanelView.ApplyTabImageSprite`。 / **Dress-up tab selected sprite hide on switch:** §9.14.9 clear `SheJiao_Sheet_3` and restore transparent Image when leaving a tab. |
+| 3.163 | 2026-06-25 | **进入家园跳转行长框尺寸**：§9.14.10 `EnterHomeNavCellTemplate` 固定 **1014×290**（原 180 高、宽随父级拉伸）；`CharacterCreationScreenLayout` 增 `EnterHomeCellWidth`；需重生成 `CharacterCreationScreen.prefab`。 / **Enter-home nav cell size:** §9.14.10 `EnterHomeNavCellTemplate` fixed **1014×290**; add `EnterHomeCellWidth`; regen prefab. |
+| 3.162 | 2026-06-25 | **装扮商店页签 Label 双态**：§9.14.9 打开 Tab 的 `Label` `fontSize=40`、`#FFFFFF`；未打开 Tab 的 `Image.color` 与 `Label` 不变；`DressUpPanelView.SelectTab`。 / **Dress-up shop tab label active style:** active tab label 40px white; inactive tab image color and label untouched. |
+| 3.161 | 2026-06-25 | **装扮 ShopBg 预制体直配**：§9.14.9 移除 `ShopBackgroundResource` 运行时加载；`ShopBg` 的 Sprite / Color 仅在 `DressUpPanel.prefab` 编辑器配置，`SelectTab` 不再覆盖。 / **Dress-up ShopBg prefab-only:** drop runtime `Resources` load; sprite/color set on prefab only. |
+| 3.160 | 2026-06-25 | **装扮 ItemCell 预制体化 + 叠加选中 + Tab0 默认选中**：§9.14.9 道具单元改为独立预制体 `Resources/Prefabs/Farm/DressUpItemCell.prefab`（`DressUpItemCellView` + `DressUpItemCellPrefabGenerator`）；选中态由背景变暗改为 `SelectionOverlay` 叠加 `AirUI/common_bg_2`；Tab0 打开/切换时默认选中排序后第一个道具并预览 `icon`；需执行 `Generate Dress-Up Item Cell Prefab`。 / **Dress-up ItemCell prefab + overlay selection + Tab0 default:** standalone `DressUpItemCell.prefab`; selection via `common_bg_2` overlay; Tab0 auto-selects first item + portrait preview. |
+| 3.159 | 2026-06-25 | **创角底栏页签双态图标 + TopFriend 在线文字 + 点击修复**：§9.14.10 各页签 `IconOpen`/`IconClosed` 仅切显隐（背景 `Image` 不变色）；`EnsureBottomTabButton` 修复禁用根 `Image` 导致装扮/进入家园/加好感页签无法点击；§9.14.8 `OnlineText` 在线/离线文案。 / **Tab dual icons + online text + click fix:** icon toggle only, no bg tint; `EnsureBottomTabButton` fixes disabled hit area on 3 tabs; `OnlineText` beside `OnlineIcon`. |
+| 3.158 | 2026-06-22 | **TopFriend 列表配置表化 + 双列网格 + 详情弹窗**：§9.14.8 第 1/2 点重构——单元改为独立预制体 `Resources/Prefabs/Farm/TopFriendCell.prefab`；数据源由 Service 改为 CSV `Resources/Configs/TopFriends.csv`（新增 `TopFriendCatalog`；字段 id/displayName/avatar/gender/intimacy/intimacyInterrupted/online/avatarFrame/spinePrefab）；`FriendProfile` 扩展 isFemale/intimacyInterrupted/avatarFrameResource/spinePrefabPath；`TopFriendContent` 由 `VerticalLayoutGroup` 改为 `GridLayoutGroup` 双列（cellSize 500×430）；单元九宫格背景 `friends_bg_1`（需设 `spriteBorder`）+ 头像/头像框/名字/性别图标(`friends_icon_man/woman`)/在线图标(`friends_ing_1/2`) + 左上 `friends_bg_2` 叠 `IntimacyIcon`(`Xing_2`/`Xing_2_1` 按 `intimacyInterrupted`,不再随机)/`IntimacyText`；三按钮从单元移入新好友详情弹窗（中央 Spine + 去找Ta/去Ta家/发消息）；新增 `TopFriendCellPrefabGenerator`；需重生成 `TopFriendCell.prefab` 与 `CharacterCreationScreen.prefab`。 / **TopFriend list config-driven + 2-col grid + detail popup:** §9.14.8 points 1/2 reworked — standalone `TopFriendCell.prefab`; data from CSV `TopFriends.csv` (new `TopFriendCatalog`); `FriendProfile` extended; `TopFriendContent` → `GridLayoutGroup` 2 columns (500×430); 9-slice `friends_bg_1` bg + avatar/frame/name/gender/online icons + top-left `friends_bg_2` with `IntimacyIcon`(by `intimacyInterrupted`)/`IntimacyText`; three buttons moved from cell into new detail popup (centered Spine + 去找Ta/去Ta家/发消息); new `TopFriendCellPrefabGenerator`; regen both prefabs. |
+| 3.157 | 2026-06-22 | **公会 NPC 名牌拉手按钮文案**：§9.8.9.9 所有 `GuildNpcMarker` 名牌 `InteractButton/Label` 文案由「互动」改为「拉手」；`GuildSceneUiFactory.BuildNpcNamePlate` + `SetNpcInteractButtonLabel`；`SetPlateVisible` 每次显示强制同步 Label（修复 Play 会话内旧名牌缓存）；预制体生成器烘焙 `NamePlate`（默认隐藏）。 / **Guild NPC plate hold-hands label:** §9.8.9.9 `InteractButton/Label` → 「拉手」; sync on every show; prefab bakes hidden `NamePlate`. |
+| 3.156 | 2026-06-22 | **公会 NPC 骨骼分化与 work_2 互动**：§9.8.9.9 `Npc_1` 使用 LangMeiRen、`Npc_2/3` 使用 LangRen；默认 `standby_1`；`Npc_1` NamePlate 上方 `HuDong_DongZuo_1` 图标点击编排 Player/Npc `work_2`（0.5s 延迟）；新增 `GuildNpcWork2InteractionController`、`Hero_Role_langmeiren` Resources 探针；扩展 `GuildSpineCharacterBuilder`/`GuildNpcMarker`/`GuildPlayerController`/`GuildNpcFollowController`。 / **Guild NPC skeleton split & work_2 interaction:** §9.8.9.9 LangMeiRen for Npc_1, LangRen for Npc_2/3; default `standby_1`; `HuDong_DongZuo_1` icon above Npc_1 NamePlate triggers synchronized `work_2` sequence. |
+| 3.155 | 2026-06-22 | **装扮 Tab2 ActionSpine 布局微调**：§9.14.9 `PlayerRole`/`FriendRole` 下 `ActionSpine` 的 `anchoredPosition.y = -218`、`localScale = (0.7, 0.7, 1)`；`DressUpActionSpinePresenter`。 / **Dress-up Tab2 ActionSpine layout:** §9.14.9 `ActionSpine` anchoredPosition `(0,-218)`, scale `(0.7,0.7,1)`. |
+| 3.154 | 2026-06-22 | **装扮道具单元选中变暗**：§9.14.9 Tab0/Tab1/Tab2 点击道具时 `ItemCell` 背景 `Image` 变暗表示选中（单选互斥）；Tab3 不变；切换页签清除选中态；`DressUpPanelLayout.ItemCellSelectedColor` + `DressUpPanelView.SelectItemCell`。 / **Dress-up item cell selection darken:** §9.14.9 Tab0/1/2 click darkens selected `ItemCell` background; Tab3 unchanged; cleared on tab switch. |
+| 3.153 | 2026-06-22 | **装扮 Tab2 Spine 动作预览**：§9.14.9 Tab2 点击道具后 `PlayerRole`/`FriendRole` 切换为 LangRen/LangMeiRen Spine UI，默认 `standby_1` 循环；Player 水平镜像；`dz_001` 编排 Player `work_2` → 0.5s → Friend `work_2` → 回 `standby_1`；新增 `DressUpActionSpinePresenter`；切离 Tab2 时 `Teardown` 恢复 Image。 / **Dress-up Tab2 Spine action preview:** §9.14.9 Tab2 item click shows LangRen/LangMeiRen Spine with `standby_1`; mirrored player; `dz_001` plays synchronized `work_2` sequence; `DressUpActionSpinePresenter`. |
+| 3.152 | 2026-06-22 | **装扮 Tab0/Tab1 立绘预览**：§9.14.9 点击 Tab0/Tab1 道具时将 `PlayerRole` 切换为 CSV `icon`；切换 Tab0 恢复 `WanJia_1`、Tab1 恢复 `WanJia_6`；Tab2/Tab3 不改变 `PlayerRole`；`DressUpPanelView.OnItemClicked` + `RefreshPlayerRoleForTab`。 / **Dress-up Tab0/Tab1 portrait preview:** §9.14.9 clicking items on Tab0/Tab1 switches `PlayerRole` to CSV `icon`; tab switch resets defaults (`WanJia_1` / `WanJia_6`); Tab2/Tab3 unchanged. |
+| 3.152 | 2026-06-22 | **修复进入家园首次跳转底栏被覆盖**：§9.8 `BottomNavBarView.Start` 在 `OpenIndex >= 0` 时保留外部 `SetOpenKey` 结果，不再强制 `defaultOpenIndex`（`JiaYuan`）；修复创角 `EnterHomeNavCell`「前往」首次跳转公会/冒险等 Tab 却落到家园的问题。 / **Fix first enter-home nav jump overridden:** §9.8 `BottomNavBarView.Start` preserves externally set `OpenIndex` instead of always resetting to `defaultOpenIndex` (`JiaYuan`); fixes first Navigate from enter-home list landing on home tab. |
 | 3.151 | 2026-06-18 | **装扮 TopHalf 按页签切换单/双立绘**：§9.14.9 Tab0/Tab1/Tab3 仅居中显示 `PlayerRole` 并隐藏 `FriendRole`/`IntimacyPanel`；Tab2（动作）恢复双立绘并排 + 头像名字 + 亲密度；`DressUpPanelLayout.ApplyTopHalfRoleLayout` + `DressUpPanelView.SelectTab`。 / **Dress-up TopHalf tab-driven solo/dual portraits:** §9.14.9 Tab0/1/3 show centered `PlayerRole` only; Tab2 (动作) restores dual portraits + intimacy/tag; `ApplyTopHalfRoleLayout`. |
 | 3.150 | 2026-06-18 | **进入家园跳转列表文案与图标**：§9.14.10 固定 3 项显示名改为 社区/农场/冒险，图标改为 `AirUI/Game_ZuDui` / `Game_NongChang` / `Game_MaoXian`；`CharacterCreationScreenView.EnterHomeNavEntries`。 / **Enter-home nav list labels & icons:** §9.14.10 three rows now show 社区/农场/冒险 with `AirUI/Game_ZuDui` / `Game_NongChang` / `Game_MaoXian`; `EnterHomeNavEntries`. |
 | 3.149 | 2026-06-18 | **装扮道具单元布局微调**：§9.14.9 道具单元 `Icon`/`Condition`/`Price` 子区域拉伸偏移（Top/Bottom）与 `ConditionText`/`PriceText` 纯黑文字；`DressUpPanelLayout.BuildItemCell`。 / **Dress-up item cell layout tweak:** §9.14.9 `Icon`/`Condition`/`Price` stretch offsets and black `ConditionText`/`PriceText`; `BuildItemCell`. |

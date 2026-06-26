@@ -59,7 +59,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Scripts\UI\Farm\Editor\BottomNavBarPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\DressUpItemCellPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\FertilizerWarehousePrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\TopFriendCellPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\EnchantScreenPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\CharacterCreationScreenPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\WarehouseHubPanelPrefabGenerator.cs" />
