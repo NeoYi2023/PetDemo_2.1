@@ -1,0 +1,8 @@
+FanQie_2.png
+size:256,256
+filter:Linear,Linear
+pma:true
+scale:0.5
+FanQie-2
+bounds:1,1,111,135
+offsets:23,2,156,138

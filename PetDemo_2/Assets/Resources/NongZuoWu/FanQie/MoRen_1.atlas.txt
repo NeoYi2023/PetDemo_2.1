@@ -1,0 +1,8 @@
+MoRen_1.png
+size:64,64
+filter:Linear,Linear
+pma:true
+scale:0.5
+MoRen_1
+bounds:1,1,31,35
+offsets:64,42,156,138

@@ -1,0 +1,10 @@
+﻿# 灭虫小游戏分值底色（SPEC §9.11.10 / §B.15）,,
+# 列：分值,狼人底色色号,虫子底色色号
+分值,狼人底色色号,虫子底色色号
+2,#CFCFCF,#CFCFCF
+4,#F5CDB1,#F5CDB1
+8,#FFAA8B,#FFAA8B
+16,#FF948A,#FF948A
+32,#FF8A9A,#FF8A9A
+64,#FF8AC6,#FF8AC6
+128,#FF6CFD,#FF6CFD

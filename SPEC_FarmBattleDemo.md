@@ -828,7 +828,11 @@ struct GameSession {
 
 **中文：** 遇到**新增功能界面**（全屏页、弹窗、面板、可复用控件、列表项模板等）的需求时，**必须优先采用预制体（Prefab）方式制作**，**禁止**在运行时脚本中硬写 UI 层级与样式。本条为全局开发约束，与 §9 中 `FarmGridRoot`、`WarehouseBackground`、`UnifiedActionButton`、`BottomNavBar` 等既有「预制体驱动」约定一致，并适用于后续所有新界面（如创角、公会、商店、仓库等）。
 
+**中文补充约束：** 对于后续**新增功能开发**，凡涉及可视化承载、可复用交互节点、独立面板/弹窗、列表项模板、场景内可重复实例化对象等内容时，**应优先评估并尽量采用预制体方式交付**；除非该功能明确属于纯逻辑、纯数据或无独立实例化载体的实现，否则不应默认跳过该约束。若当前需求**是否应做成预制体**存在不确定性（例如职责边界不清、预制体粒度难以判断、后续复用性未定），**必须先询问用户确认后再实施**，不得由开发者自行拍板改为纯代码直搭。
+
 **English:** When adding **new feature screens** (full-screen pages, modals, panels, reusable widgets, list item templates, etc.), **prefabs must be the primary delivery path**; **do not** assemble full UI hierarchies and styling in runtime scripts. This is a global development constraint, aligned with existing prefab-driven patterns in §9 (`FarmGridRoot`, `WarehouseBackground`, `UnifiedActionButton`, `BottomNavBar`, etc.) and applies to all future screens (character creation, guild, shop, warehouse, etc.).
+
+**Additional English constraint:** For subsequent **new feature development**, whenever the work involves visual containers, reusable interaction nodes, standalone panels/modals, list item templates, or repeatedly instantiated in-scene objects, the team should **evaluate prefab delivery first and use prefabs whenever reasonably applicable**. Do not skip this rule by default unless the feature is clearly pure logic, pure data, or has no standalone instantiable carrier. If there is any uncertainty about **whether the feature should be implemented as a prefab** (for example, unclear responsibility boundaries, unclear prefab granularity, or undecided reuse scope), **ask the user for confirmation before implementation** instead of unilaterally switching to a code-built approach.
 
 **中文：** **推荐流程**：
 

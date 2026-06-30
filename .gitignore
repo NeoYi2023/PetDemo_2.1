@@ -1,4 +1,72 @@
-29465a185f0fd5a8ed3a2eab9aae3ce9
-Library
-TextMesh Pro
-Spine Examples
+# ===== Unity (PetDemo_2) =====
+# Based on https://github.com/github/gitignore/blob/main/Unity.gitignore
+
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+*.log
+
+# Blender backups
+*.blend1
+*.blend1.meta
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.DotSettings.user
+*.suo
+*.user
+*.userprefs
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Gradle (Android)
+.gradle/
+
+# Unity crashes / mono
+sysinfo.txt
+mono_crash.*
+ExportedObj/
+.consulo/
+
+# Builds & packages
+*.apk
+*.aab
+*.unitypackage
+*.unitypackage.meta
+*.app
+
+# Addressables generated
+**/StreamingAssets/aa*
+**/AddressableAssetsData/link.xml*
+**/Addressables_Temp*
+**/AddressableAssetsData/*/*.bin*
+
+# Visual Scripting generated
+**/Unity.VisualScripting.Generated/
+
+# Test scenes
+**/InitTestScene*.unity*
+
+# Scene dependency cache
+**/SceneDependencyCache*
+
+# ===== Project-specific =====
+# Spine official examples (sample content, not needed in repo)
+**/Spine Examples/
+**/Spine Examples.meta
+
+# AI / local dev tooling
+.codebuddy/
+
+# Note: Fantazia large asset pack — see PetDemo_2/Assets/.gitignore

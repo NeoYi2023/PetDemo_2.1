@@ -65,6 +65,7 @@
     <Compile Include="Assets\Scripts\UI\BottomNavSimpleBackgroundScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\ProtagonistLevelUpDialogView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\SowGestureController.cs" />
+    <Compile Include="Assets\Scripts\UI\TaskListPanelView.cs" />
     <Compile Include="Assets\Scripts\Core\FixedRewardListParser.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GongHuiCommunityEntryView.cs" />
     <Compile Include="Assets\Scripts\UI\MainHudLayerRoot.cs" />
@@ -96,6 +97,7 @@
     <Compile Include="Assets\Scripts\UI\Farm\PlantSpineGraphicBuilder.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\InvasionBattleRewardRowView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\SeedWarehouseListView.cs" />
+    <Compile Include="Assets\Scripts\Core\TaskListConfigCatalog.cs" />
     <Compile Include="Assets\Scripts\UI\LevelSelectScreenPanelView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\PestControlScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\VirtualJoystickView.cs" />
@@ -127,6 +129,7 @@
     <Compile Include="Assets\Scripts\Farm\PestControlTypes.cs" />
     <Compile Include="Assets\Scripts\Core\TopFriendCatalog.cs" />
     <Compile Include="Assets\Scripts\UI\TopDingBarView.cs" />
+    <Compile Include="Assets\Scripts\UI\RewardFlyFx.cs" />
     <Compile Include="Assets\Scripts\UI\App\AppSingleChatPanelLayout.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\TileSlotView.cs" />
     <Compile Include="Assets\Scripts\UI\FoodWarehouseModalView.cs" />
@@ -177,6 +180,7 @@
     <Compile Include="Assets\Scripts\UI\Farm\RoleGrowthPetBagWarehouseView.cs" />
     <Compile Include="Assets\Scripts\UI\CharacterCreationFriendCellView.cs" />
     <Compile Include="Assets\Scripts\UI\BottomNavAttachedScreenLayout.cs" />
+    <Compile Include="Assets\Scripts\UI\TaskListRowView.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GuildNpcMarker.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\InvasionBattleView.cs" />
     <Compile Include="Assets\Scripts\UI\PetCompanionPresenter.cs" />
