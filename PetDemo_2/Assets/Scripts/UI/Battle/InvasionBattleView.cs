@@ -43,6 +43,8 @@ namespace PetDemo.UI.Battle
         private static readonly Vector2 PetCharacterSize = new Vector2(480f, 720f);
         private const float CharacterScale = 0.53f;
         private const float PetCharacterScale = 0.40f;
+        // SPEC §12.11.10 (v3.172)：嵌入 TopArea 区域比全屏小，整体缩放使角色与血条收进该区域（可按实际显示微调）。
+        private const float EmbeddedScale = 0.75f;
         private const string PetAttackAnimName = "attack";
         private static readonly string[] PetAttackAnimFallbacks = { "Attack", "attack_1" };
 
@@ -96,6 +98,13 @@ namespace PetDemo.UI.Battle
         private bool suppressAutoToggleSync;
         private static Sprite fallbackWhiteSprite;
 
+        // SPEC §12.11.10 (v3.172)：嵌入模式——由 InvasionBattleModal_2 复用本战斗模拟，
+        // 本地驱动、无 InvasionService 副作用、关闭背景图、结算走 onEmbeddedEnded 回调。
+        private bool embedded;
+        private IBattleCombatDriver combatDriver;
+        private System.Action<bool> onEmbeddedEnded;
+        private string embeddedEnemyPrefab;
+
         public static InvasionBattleView BuildInto(
             RectTransform canvasRect,
             InvasionService svc,
@@ -131,6 +140,7 @@ namespace PetDemo.UI.Battle
 
             var view = modalRt.gameObject.AddComponent<InvasionBattleView>();
             view.service = svc;
+            view.combatDriver = svc;
             view.modalRt = modalRt;
             view.bottomNav = navBar;
             view.jiaYuanWorld = jiaYuan;
@@ -150,6 +160,68 @@ namespace PetDemo.UI.Battle
 
             view.SubscribeEvents();
             return view;
+        }
+
+        /// <summary>
+        /// SPEC §12.11.10 (v3.172)：嵌入模式工厂——把完整战斗模拟渲染进 <paramref name="hostRect"/>
+        /// （InvasionBattleModal_2 的 TopArea），关闭战斗背景图，用本地 <see cref="LocalBattleCombatDriver"/>
+        /// 驱动（不经 InvasionService），结算通过 <paramref name="onEnded"/> 回调（true=玩家胜）。
+        /// </summary>
+        public static InvasionBattleView BuildEmbedded(
+            RectTransform hostRect,
+            BattleSession session,
+            string enemyPrefab,
+            System.Action<bool> onEnded)
+        {
+            if (hostRect == null || session == null)
+                return null;
+
+            var modalRt = CreateChildRect(
+                hostRect, "EmbeddedBattle",
+                Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            StretchFull(modalRt);
+            // 整体缩放使全屏摆位的角色/血条收进较小的 TopArea 区域。
+            modalRt.localScale = new Vector3(EmbeddedScale, EmbeddedScale, 1f);
+
+            // 嵌入模式：不创建 BattleBackground（关闭战斗背景图 ZhanDou_1），透出 Modal_2 自身背景。
+            var view = modalRt.gameObject.AddComponent<InvasionBattleView>();
+            view.embedded = true;
+            view.modalRt = modalRt;
+            view.onEmbeddedEnded = onEnded;
+            view.combatDriver = new LocalBattleCombatDriver(session);
+            view.embeddedEnemyPrefab = enemyPrefab;
+            view.modalCanvasGroup = modalRt.gameObject.AddComponent<CanvasGroup>();
+            view.modalCanvasGroup.alpha = 1f;
+            view.modalCanvasGroup.interactable = true;
+            view.modalCanvasGroup.blocksRaycasts = true;
+
+            view.BuildPlayerSlot(modalRt);
+            view.BuildEnemySlot(modalRt);
+            view.BuildHpBars(modalRt);
+            view.InstantiateResultDialog(modalRt);
+
+            view.StartEmbeddedBattle();
+            return view;
+        }
+
+        private void StartEmbeddedBattle()
+        {
+            if (modalRt == null)
+                return;
+            modalRt.gameObject.SetActive(true);
+            if (resultDialogRt != null)
+                resultDialogRt.gameObject.SetActive(false);
+
+            playerTurnCounter = 0;
+            ResetCharacterPositions();
+            ResetCharacterAnimations();
+            var sess = combatDriver != null ? combatDriver.GetBattleSession() : null;
+            if (sess != null)
+                UpdateHpDisplay(sess);
+
+            if (battleLoop != null)
+                StopCoroutine(battleLoop);
+            battleLoop = StartCoroutine(RunBattleLoop());
         }
 
         private void SubscribeEvents()
@@ -241,9 +313,9 @@ namespace PetDemo.UI.Battle
 
             while (true)
             {
-                if (service == null)
+                if (combatDriver == null)
                     yield break;
-                var sess = service.GetBattleSession();
+                var sess = combatDriver.GetBattleSession();
                 if (sess == null)
                     yield break;
 
@@ -267,7 +339,7 @@ namespace PetDemo.UI.Battle
                             yield return RunSingleTurn(
                                 petLowerLeftRt, PetLowerLeftHomePos, isPlayerAttacking: true, petDamage,
                                 petLowerLeftSkeleton);
-                            sess = service.GetBattleSession();
+                            sess = combatDriver.GetBattleSession();
                             if (sess == null) yield break;
                             if (sess.enemyHp <= 0)
                             {
@@ -282,7 +354,7 @@ namespace PetDemo.UI.Battle
                             yield return RunSingleTurn(
                                 petUpperLeftRt, PetUpperLeftHomePos, isPlayerAttacking: true, petDamage,
                                 petUpperLeftSkeleton);
-                            sess = service.GetBattleSession();
+                            sess = combatDriver.GetBattleSession();
                             if (sess == null) yield break;
                             if (sess.enemyHp <= 0)
                             {
@@ -293,12 +365,12 @@ namespace PetDemo.UI.Battle
                         }
                     }
 
-                    sess = service.GetBattleSession();
+                    sess = combatDriver.GetBattleSession();
                     if (sess == null) yield break;
 
                     yield return RunSingleTurn(
                         playerRt, PlayerHomePos, isPlayerAttacking: true, sess.playerAttack, playerSkeleton);
-                    sess = service.GetBattleSession();
+                    sess = combatDriver.GetBattleSession();
                     if (sess == null) yield break;
                     if (sess.enemyHp <= 0)
                     {
@@ -306,13 +378,13 @@ namespace PetDemo.UI.Battle
                         yield return ShowResultDialog(sess);
                         yield break;
                     }
-                    service.SetTurn(BattleTurn.Enemy);
+                    combatDriver.SetTurn(BattleTurn.Enemy);
                 }
                 else if (sess.turn == BattleTurn.Enemy)
                 {
                     yield return RunSingleTurn(
                         enemyRt, EnemyHomePos, isPlayerAttacking: false, sess.enemyAttack, enemySkeleton);
-                    sess = service.GetBattleSession();
+                    sess = combatDriver.GetBattleSession();
                     if (sess == null) yield break;
                     if (sess.playerHp <= 0)
                     {
@@ -320,7 +392,7 @@ namespace PetDemo.UI.Battle
                         yield return ShowResultDialog(sess);
                         yield break;
                     }
-                    service.SetTurn(BattleTurn.Player);
+                    combatDriver.SetTurn(BattleTurn.Player);
                 }
                 else
                 {
@@ -344,12 +416,18 @@ namespace PetDemo.UI.Battle
             else
                 yield return PlayAnimationOnceAndWait(attackerSkeleton, AttackAnimName, AnimationWaitTimeout);
 
-            if (service != null)
+            if (combatDriver != null)
             {
                 if (isPlayerAttacking)
-                    service.ApplyDamageToEnemy(damage);
+                    combatDriver.ApplyDamageToEnemy(damage);
                 else
-                    service.ApplyDamageToPlayer(damage);
+                    combatDriver.ApplyDamageToPlayer(damage);
+
+                // 嵌入模式无 InvasionService 的 OnBattleHpChanged 事件驱动，需主动刷新血条；
+                // 全屏模式此处为幂等重复刷新，无副作用。
+                var s = combatDriver.GetBattleSession();
+                if (s != null)
+                    UpdateHpDisplay(s);
             }
 
             var defenderRt = isPlayerAttacking ? enemyRt : playerRt;
@@ -503,6 +581,38 @@ namespace PetDemo.UI.Battle
                 yield break;
 
             bool playerWon = sess.enemyHp <= 0 && sess.playerHp > 0;
+
+            // SPEC §12.11.10：嵌入模式——简化结算：展示胜/负弹窗（无战利品、无自动连战），
+            // 玩家点关闭后回调 onEmbeddedEnded，交由 InvasionBattleModal_2 处理胜负流转。
+            if (embedded)
+            {
+                resultDialogView.SetTitle(playerWon ? "胜利！" : "失败...");
+                resultDialogView.RebuildRewards(playerWon, null);
+                resultDialogView.SetAutoAdvanceRowVisible(false);
+
+                resultDialogRt.gameObject.SetActive(true);
+                resultDialogRt.SetAsLastSibling();
+
+                bool embeddedClicked = false;
+                var embeddedBtn = resultDialogView.ClosePanelButton;
+                if (embeddedBtn != null)
+                {
+                    embeddedBtn.onClick.RemoveAllListeners();
+                    embeddedBtn.onClick.AddListener(() => embeddedClicked = true);
+                }
+                else
+                {
+                    embeddedClicked = true;
+                }
+
+                while (!embeddedClicked)
+                    yield return null;
+
+                resultDialogRt.gameObject.SetActive(false);
+                onEmbeddedEnded?.Invoke(playerWon);
+                yield break;
+            }
+
             bool isFriendHomeBattle = service != null && service.EnteredBattleViaFriendHome;
             resultDialogView.SetTitle(playerWon ? "胜利！" : "失败...");
             resultDialogView.RebuildRewards(playerWon, service);
@@ -798,8 +908,15 @@ namespace PetDemo.UI.Battle
                 parent, "EnemySlot",
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 EnemyHomePos, CharacterSize);
-            enemyRt.localScale = FantaziaMonsterDisplay.BoostedMirroredUniform(CharacterScale);
-            enemySkeleton = TryBuildSkeletonGraphic(ResEnemyPrefab, enemyRt);
+
+            // SPEC §12.11.10：嵌入模式按事件单位切换敌人骨骼；用玩家同款模型时右侧镜像朝向（同 §13.4）。
+            string enemyPrefabPath = (embedded && !string.IsNullOrEmpty(embeddedEnemyPrefab))
+                ? embeddedEnemyPrefab
+                : ResEnemyPrefab;
+            enemyRt.localScale = enemyPrefabPath == ResPlayerPrefab
+                ? new Vector3(CharacterScale, CharacterScale, 1f)
+                : FantaziaMonsterDisplay.BoostedMirroredUniform(CharacterScale);
+            enemySkeleton = TryBuildSkeletonGraphic(enemyPrefabPath, enemyRt);
         }
 
         /// <summary>

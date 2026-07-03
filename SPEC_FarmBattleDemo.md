@@ -1708,7 +1708,10 @@ Each `ChapterPin` `RectTransform` uses `anchorMin = anchorMax = (0.5, 0.5)`, `pi
 **中文：** **「前往」按钮（`GoButton`）** 仅当任一 `ChapterPin` 处于 `Selected` 时显示；位于该 pin 的**正下方**：`RectTransform` 以 pin 的 `anchoredPosition` 为参考，`offset.y = -200`（即 pin 中心向下 200 px），尺寸 `120 × 120` px（即 **`AirUI/ZhanDouKaiShi` 原图视觉宽高 ×0.5**，参考 §12.2 中 `RuQin_*` 的 150 同等数量级；实现可直接用 `localScale = (0.5, 0.5, 1)` 或 `sizeDelta = (120, 120)` 二选一，本 SPEC 选择 `sizeDelta = (120, 120)` + `Image.preserveAspect = true` 路径，以避免 Spine/CanvasRenderer 因 `localScale` 改变 raycast 命中区域）。背景图 `Image.sprite = Resources.Load<Sprite>("AirUI/ZhanDouKaiShi")`；缺图时回退为纯色按钮并 `Debug.LogWarning`。`Button.transition = None`。  
 **English:** **`GoButton`** is shown only when any `ChapterPin` is `Selected`; positioned **directly below** that pin: `RectTransform.anchoredPosition` follows the pin's anchored position with `offset.y = -200`, size `120 × 120` px (i.e. **`AirUI/ZhanDouKaiShi` visually scaled ×0.5**, comparable to the 150-scale `RuQin_*` family in §12.2). Implementation may use either `localScale = (0.5, 0.5, 1)` or `sizeDelta = (120, 120)`; this SPEC chooses **`sizeDelta = (120, 120)`** + `Image.preserveAspect = true` to keep the raycast region predictable. `Image.sprite = Resources.Load<Sprite>("AirUI/ZhanDouKaiShi")`; missing asset falls back to a solid-color button and `Debug.LogWarning`. `Button.transition = None`.
 
-##### 9.8.8.4 「前往」点击 → 饿肚子提示框 / Go Click → Hungry Dialog (v3.40)
+**中文（v3.167 修订）：** 自 v3.167 起，`GoButton` 点击行为改为**直接打开 §12.11 新战斗界面 `InvasionBattleModal_2`**（`InvasionBattleModal2View.GetOrCreate(canvasRect).Show()`），**不再**打开 §9.8.8.6 `LevelSelectScreenPanelView`（该选关层**暂时停用**：保留脚本与预制体、`AirMainMenuRuntimeBuilder` 停止预建其实例，随时可恢复），也**不再**经过下文 §9.8.8.4 的饿肚子提示框/体力门。下文 §9.8.8.4 保留作为历史规格参考。  
+**English (v3.167 revision):** Since v3.167, tapping `GoButton` **directly opens the new §12.11 battle screen `InvasionBattleModal_2`** (`InvasionBattleModal2View.GetOrCreate(canvasRect).Show()`) and **no longer** opens §9.8.8.6 `LevelSelectScreenPanelView` (that level-select layer is **temporarily disabled**: scripts and prefab kept, `AirMainMenuRuntimeBuilder` stops pre-building it, restorable anytime), and **no longer** passes through the §9.8.8.4 hungry dialog / stamina gate below. §9.8.8.4 below is retained as historical spec.
+
+##### 9.8.8.4 「前往」点击 → 饿肚子提示框 / Go Click → Hungry Dialog (v3.40, 历史 / historical)
 
 **中文：** 点击「前往」打开 **`HungryDialog`**，半透明遮罩 + 中央对话框。**P0 行为**：始终弹出该提示框，无论 `IsRoleFull()` 当前为 `true` 或 `false`。**扩展预留**：未来开关 `kGoUsesHungryGate` 为 `true` 时保持此分支；为 `false` 且 `IsRoleFull()==true` 时跳过提示框直接进入"战斗入口"（本期占位为 `Debug.Log("[MainStoryLineScreenView] 战斗入口待 SPEC 对接")`）。  
 **English:** Tapping **Go** opens **`HungryDialog`** — a dim mask + centered dialog. **P0 behavior:** always opens the dialog, regardless of `IsRoleFull()`. **Reserved hook:** when `kGoUsesHungryGate = true` keeps this branch; when `false` and `IsRoleFull() == true`, skip the dialog and enter the battle entry directly (placeholder `Debug.Log("[MainStoryLineScreenView] 战斗入口待 SPEC 对接")` in this release).
@@ -2629,7 +2632,7 @@ WheelLotteryScreenView.BuildInto(canvasRect, PlantingService.Instance /* 或 IPl
 
 **中文：** 创角界面由「主角展示区域」与「好友列表弹窗」两大子系统组成，按创角状态切换三种中心态：
 
-1. **加号态（未创建主角）**：展示区中央显示一个大「加号」按钮；**点击即直接创角（无伙伴）**：调用 `CreateCharacterDirect()` 写 `created=true`、`partnerFriendId=""`，立即切到主角态（不再弹好友列表）。
+1. **加号态（未创建主角）**：展示区中央显示一个大「加号」按钮（`AddButton`，使用精灵 `AirUI/AddButton`）；**点击即直接创角（无伙伴）**：调用 `CreateCharacterDirect()` 写 `created=true`、`partnerFriendId=""`，立即切到主角态（不再弹好友列表）。**自 v3.166 起**，`AddButton` 由 `DisplayArea` 子节点提升为 `CharacterCreationScreen` **根节点最高层级**（最后同级 = 最上渲染），确保不被任何 UI（含底部页签栏、内容区面板、弹窗）遮挡；加号态显示时额外在 `AddButton` 之下、其余全部 UI 之上覆盖一层**全屏纯黑背景** `AddButtonBackdrop`（`RGBA(0,0,0,1)`、`raycastTarget=true` 仅阻挡点击不触发逻辑），覆盖含 `BottomTabBar`/`ScreenCloseButton` 在内的全部界面，**仅露出 `AddButton`**；离开加号态（缺好感态 / 主角态）时隐藏 `AddButtonBackdrop`，其余 UI 恢复可见。
 2. **缺好感态（已选好友但亲密度不足 80）**：展示区不出现主角，改为显示"需要好感度 80 / 当前 X"提示与「增加好感度」按钮；每点一次该好友亲密度 +10，达到 80 立即创建主角并切到主角态。（自 v3.117 起此态不再由加号触发，仅作为好友列表选人路径的保留分支。）
 3. **主角态（已创建主角）**：展示区中央显示主角（`DisplayArea` → `RoleMount` → 运行时 `RoleSpine`；挂点尺寸 720×1000 像素，复用家园 `VillagerRoleRoot` 的 `Hero_Role_cunmin` Spine 形象；**`RoleSpine` `localScale` 固定为 `(0.75, 0.75, 1)`**，即相对原始尺寸缩小至 75% 显示），**持续循环播放待机动作**（动画名解析复用 §9.5 候选链：`exclusive_2` → `standby_1` → `animation` → `idle` → 骨骼首条动画；`SetAnimation(..., loop=true)`）。**自 v3.119 起**新增「装扮」（打开装扮界面，见 §9.14.9）与「加好感」（**自 v3.121 起**全屏打开 `AirUI/ZhuanQian` 介绍图，见 §9.14.8 第 4 点）按钮。
 
@@ -3034,6 +3037,14 @@ function executeUnifiedAction():
 
 | 版本 / Ver | 日期 / Date | 说明 / Notes |
 |------------|-------------|--------------|
+| 3.173 | 2026-07-03 | **`InvasionBattleModal_2` PlayerSlot 镜像与「下一天」移动过场**：(1) §12.11.4——上部 `PlayerSlot` 内层 `Skeleton` 节点默认 `localScale.x` 取负（`(-1,1,1)`）实现**水平镜像 1 次**（同 §12.3 朝向路径），默认循环**待机**（候选链 `standby_1`→`standby`→`idle`→`exclusive_2`→`animation`→首条）；`TryBuildSkeletonGraphic` 构建成功后保存 `playerSkeleton` 引用。(2) §12.11.5——点「下一天」灰置按钮后、事件展示前新增**角色移动过场**：角色播放移动动画（候选链 `move_1`→`move`→`animation`）循环 **1 秒**，**这 1 秒内 `BottomArea` 事件日志暂停、不追加任何事件卡**，1 秒后角色恢复待机再逐条展示事件；过场对所有事件（含“今日无事发生”）一致生效，`playerSkeleton` 为空时跳过动画但仍等待 1 秒。`InvasionBattleModal2View` 新增 `PlayPlayerMoveLoop`/`PlayPlayerIdleLoop` 与 `MoveAnimCandidates`/`IdleAnimCandidates` 常量。 / **`InvasionBattleModal_2` PlayerSlot mirror & "Next Day" move interlude:** (1) §12.11.4 — the top `PlayerSlot` inner `Skeleton` node defaults `localScale.x` negative (`(-1,1,1)`) for a **single horizontal mirror** (same facing path as §12.3), loops **idle** (chain `standby_1`→`standby`→`idle`→`exclusive_2`→`animation`→first); `TryBuildSkeletonGraphic` keeps the `playerSkeleton` reference. (2) §12.11.5 — after greying the Next-Day button and before revealing events, a **move interlude**: the player loops the move animation (chain `move_1`→`move`→`animation`) for **1 second**, during which the `BottomArea` event log is **paused (no cards appended)**; after 1s the player returns to idle and events reveal card-by-card; applies to all events (incl. "今日无事发生"), skipped animation but still 1s wait when `playerSkeleton` is null. New `PlayPlayerMoveLoop`/`PlayPlayerIdleLoop` + `MoveAnimCandidates`/`IdleAnimCandidates`. |
+| 3.172 | 2026-07-03 | **`InvasionBattleModal_2` 小战斗/BOSS 战嵌入复用关卡战斗模拟（`battle_small/battle_boss` 本期落地）**：(1) 新增 §12.11.10——`战斗 Battle` 态按钮点击不再无响应，而是**沿用 §12.3 `InvasionBattleView` 关卡战斗模拟**（左侧阿狼 `Role_cslangren`、回合循环、双血条、结果弹窗、红字飘伤），以**「嵌入模式」`InvasionBattleView.BuildEmbedded(hostRect, session, enemyPrefab, onEnded)`** 将完整战斗渲染到 `InvasionBattleModal_2 → TopArea/PlayerSlot` 区域，并**关闭战斗背景图 `AirUI/ZhanDou_1`**（不创建 `BattleBackground`）；战斗**不经 `InvasionService` 状态机驱动**（新增 `IBattleCombatDriver` 抽象 + 轻量 `LocalBattleCombatDriver`，无体力/倒计时/自动连战/返回家园副作用）。(2) 玩家侧数值取**玩法局内属性副本 `runStats`**（`playerAttack=runStats.atk`、`playerMaxHp=playerHp=runStats.maxHp`）；敌人按事件奖励 `battle_small→enemy_small`、`battle_boss→boss_langren` 从 §B.9 `invasion_units.csv` 取单位与新增 `skeletonPrefab` 列的骨骼（小怪 `Pets/Monster_1_Salamander`、BOSS `Prefabs/Air/Hero_Role_cunmin` 右侧镜像）。(3) 结算：胜→销毁嵌入战斗、恢复站立阿狼、按钮恢复常态「下一天」；负→关闭 `InvasionBattleModal_2`（本局结束）。(4) §B.9 `invasion_units.csv` 新增 `skeletonPrefab` 列与 `enemy_small` 行；`InvasionUnitConfig` 增 `skeletonPrefab` 字段、`InvasionConfigCatalog` 解析新列（缺列兼容）+ 新增 `SmallEnemyUnitId/BossEnemyUnitId` 常量。详见 §12.11.10 / §B.9 / §B.17。 / **`InvasionBattleModal_2` embeds the §12.3 level battle simulation for small/boss fights (`battle_small/battle_boss` applied):** new §12.11.10 — the `Battle` button is no longer inert; it **reuses `InvasionBattleView`** (left-side 阿狼, turn loop, dual HP bars, result dialog, damage floats) via a new **embedded mode `InvasionBattleView.BuildEmbedded(hostRect, session, enemyPrefab, onEnded)`** rendered into `InvasionBattleModal_2 → TopArea/PlayerSlot`, with the **battle background `AirUI/ZhanDou_1` disabled** (no `BattleBackground`); battle is **driven locally, not via `InvasionService`** (new `IBattleCombatDriver` + lightweight `LocalBattleCombatDriver`, no stamina/countdown/auto-chain/return-home side effects). Player stats come from the in-run `runStats` clone; enemy per reward (`battle_small→enemy_small`, `battle_boss→boss_langren`) from §B.9 `invasion_units.csv` with a new `skeletonPrefab` column (small `Pets/Monster_1_Salamander`, boss `Prefabs/Air/Hero_Role_cunmin` mirrored). Outcome: win → destroy embedded battle, restore standing 阿狼, button back to "下一天"; lose → close `InvasionBattleModal_2` (run over). `invasion_units.csv` gains a `skeletonPrefab` column + `enemy_small` row; `InvasionUnitConfig.skeletonPrefab`, catalog parses the new column (back-compatible) + `SmallEnemyUnitId/BossEnemyUnitId`. See §12.11.10 / §B.9 / §B.17. |
+| 3.171 | 2026-07-03 | **`InvasionBattleModal_2` 三轴/五轴老虎机抽奖事件（`slot3/slot5` 本期落地）**：(1) 新增**属性增强表** `Configs/Battle/attr_enhance.csv`（`attrId,attrName,icon,desc,value1,value2,value3,value4,value5`，`value{n}` = 该项在 **n 个轴**同时出现时获得的**固定增加值**；`attrId` 作为 `RoleStats` 字段键 `hp/atk/def/speed` 映射到实战属性，未识别键仅记录展示），附录新增 §B.19；新增 `AttrEnhanceConfig` + `AttrEnhanceConfigCatalog`（`LoadFromCsv`/`BuildDefault`/`PickDistinct(n)` 随机不重复取 n 项/`GetGain(count)`）。(2) 新增独立全屏预制体 `Resources/Prefabs/Battle/SlotMachineModal_3.prefab` 与 `SlotMachineModal_5.prefab` + `SlotMachineModalView` + 生成器菜单 `Tools/PetDemo/Generate Slot Machine Modal Prefabs`：**纯黑底**；三轴用 `AirUI/Zhou_3_2`（五轴 `Zhou_5_2`）作轴背景，其上叠**老虎机样式图** `AirUI/Zhou_3_1`（五轴 `Zhou_5_1`）；**抽出的属性项图标显示在本轴中心，层级介于轴背景与样式图之间**（占位=纯色块+属性名）；底部「摇奖」按钮。(3) 玩法：`Show(reelCount, catalog, onComplete)` 先在属性增强表随机不重复选 **reelCount-1 项**（三轴 2 项 / 五轴 4 项），每轴对被选项**等概率**（各 `1/(reelCount-1)`）；点「摇奖」每轴独立按概率定格 → 按**出现的属性项与出现次数**取 `value{count}` 汇总 → `onComplete` 回调。(4) `InvasionBattleModal2View` 集成：`Lottery` 态「打开」按钮点击不再无响应，按事件奖励 `slot3/slot5` 打开对应界面；`onComplete` 把各项固定增加值**累加到局内属性副本 `runStats`**（`ApplyFlatStat`，映射 RoleStats 字段）并追加事件卡记录、刷新中部属性；同一局内多次抽奖**总值相加叠加**，关闭/重开重置、不写回存档。(5) 事件表新增 `evt_lottery5`(`slot5`)、天数表加触发行；`slot3/slot5` 由占位改为落地。详见 §12.12 / §B.19。 / **`InvasionBattleModal_2` 3-reel/5-reel slot-machine lottery (`slot3/slot5` applied):** new **attribute-enhance table** `attr_enhance.csv` (`attrId,attrName,icon,desc,value1..value5`, `value{n}` = flat gain when the item lands on **n reels**; `attrId` maps to `RoleStats` fields `hp/atk/def/speed`) + `AttrEnhanceConfig`/`AttrEnhanceConfigCatalog` (`LoadFromCsv`/`BuildDefault`/`PickDistinct(n)`/`GetGain(count)`), Appendix §B.19; new standalone fullscreen prefabs `SlotMachineModal_3/5.prefab` + `SlotMachineModalView` + generator menu: **pure black bg**, reel bg `Zhou_3_2`/`Zhou_5_2` with the slot frame `Zhou_3_1`/`Zhou_5_1` on top, drawn item icons at each reel center **between** reel-bg and frame (placeholder = color block + name), bottom "摇奖" button; `Show(reelCount, catalog, onComplete)` picks **reelCount-1 distinct** items (3-reel 2 / 5-reel 4), **equal** per-reel probability, on "摇奖" each reel settles independently, aggregates `value{count}` by item and appearance count; `InvasionBattleModal2View` wires the `Lottery` "打开" tap to open the matching modal and applies fixed gains to the **in-run `runStats`** (`ApplyFlatStat`), logs a result card, refreshes middle stats, and **stacks across draws within a run** (reset on close, no save writeback); event table adds `evt_lottery5` (`slot5`) + day rows. See §12.12 / §B.19. |
+| 3.170 | 2026-07-03 | **`InvasionBattleModal_2` 三选一技能事件（领悟/顿悟）**：(1) 新增**技能表** `Configs/Battle/skills.csv`（`skillId,skillName,quality,description,icon,effect,weight`，品质 `普通/传说`，描述支持富文本变色，图标取 `AirUI/SkillIcon/*`，效果本期占位），附录新增 §B.18；新增 `BattleSkillConfig`+`SkillQuality`+`SkillConfigCatalog`（`LoadSkillsFromCsv`/`BuildDefaultSkills`/`PickThreeByQuality` 按品质过滤+排除已获得+无重复加权抽 3）。(2) 事件表新增 `evt_insight`(领悟)/`evt_epiphany`(顿悟)（`eventType=奇遇`，奖励 `pick3:normal`/`pick3:legendary`），天数表加触发行；`InvasionEventReward` 增 `skillQuality`，`ParseRewards` 支持 `pick3:normal|legendary`（裸 `pick3` 默认普通）。(3) 新增独立预制体 `Resources/Prefabs/Battle/SkillPickThreeModal.prefab` + `SkillPickThreeModalView` + 生成器菜单 `Tools/PetDemo/Generate Skill Pick Three Modal Prefab`：标题框九宫格 `AirUI/pet_bg_3`、条目框领悟 `pet_bg_1`/顿悟 `pet_bg_2`（`Image.Type.Sliced`），每条目显图标/名称/富文本描述，选中后下方出现「确定」→获取。(4) `InvasionBattleModal2View` 集成：领悟/顿悟展示完成后保持灰置并打开三选一，`onConfirm` 获取技能→左上角**技能条**追加图标（首 `(-480,765)`、右步进 `106px`、每行 5 个、换行 `Y-=50`，协程缩小到 `96×96`）→恢复常态；已获得技能**仅本局有效**（`Show()` 重置）。(5) 为 `pet_bg_1/2/3` 配置九宫格 `spriteBorder`。详见 §12.11.9 / §B.18。 / **`InvasionBattleModal_2` pick-three skill events (领悟/顿悟):** new **skill table** `skills.csv` + `SkillConfig`/`SkillQuality`/`SkillConfigCatalog` (Appendix §B.18); events `evt_insight`/`evt_epiphany` (`Adventure`, `pick3:normal`/`pick3:legendary`); `InvasionEventReward.skillQuality` + `pick3:normal|legendary` parsing; new standalone prefab `SkillPickThreeModal` + `SkillPickThreeModalView` + generator (nine-slice title `pet_bg_3`, option boxes `pet_bg_1`/`pet_bg_2`, icon/name/rich-text, "确定" on select); `InvasionBattleModal2View` opens pick-three on 领悟/顿悟, appends acquired icon to a top-left **skill strip** (first `(-480,765)`, step `106px`, 5/row, wrap `Y-=50`, shrink to `96×96`), per-run only; `pet_bg_1/2/3` nine-slice borders configured. See §12.11.9 / §B.18. |
+| 3.169 | 2026-07-03 | **`InvasionBattleModal_2`「下一天」事件玩法完善**：(1) 事件配置由单表拆为**双表**——天数表 `Configs/Battle/invasion_event_days.csv`（`id,day,eventId,weight`，按精确天数加权）+ 事件表 `Configs/Battle/invasion_events.csv`（重构为 `eventId,eventType,eventText,eventReward,background`），详见 §B.16/§B.17。(2) 事件类型 `调整属性/战斗/抽奖/奇遇`（`InvasionEventType`）。(3) 下部事件区改为**可上下滑动的事件日志**（`ScrollRect`，老在上、新在下、自动滚到底），每次事件按字面 `/n` 拆成**多条**、每条一个**九宫格背景框**（`AirUI/ShiJian_1~5`），`eventText` 支持 Unity 富文本 `<color>` 局部变色。(4) `NextDayButton` **状态机**：点击后灰置（`interactable=false`）直到事件展示完成；`战斗`→素材换 `InvasionBattleModal_2_Button_2`、文字「战斗」；`抽奖`→素材换 `InvasionBattleModal_2_Button_3`、文字「打开」（此二类点击本期无响应，效果 TBD）；`调整属性/奇遇`→恢复常态「下一天」。(5) **事件奖励**（玩法局内生效）：`attr:hp|atk|speed:±%` 本期落地——`Show()` 克隆 `RoleStats` 为局内副本，百分比奖励只改副本并刷新中部显示，关闭/重开重置、不写回存档；`battle_small/battle_boss/slot3/slot5/pick3` 本期解析+占位（`LogWarning`，无效果）。(6) `InvasionEventConfigCatalog` 重构为双表加载 + `InvasionEventReward` 解析 + `PickWeightedByDay`；生成器 `InvasionBattleModal2PrefabGenerator` 将 `BottomArea` 改建为 `ScrollRect` 事件日志，需重生成预制体。 / **`InvasionBattleModal_2` "Next Day" event gameplay:** event config split into **two tables** — day table `invasion_event_days.csv` (`id,day,eventId,weight`, exact-day weighting) + event table `invasion_events.csv` (refactored to `eventId,eventType,eventText,eventReward,background`), see §B.16/§B.17; event types `AdjustAttr/Battle/Lottery/Adventure`; bottom event area becomes a **scrollable event log** (`ScrollRect`, old-top/new-bottom, auto-scroll), each event split by literal `/n` into **multiple cards** each with a **nine-slice frame** (`AirUI/ShiJian_1~5`), rich-text `<color>` supported; `NextDayButton` **state machine**: greyed until reveal done, `Battle`→`Button_2`/"战斗", `Lottery`→`Button_3`/"打开" (both inert this release), `AdjustAttr/Adventure`→back to "下一天"; **rewards** in-run only: `attr:hp|atk|speed:±%` applied to a per-`Show()` clone of `RoleStats` (no save writeback), `battle_small/battle_boss/slot3/slot5/pick3` parsed as placeholders; `InvasionEventConfigCatalog` refactored + generator rebuilds `BottomArea` as a `ScrollRect` log (regen prefab). |
+| 3.168 | 2026-07-03 | **`InvasionBattleModal_2` 文本微调**：(1) 中部属性区（§12.11.3）文本改为**仅显示数值、不显示属性名**——`HpText = "{currentHp} / {maxHp}"`、`AtkText = "{atk}"`、`SpeedText = "{agility}"`（占位 `-- / --`、`--`、`--`）。(2) 下部「下一天」按钮（§12.11.5）在按钮图上**叠加只显示「下一天」三字的文字标签 `Label`**；`InvasionBattleModal2View.EnsureNextDayLabel()` 于 `Show()` 兼容缺该子节点的旧预制体（运行时补建），生成器 `BuildNextDayButton` 同步烘焙该 `Label`。 / **`InvasionBattleModal_2` text tweaks:** (1) middle attribute texts (§12.11.3) now show **numeric values only, no field labels** — `HpText = "{currentHp} / {maxHp}"`, `AtkText = "{atk}"`, `SpeedText = "{agility}"` (placeholders `-- / --`, `--`, `--`). (2) The bottom Next-Day button (§12.11.5) **overlays a `Label` showing only the three chars "下一天"**; `InvasionBattleModal2View.EnsureNextDayLabel()` runs on `Show()` to back-fill the label for older prefabs missing that child, and the generator's `BuildNextDayButton` bakes the same `Label`. |
+| 3.167 | 2026-07-03 | **新战斗界面 `InvasionBattleModal_2`（预制体化 + 「下一天」事件玩法框架）**：(1) 新增 §12.11，定义 `InvasionBattleModal2View` + `Resources/Prefabs/Battle/InvasionBattleModal_2.prefab`（全屏 1080×1920、三段共用背景 `AirUI/ZhanDou_0`：上部 `TopArea` 角色展示/战斗显示区（运行时构建玩家 `Role_cslangren` SkeletonGraphic）、中部 `MiddleArea` 属性区（当前HP/总HP、攻击、速度，读实时 `RoleStats`）、下部 `BottomArea` 事件区 + 「下一天」按钮 `NextDayButton`（`AirUI/InvasionBattleModal_2_Button_1`）+ 天数），右上角 `CloseButton` 关闭；玩法：点「下一天」→ 天数+1 → 按当前天数从事件配置表筛可用事件并按 `weight` 加权随机 1 条 → 事件区展示其 id（占位，事件效果 TBD）；编辑器菜单 `Tools/PetDemo/Generate Invasion Battle Modal 2 Prefab` 生成。(2) 新增 `InvasionEventConfig` + `InvasionEventConfigCatalog`（`CsvTable` 加载 `Configs/Battle/invasion_events.csv`，`PickWeightedByDay(day)` 加权随机 + `BuildDefaultEvents()` 回退），附录新增 §B.16。(3) 修订 §9.8.8：主线 `GoButton` 由「打开 `LevelSelectScreenPanelView`」改为「直接 `InvasionBattleModal2View.GetOrCreate(canvasRect).Show()`」，不再经饿肚子/体力门；`LevelSelectScreenPanel` **暂时停用（保留代码与预制体，不删除）**，`AirMainMenuRuntimeBuilder` 停止预建其实例。(4) `InvasionBattleModal`（1.0，§12.3）保留不变，本次不涉及。 / **New battle screen `InvasionBattleModal_2` (prefab + "Next Day" event framework):** new §12.11 defines `InvasionBattleModal2View` + `Resources/Prefabs/Battle/InvasionBattleModal_2.prefab` (fullscreen 1080×1920, shared `AirUI/ZhanDou_0` background, three parts: top character/battle display building player `Role_cslangren` SkeletonGraphic at runtime, middle attribute area showing current/total HP + attack + speed from live `RoleStats`, bottom event area + `NextDayButton` using `AirUI/InvasionBattleModal_2_Button_1` + day counter, top-right `CloseButton`); mechanic: tap Next Day → day+1 → filter events by current day from the event config table and weighted-random pick 1 by `weight` → show its id in the event area (placeholder, effects TBD); editor menu `Tools/PetDemo/Generate Invasion Battle Modal 2 Prefab`. Adds `InvasionEventConfig` + `InvasionEventConfigCatalog` (`CsvTable` loads `Configs/Battle/invasion_events.csv`, `PickWeightedByDay(day)` + `BuildDefaultEvents()` fallback), Appendix §B.16. §9.8.8 revised: main-story `GoButton` now directly opens `InvasionBattleModal_2` instead of `LevelSelectScreenPanelView`, bypassing the hungry/stamina gate; `LevelSelectScreenPanel` is **temporarily disabled (code & prefab kept, not deleted)** and no longer pre-built by `AirMainMenuRuntimeBuilder`. `InvasionBattleModal` (1.0, §12.3) unchanged this release. |
+| 3.166 | 2026-07-03 | **创角加号按钮提层级 + 加号态全屏黑底**：§9.14.1 `AddButton` 由 `DisplayArea` 子节点提升为 `CharacterCreationScreen` 根节点最高层级（最后同级），不再被任何 UI 遮挡；加号态显示时新增全屏纯黑背景 `AddButtonBackdrop`（`RGBA(0,0,0,1)`、`raycastTarget=true` 仅阻挡）覆盖含 `BottomTabBar` 的全部 UI、仅露 `AddButton`，离开加号态时隐藏；`AddButton` 使用精灵 `AirUI/AddButton`；`CharacterCreationScreenLayout.BuildRuntime` 编排 + `CharacterCreationScreenView.EnsureAddButtonTopLevel` 运行时兜底旧预制体；建议重生成 `CharacterCreationScreen.prefab`。 / **Character-creation plus button to top + full-screen backdrop in plus state:** §9.14.1 `AddButton` promoted from `DisplayArea` child to the topmost sibling of the `CharacterCreationScreen` root so no UI can occlude it; plus state adds a full-screen pure-black `AddButtonBackdrop` (`RGBA(0,0,0,1)`, `raycastTarget=true`, block-only) covering all UI including `BottomTabBar` with only `AddButton` visible, hidden when leaving plus state; `AddButton` uses sprite `AirUI/AddButton`; authored in `CharacterCreationScreenLayout.BuildRuntime` with runtime fallback `CharacterCreationScreenView.EnsureAddButtonTopLevel`; regen `CharacterCreationScreen.prefab` recommended. |
 | 3.165 | 2026-06-25 | **公会社区入口与 App_4 全屏弹层**：§9.8.9.10 公会 Tab 下 TopDingBar 左下方「打开社区」按钮（`SheQu_Icon`）；点击全屏 `App_4`，任意位置关闭；`GongHuiCommunityEntryView` + `GongHuiCommunityOverlayView`。 / **Guild community entry & App_4 overlay:** §9.8.9.10 Open Community button below TopDingBar on GongHui tab; full-screen `App_4` tap-to-close. |
 | 3.164 | 2026-06-25 | **装扮商店页签选中图切离隐藏**：§9.14.9 切离 Tab 时根 `Image` 清除 `SheJiao_Sheet_3` 并恢复 `alpha=0`（修复 `SheJiao_Sheet_2` 缺失导致旧选中图残留）；`DressUpPanelView.ApplyTabImageSprite`。 / **Dress-up tab selected sprite hide on switch:** §9.14.9 clear `SheJiao_Sheet_3` and restore transparent Image when leaving a tab. |
 | 3.163 | 2026-06-25 | **进入家园跳转行长框尺寸**：§9.14.10 `EnterHomeNavCellTemplate` 固定 **1014×290**（原 180 高、宽随父级拉伸）；`CharacterCreationScreenLayout` 增 `EnterHomeCellWidth`；需重生成 `CharacterCreationScreen.prefab`。 / **Enter-home nav cell size:** §9.14.10 `EnterHomeNavCellTemplate` fixed **1014×290**; add `EnterHomeCellWidth`; regen prefab. |
@@ -3531,6 +3542,261 @@ interface IInvasionService {
 
 **English:** Implementation: `ProtagonistLevelUpDialogView.BuildInto` in `AirMainMenuRuntimeBuilder.BuildBottomNavBar`; `InvasionBattleView.ShowResultDialog` calls `ProtagonistLevelUpDialogView.RequestShowAfterBattleClose()` on manual close when not in the auto-chain path.
 
+---
+
+### 12.11 入侵战斗 2.0 界面 / InvasionBattleModal_2 (v3.167)
+
+**中文：** 自 v3.167 起新增一套**独立的战斗流程界面与玩法体系** `InvasionBattleModal_2`，与既有 §12.3 `InvasionBattleModal`（1.0，回合制）并列、互不影响（后者本次不修改）。本界面**采用预制体的方式制作**：`Resources/Prefabs/Battle/InvasionBattleModal_2.prefab`，由编辑器菜单 **`Tools/PetDemo/Generate Invasion Battle Modal 2 Prefab`** 生成并纳入版本库；根节点挂 `InvasionBattleModal2View`。  
+**English:** Since v3.167, a **new, independent battle flow screen and gameplay system** `InvasionBattleModal_2` is added, coexisting with §12.3 `InvasionBattleModal` (1.0, turn-based) without interference (the latter is unchanged this release). This screen is **built as a prefab**: `Resources/Prefabs/Battle/InvasionBattleModal_2.prefab`, produced by the editor menu **`Tools/PetDemo/Generate Invasion Battle Modal 2 Prefab`** and committed; the root carries `InvasionBattleModal2View`.
+
+#### 12.11.1 打开方式与层级 / Open Path and Layering
+
+**中文：** 打开入口为主线界面 §9.8.8 的 **`GoButton`**：点击后不再打开 `LevelSelectScreenPanelView`（§9.8.8.6 该层**暂时停用**，见 §9.8.8 修订），改为 **`InvasionBattleModal2View.GetOrCreate(canvasRect).Show()`** 直接打开本界面，**不经过饿肚子提示框 / 体力门**。界面为全屏 `modal`（主 Canvas 直接子节点，1080×1920 全屏拉伸），`Show()` 时 `SetAsLastSibling()` 置顶、`SetActive(true)`；`GetOrCreate` 优先 `Resources.Load` 预制体、缺失时回退运行时代码构建（与 §9.8.8.6 `LevelSelectScreenPanelView` 同范式）。右上角 **`CloseButton`** 关闭界面（`Hide()` → `SetActive(false)`），返回主线层。  
+**English:** The entry is the main-story §9.8.8 **`GoButton`**: tapping it no longer opens `LevelSelectScreenPanelView` (that layer is **temporarily disabled**, see the §9.8.8 revision), and instead calls **`InvasionBattleModal2View.GetOrCreate(canvasRect).Show()`** directly, **bypassing the hungry dialog / stamina gate**. The screen is a fullscreen `modal` (direct child of the main Canvas, 1080×1920 stretch-full); `Show()` calls `SetAsLastSibling()` + `SetActive(true)`; `GetOrCreate` prefers `Resources.Load` prefab and falls back to runtime code build when missing (same pattern as §9.8.8.6 `LevelSelectScreenPanelView`). The top-right **`CloseButton`** hides the screen (`Hide()` → `SetActive(false)`) and returns to the main-story layer.
+
+#### 12.11.2 三段界面结构 / Three-Part Layout
+
+**中文：** 界面分**上、中、下**三个部分，三段共用同一张背景图 **`AirUI/ZhanDou_0`**（全屏 `Image`，`preserveAspect = false` 铺满；缺图深色回退 + `LogWarning`）。  
+**English:** The screen has **top / middle / bottom** parts sharing one background sprite **`AirUI/ZhanDou_0`** (fullscreen `Image`, `preserveAspect = false`; dark fallback + `LogWarning` when missing).
+
+| 区域 / Part | 节点 / Node | RectTransform（1080×1920 基准） | 内容 / Content |
+|---|---|---|---|
+| 上部 / Top | `TopArea` | 顶部拉伸，占上约 45% 高度 | **角色展示与战斗显示区域**：运行时以 `SkeletonGraphic` 构建玩家角色（阿狼 `Role_cslangren`，见 §12.11.4）；挂载点 `PlayerSlot`。敌人/战斗表现随事件后续补充。 |
+| 中部 / Middle | `MiddleArea` | 居中，占中约 25% 高度 | **角色属性显示区域**：`当前生命值/总血量`（`HpText`）、`攻击`（`AtkText`）、`速度`（`SpeedText`）。 |
+| 下部 / Bottom | `BottomArea` | 底部拉伸，占下约 30% 高度 | **事件区域**：`EventLabel`（展示发生的事件）+ `DayLabel`（当前天数）+ 「下一天」按钮 `NextDayButton`。 |
+
+**中文：** 上/中/下三段的具体像素高度可在预制体内 Inspector 微调；本 SPEC 仅约定层级与语义，实现层默认按上述比例切分。  
+**English:** Exact pixel heights of the three parts are Inspector-tunable in the prefab; this SPEC fixes only hierarchy and semantics, with the above ratios as implementation defaults.
+
+#### 12.11.3 中部属性区数据来源 / Middle Attribute Data Source
+
+**中文：** 中部属性区**直接读取玩家实时 `RoleStats`**（经 `IPlantingService.GetRoleStats()`）：`当前HP/总HP = currentHp/maxHp`、`攻击 = atk`、`速度 = agility`。`Show()` 时刷新一次，并订阅 `IPlantingService.OnRoleStatsChanged` 在数值变化时刷新；`Hide()`/`OnDestroy` 时退订。`IPlantingService` 为空时属性显示占位 `--` 且不报错。**（v3.168）文本仅显示数值、不显示属性名**：`HpText = "{currentHp} / {maxHp}"`、`AtkText = "{atk}"`、`SpeedText = "{agility}"`（占位分别为 `-- / --`、`--`、`--`），与 §9.8.7 主界面英雄属性行「仅显示数值」的表现保持一致。  
+**English:** The middle area **reads the player's live `RoleStats`** (via `IPlantingService.GetRoleStats()`): `current/total HP = currentHp/maxHp`, `attack = atk`, `speed = agility`. It refreshes once on `Show()`, subscribes to `IPlantingService.OnRoleStatsChanged` for live updates, and unsubscribes on `Hide()`/`OnDestroy`. When `IPlantingService` is null, attributes show placeholder `--` without error. **(v3.168) Texts show numeric values only, without field labels**: `HpText = "{currentHp} / {maxHp}"`, `AtkText = "{atk}"`, `SpeedText = "{agility}"` (placeholders `-- / --`, `--`, `--`), consistent with the §9.8.7 hero-stats row "numeric value only" behavior.
+
+#### 12.11.4 玩家角色展示 / Player Character Display
+
+**中文：** 上部玩家角色以 **`SkeletonGraphic`** 运行时构建（与 §9.5 `MainRoleCunminPresenter` / §12.7 `InvasionBattleView.TryBuildSkeletonGraphic` 同方法）：实例化预制体探针 `Resources/Prefabs/Air/Hero_Role_cunmin`（v3.48+ 内嵌 `Role_cslangren` 骨骼）读取 `SkeletonDataAsset`，在 `PlayerSlot` 下创建 `SkeletonGraphic` 并循环播放首个 `standby/idle` 动画。缺骨骼/缺 Shader 时回退占位色块 + `LogWarning`，不阻断界面。  
+**中文（v3.173 补充）：** 内层 `Skeleton` 节点默认 `localScale.x` 取负（`new Vector3(-1, 1, 1)`）实现**水平镜像 1 次**（与 §12.3 `InvasionBattleView.BuildPlayerSlot` 同朝向路径，无需额外顶点镜像组件）；默认循环播放**待机**（动画名候选链 `standby_1`→`standby`→`idle`→`exclusive_2`→`animation`→骨骼首条）。构建成功后 `View` 保存 `SkeletonGraphic` 引用（`playerSkeleton`）以便 §12.11.5 切换移动/待机动画。  
+**English:** The top player is built as a **`SkeletonGraphic`** at runtime (same as §9.5 `MainRoleCunminPresenter` / §12.7 `InvasionBattleView.TryBuildSkeletonGraphic`): instantiate the prefab probe `Resources/Prefabs/Air/Hero_Role_cunmin` (v3.48+ embeds `Role_cslangren`), read its `SkeletonDataAsset`, create a `SkeletonGraphic` under `PlayerSlot`, and loop the first `standby/idle` animation. Missing skeleton/shader falls back to a color block + `LogWarning` without blocking.  
+**English (v3.173):** The inner `Skeleton` node defaults its `localScale.x` to negative (`new Vector3(-1, 1, 1)`) for a **single horizontal mirror** (same facing path as §12.3 `InvasionBattleView.BuildPlayerSlot`, no extra vertex-mirror component needed), and loops the **idle** animation (candidate chain `standby_1`→`standby`→`idle`→`exclusive_2`→`animation`→first). On success the `View` keeps the `SkeletonGraphic` reference (`playerSkeleton`) to swap move/idle animations for §12.11.5.
+
+#### 12.11.5 「下一天」玩法机制 / "Next Day" Gameplay Mechanic (v3.169)
+
+**中文：** 下部 **「下一天」按钮 `NextDayButton`**（默认素材 **`AirUI/InvasionBattleModal_2_Button_1`**）在按钮图上**叠加一个文字标签 `Label`**（默认「下一天」，`MiddleCenter`、`raycastTarget=false`）；`View` 在 `Show()` 时通过 `EnsureNextDayLabel()` 兼容缺该子节点的旧预制体（缺则运行时补建）。点击流程：  
+1. 当前天数 `day += 1`（界面初始 `day = 0`，`Show()` 时重置），`DayLabel` 刷新；  
+2. **立即将按钮灰置**（`interactable = false` + 灰色 `tint`），直到本次事件**展示完成**；  
+3. **（v3.173）角色移动过场**：玩家角色切换为**移动动画**（动画名候选链 `move_1`→`move`→`animation`）循环播放 **1 秒**，**这 1 秒内 `BottomArea` 事件日志暂停、不追加/更新任何事件卡**；1 秒结束后角色恢复**待机**循环，随后才进入第 4 步事件展示。该过场对**所有事件**（含“今日无事发生”占位）一致生效；`playerSkeleton` 为空（回退占位）时跳过动画切换但仍等待 1 秒，不阻断流程。仅“事件更新”被暂停，天数 `day+1` 与 `DayLabel` 刷新已在点击即时发生；  
+4. 从**天数表**（§B.16，`InvasionEventDayEntry`）筛出 `entry.day == day` 的可触发事件集合，按各条 `weight` **加权随机**抽取 **1 个 `eventId`**（`PickWeightedByDay(day)`），再从**事件表**（§B.17）解析出该事件配置 `InvasionEventConfig`；  
+5. 事件展示：将该事件的 `eventText` 按字面 **`/n`** 拆成**多条**，每条生成**一张事件卡**（**九宫格背景框** `AirUI/ShiJian_{background}` + 富文本 `Text`，支持 `<color=#RRGGBB>…</color>` 局部变色），逐条追加到**事件日志 `ScrollRect`**（老在上、新在下），追加后自动滚到底；  
+6. 展示完成后**结算奖励**并切换按钮态（见下）。  
+
+**事件日志（滚动）/ Event log：** 下部 `BottomArea` 为一个 `ScrollRect`（`Viewport/Content` + `VerticalLayoutGroup` + `ContentSizeFitter`），事件卡由**上到下由老到新**排列，玩家可上下滑动查看旧事件。  
+
+**按钮状态机 / Button state machine：** 依据被抽中事件的 `eventType`：  
+- `调整属性 AdjustAttr` / `奇遇 Adventure`：展示完成后按钮**恢复常态**（`Button_1` + 「下一天」+ `interactable=true`），可继续推进天数；  
+- `战斗 Battle`：按钮素材换 **`InvasionBattleModal_2_Button_2`**、文字改 **「战斗」**；  
+- `抽奖 Lottery`：按钮素材换 **`InvasionBattleModal_2_Button_3`**、文字改 **「打开」**。  
+
+**中文（v3.170 补充）：** 若被抽中的 `奇遇 Adventure` 事件的奖励为 **`pick3:normal` / `pick3:legendary`**（即「领悟 / 顿悟」），事件卡展示完成后按钮**不立即恢复常态**，而是**保持灰置**并打开 §12.11.9 **三选一技能界面**；玩家点选一项技能并点「确定」获取后，按钮才恢复常态「下一天」。若该品质下无可选技能（已全部获得），追加一条提示卡、按钮直接恢复常态。  
+**English (v3.170):** If the drawn `Adventure` event's reward is **`pick3:normal` / `pick3:legendary`** ("领悟 / 顿悟"), after the card reveal the button **stays greyed** and opens the §12.11.9 **skill pick-three screen**; only after the player picks one skill and taps "确定" does the button return to normal. If no skill of that quality remains (all acquired), append a hint card and return to normal directly.  
+
+**中文（v3.171 补充）：** 若被抽中的 `抽奖 Lottery` 事件的奖励为 **`slot3` / `slot5`**，事件卡展示完成后按钮进入 **`Lottery` 态「打开」**；玩家点「打开」→ 打开 §12.12 **老虎机抽奖界面**（`slot3`→三轴 `SlotMachineModal_3`、`slot5`→五轴 `SlotMachineModal_5`）；玩家点「摇奖」定格后，界面回调把各属性项的**固定增加值累加到局内属性副本 `runStats`**（映射 `RoleStats` 字段）、追加一条结果事件卡、刷新中部属性，随后「打开」按钮**恢复常态「下一天」**、关闭老虎机界面。同一局内多次抽奖以**总值相加**方式叠加。  
+**English (v3.171):** If the drawn `Lottery` event's reward is **`slot3` / `slot5`**, after the reveal the button enters the `Lottery` "打开" state; tapping "打开" opens the §12.12 **slot-machine screen** (`slot3`→3-reel `SlotMachineModal_3`, `slot5`→5-reel `SlotMachineModal_5`); after the player taps "摇奖" and reels settle, the screen callback applies each item's **fixed gain to the in-run `runStats` clone** (mapped to `RoleStats` fields), appends a result card, refreshes the middle stats, then the button returns to normal "下一天" and the slot screen closes. Multiple draws within a run **stack by total sum**.  
+
+**中文（v3.172 补充）：** 若被抽中的 `战斗 Battle` 事件的奖励为 **`battle_small` / `battle_boss`**，事件卡展示完成后按钮进入 **`Battle` 态「战斗」**；玩家点「战斗」→ **嵌入式沿用 §12.3 `InvasionBattleView` 关卡战斗模拟**（详见 §12.11.10）：战斗渲染在 `TopArea/PlayerSlot` 区域、**关闭战斗背景图**、隐藏站立阿狼；胜利→恢复站立阿狼、按钮恢复常态「下一天」；失败→关闭 `InvasionBattleModal_2`（本局结束）。  
+**English (v3.172):** If the drawn `Battle` event's reward is **`battle_small` / `battle_boss`**, after the reveal the button enters the `Battle` "战斗" state; tapping "战斗" **embeds and reuses the §12.3 `InvasionBattleView` level battle simulation** (see §12.11.10): the fight renders in the `TopArea/PlayerSlot` region with the **battle background disabled** and the standing 阿狼 hidden; win → restore standing 阿狼, button back to "下一天"; lose → close `InvasionBattleModal_2` (run over).  
+
+**中文（本期范围，v3.172 修订）：** `战斗 Battle` 态「战斗」按钮**本期已接入**嵌入式关卡战斗模拟（见 §12.11.10）；`抽奖 Lottery` 态「打开」按钮**已接入**老虎机抽奖（见 §12.12）。**事件奖励**中 **`attr:hp|atk|speed:±%`（增减属性百分比）**、**`slot3/slot5`（三轴/五轴老虎机）**、**`battle_small/battle_boss`（小战斗/BOSS 战）**、**`pick3:normal|legendary`（领悟/顿悟三选一）** 本期均已落地；`attr:*` 与 `slot3/5` 作用于**玩法局内的属性副本 `runStats`**（`Show()` 时克隆全局 `RoleStats`，仅改副本并刷新中部显示，关闭/重开重置、不写回存档），小战斗/BOSS 战亦以 `runStats` 作为玩家侧数值来源。若当天无可用事件，追加一条「今日无事发生」占位卡，天数仍 +1、按钮恢复常态。  
+**English:** The bottom **`NextDayButton`** (default asset **`AirUI/InvasionBattleModal_2_Button_1`**) overlays a `Label` (default "下一天"). Click flow: (1) `day += 1`, refresh `DayLabel`; (2) **grey the button immediately** (`interactable=false` + grey tint) until the event reveal completes; (3) from the **day table** (§B.16, `InvasionEventDayEntry`) filter entries with `entry.day == day` and **weighted-random** pick **1 `eventId`** (`PickWeightedByDay(day)`), then resolve its `InvasionEventConfig` from the **event table** (§B.17); (4) split `eventText` by literal **`/n`** into **multiple cards**, each a **nine-slice frame** `AirUI/ShiJian_{background}` + rich-text `Text` (`<color>` supported), appended to the **event-log `ScrollRect`** (old-top / new-bottom, auto-scroll to bottom); (5) settle rewards and switch the button mode. Button state machine by `eventType`: `AdjustAttr`/`Adventure` → back to normal (`Button_1` + "下一天" + interactable); `Battle` → `Button_2` + "战斗"; `Lottery` → `Button_3` + "打开". This release: `Battle/Lottery` button taps are **inert** (effects TBD, gameplay pauses there); only **`attr:hp|atk|speed:±%`** rewards are applied, to an **in-run clone** of `RoleStats` (no save writeback); `battle_small/battle_boss/slot3/slot5/pick3` are parsed as `LogWarning` placeholders. When no event is available, append a "今日无事发生" placeholder card, still `day += 1`, button back to normal.
+
+#### 12.11.6 数据结构 / Data Structures (v3.169)
+
+```text
+// InvasionEventType — 事件类型 / event type
+enum InvasionEventType { AdjustAttr, Battle, Lottery, Adventure }
+
+// InvasionEventDayEntry — 天数表一行（来自附录 B.16）
+// InvasionEventDayEntry — one day-table row (from Appendix B.16)
+struct InvasionEventDayEntry {
+  int    day;      // 精确匹配的天数 / exact matching day
+  string eventId;  // 指向事件表的事件 id / event id referencing the event table
+  int    weight;   // 加权随机权重（> 0）/ weighted-random weight (> 0)
+}
+
+// InvasionEventRewardKind — 奖励类型 / reward kind
+enum InvasionEventRewardKind {
+  AttrPercent,   // attr:hp|atk|speed:±%（本期落地 / applied this release）
+  BattleSmall,   // battle_small（本期落地：嵌入小战斗 / applied: embedded small battle, §12.11.10）
+  BattleBoss,    // battle_boss（本期落地：嵌入 BOSS 战 / applied: embedded boss battle, §12.11.10）
+  Slot3,         // slot3（本期落地：三轴老虎机 / applied: 3-reel slot, §12.12）
+  Slot5,         // slot5（本期落地：五轴老虎机 / applied: 5-reel slot, §12.12）
+  PickThree      // pick3（本期落地：三选一 / applied: pick-three）
+}
+
+// InvasionEventReward — 单条事件奖励 / a single event reward
+struct InvasionEventReward {
+  InvasionEventRewardKind kind;
+  string target;         // 仅 AttrPercent 使用：hp|atk|speed / used by AttrPercent only
+  int    percent;        // 仅 AttrPercent 使用：带符号百分比 / signed percent for AttrPercent
+  SkillQuality skillQuality; // 仅 PickThree 使用：Normal(领悟)/Legendary(顿悟) / used by PickThree only
+}
+
+// SkillQuality — 技能品质 / skill quality (v3.170)
+enum SkillQuality { Normal, Legendary } // 普通 / 传说
+
+// BattleSkillConfig — 技能表一行（来自附录 B.18；命名区别于既有 §B.12 PetDemo.Core.SkillConfig）
+// BattleSkillConfig — one skill-table row (from Appendix B.18; named to avoid clashing with §B.12 PetDemo.Core.SkillConfig)
+struct BattleSkillConfig {
+  string       skillId;      // 技能唯一 id / unique id
+  string       skillName;    // 技能名称 / name
+  SkillQuality quality;      // 技能品质：普通/传说 / quality
+  string       description;  // 技能描述（支持富文本 <color> 局部变色）/ rich-text description
+  string       iconName;     // 技能图标文件名 → AirUI/SkillIcon/{iconName} / icon file name
+  string       effect;       // 技能效果（本期占位，不具体设计）/ effect (placeholder this release)
+  int          weight;       // 加权随机权重（> 0）/ weighted-random weight (> 0)
+}
+
+// InvasionEventConfig — 事件表一行（来自附录 B.17）
+// InvasionEventConfig — one event-table row (from Appendix B.17)
+struct InvasionEventConfig {
+  string eventId;                    // 唯一 id / unique id
+  InvasionEventType eventType;       // 事件类型 / event type
+  List<string> textSegments;         // eventText 按 "/n" 拆分后的多条 / eventText split by "/n"
+  List<InvasionEventReward> rewards; // 事件奖励（可空）/ rewards (may be empty)
+  int backgroundIndex;               // 背景框序号 1~5 → AirUI/ShiJian_{n} / frame index
+}
+```
+
+#### 12.11.9 三选一技能事件与技能条 / Skill Pick-Three Event and Skill Strip (v3.170)
+
+**中文：** 「奇遇」事件下新增两类以奖励串区分的**三选一技能事件**：**领悟**（`pick3:normal`，普通品质）与**顿悟**（`pick3:legendary`，传说品质）。触发流程：  
+1. 「下一天」抽中领悟/顿悟事件，事件卡照常按 `/n` 逐条展示；  
+2. 展示完成后**不恢复常态**，按事件奖励的 `skillQuality` 从**技能表**（§B.18）筛选：先按品质过滤，**排除本局已获得的技能**，再按各技能 `weight` **无重复加权随机**抽取**最多 3 项**（同一 skillId 不重复出现）；  
+3. 打开独立预制体界面 **`SkillPickThreeModal`**（`SkillPickThreeModalView.GetOrCreate(canvasRect).Show(quality, options, onConfirm)`）：顶部**标题横幅**用素材 **`AirUI/pet_bg_3`**（整图 `preserveAspect` 展示，美术已含「选择技能」字样与吉祥物，不叠加文字）；三个**条目框**用九宫格素材（`Image.Type.Sliced`）——领悟 **`AirUI/pet_bg_1`**、顿悟 **`AirUI/pet_bg_2`**（美术头部已烘焙「普通」/「传说」品质标签，故不叠加品质文字），**三条目纵向排列（每项独占一行、共三行、从上到下 Option0/1/2）**，条目内**横向排版**（左侧**技能图标** `AirUI/SkillIcon/{iconName}`，右侧上为**技能名称**、下为**富文本描述**）；界面按 `Show()` 传入的 `quality` 统一切换三条目框素材（普通=`pet_bg_1`、传说=`pet_bg_2`），故单一预制体可复用于两种品质；  
+4. 玩家点选一项（高亮），三条目**下方出现「确定」按钮**；点「确定」→回调获取该技能、关闭界面；  
+5. 获取后主界面 `InvasionBattleModal_2` **左上角技能条**追加该技能图标，随后「下一天」恢复常态。  
+
+**技能条布局 / Skill strip layout：** 图标容器锚点/轴心居中（`(0.5,0.5)`），挂在根节点、层级高于三段区域。第 1 个图标 `anchoredPosition = (-480, 765)`；此后**向右**步进 `+106px`（图标 96 + 间隔 10），**每行 5 个**（首个 + 右侧 4 个）；满行后**换行**，Y 相对上一行 `-50px`、X 回到最左（`-480`）。新图标以协程**从较大尺寸持续缩小到 96×96**。  
+
+**本局状态 / Per-run state：** 已获得技能仅**本局有效**——`Show()` 时清空 `acquiredSkillIds` 与技能条（与 §12.11.3 属性副本 `runStats` 一致），关闭/重开重置、不写回存档；技能**效果本期不设计**（`effect` 仅占位）。  
+
+**English:** Under `Adventure`, two reward-encoded **pick-three skill events** are added: **领悟** (`pick3:normal`, Normal quality) and **顿悟** (`pick3:legendary`, Legendary quality). Flow: (1) the "Next Day" draw hits 领悟/顿悟, event cards reveal per `/n`; (2) instead of returning to normal, filter the **skill table** (§B.18) by the reward's `skillQuality`, **exclude skills already acquired this run**, and **weighted-random pick up to 3 distinct** skills by `weight`; (3) open the standalone prefab **`SkillPickThreeModal`** — title box uses nine-slice `AirUI/pet_bg_3`; the three option boxes use nine-slice `AirUI/pet_bg_1` (领悟) / `AirUI/pet_bg_2` (顿悟), each showing the skill icon (`AirUI/SkillIcon/{iconName}`), name and rich-text description; (4) picking one shows a **"确定" button below**; tapping it acquires the skill and closes; (5) the acquired skill icon is appended to the **top-left skill strip** and the Next-Day button returns to normal. Skill strip: first icon at `anchoredPosition (-480, 765)`, step `+106px` right, **5 per row**, wrap with `Y -= 50px` back to `X = -480`; each new icon **shrinks continuously to 96×96**. Acquired skills are **per-run only** (cleared on `Show()`), effects are placeholders this release.
+
+#### 12.11.7 资源清单 / Asset Manifest (v3.170)
+
+| 资源 / Asset | 路径 / Path | 来源 / Source |
+|---|---|---|
+| 三段共用背景 / Shared background | `Resources/AirUI/ZhanDou_0` | 已存在 / existing |
+| 「下一天」按钮（常态）/ Next Day button (normal) | `Resources/AirUI/InvasionBattleModal_2_Button_1` | 已存在 / existing |
+| 「战斗」按钮 / Battle button | `Resources/AirUI/InvasionBattleModal_2_Button_2` | 已存在 / existing |
+| 「打开」按钮 / Lottery button | `Resources/AirUI/InvasionBattleModal_2_Button_3` | 已存在 / existing |
+| 事件卡背景框（九宫格）/ Event card frames (nine-slice) | `Resources/AirUI/ShiJian_1` … `ShiJian_5` | 已存在（已配 `spriteBorder`）/ existing |
+| 三选一标题横幅（整图）/ Pick-three title banner (whole image) | `Resources/AirUI/pet_bg_3` | 已存在（含「选择技能」+吉祥物，`preserveAspect` 展示）/ existing |
+| 三选一条目框·领悟（九宫格）/ Option box · 领悟 (nine-slice) | `Resources/AirUI/pet_bg_1` | 已存在（v3.170 配 `spriteBorder`）/ existing |
+| 三选一条目框·顿悟（九宫格）/ Option box · 顿悟 (nine-slice) | `Resources/AirUI/pet_bg_2` | 已存在（v3.170 配 `spriteBorder`）/ existing |
+| 技能图标 / Skill icons | `Resources/AirUI/SkillIcon/*`（如 `Card_30101`） | 已存在 / existing |
+| 玩家预制体探针 / Player prefab probe | `Resources/Prefabs/Air/Hero_Role_cunmin`（内嵌 `Role_cslangren`） | 复用 §9.5 / reused |
+| 界面预制体 / Screen prefab | `Resources/Prefabs/Battle/InvasionBattleModal_2.prefab` | 编辑器菜单生成（结构变更需重生成）/ regen via menu |
+| 三选一界面预制体 / Pick-three prefab | `Resources/Prefabs/Battle/SkillPickThreeModal.prefab` | **新建 / NEW**，菜单 `Tools/PetDemo/Generate Skill Pick Three Modal Prefab` 生成 |
+| 天数表 / Day table | `Resources/Configs/Battle/invasion_event_days.csv` | 详见 §B.16 |
+| 事件表 / Event table | `Resources/Configs/Battle/invasion_events.csv` | 详见 §B.17 |
+| 技能表 / Skill table | `Resources/Configs/Battle/skills.csv` | **新建 / NEW**，详见 §B.18 |
+
+#### 12.11.8 实现优先级 / Implementation Priority
+
+1. P0（v3.167）：预制体三段结构 + `ZhanDou_0` 背景 + 玩家 `SkeletonGraphic` + 中部实时属性 + 「下一天」按钮 + 事件表加权随机抽取与展示框架 + `GoButton` 改跳 + `LevelSelectScreenPanel` 停用。
+2. P0（v3.169）：双表配置 + 滚动九宫格事件日志（`/n` 多条 + 局部变色）+ `NextDayButton` 状态机（战斗/抽奖换素材换字）+ `attr:*` 百分比奖励（玩法局内生效）。
+3. P0（v3.170）：技能表 §B.18 + 领悟/顿悟三选一事件（`pick3:normal|legendary`）+ 独立三选一预制体 `SkillPickThreeModal`（九宫格标题/条目框）+ 确定获取 + 左上角技能条缩放堆叠展示（本局有效）。
+4. P0（v3.171）：属性增强表 §B.19 + 三轴/五轴老虎机事件（`slot3/slot5`）+ 独立全屏预制体 `SlotMachineModal_3/5`（黑底 + `Zhou_x_2` 轴背景 + 各轴中心属性图标 + `Zhou_x_1` 样式图 + 「摇奖」）+ 等概率抽取 + 固定增加值按出现次数累加 `runStats`（本局叠加）。
+5. P0（v3.172）：小战斗/BOSS 战（`battle_small/battle_boss`）嵌入复用 §12.3 `InvasionBattleView` 关卡战斗模拟（`BuildEmbedded`，父挂 `TopArea`、关闭背景、本地 `IBattleCombatDriver` 驱动）+ `invasion_units.csv` 新增 `skeletonPrefab` 列与 `enemy_small` 行 + 胜负流转（详见 §12.11.10）。
+6. P1（后续）：技能具体效果、失败惩罚细化、天数上限与结算、存档等。
+
+---
+
+#### 12.11.10 小战斗/BOSS 战：嵌入复用关卡战斗模拟 / Embedded Reuse of the Level Battle Simulation (v3.172)
+
+**中文：** `战斗 Battle` 事件（`battle_small` 小战斗 / `battle_boss` 最终 BOSS 战）本期**沿用 §12.3 `InvasionBattleView` 关卡战斗模拟**（左侧阿狼 `Role_cslangren`、我方先手回合循环、双血条、结果弹窗、命中红字飘伤），而非另写一套战斗。触发与呈现：
+
+1. **触发时机：** 「下一天」抽中 `战斗` 事件、事件卡展示完成后，`NextDayButton` 进入 `Battle` 态「战斗」；`RevealEventRoutine` 依据事件奖励记录 `pendingBattleKind`（`BattleSmall`/`BattleBoss`）。
+2. **点击「战斗」：** `OnNextDayClicked` 的 `Battle` 分支调用 `LaunchEmbeddedBattle()`：
+   - **玩家侧**取**玩法局内属性副本 `runStats`**：`playerAttack = runStats.atk`、`playerMaxHp = playerHp = runStats.maxHp`；
+   - **敌人侧**按 `pendingBattleKind` 从 §B.9 `invasion_units.csv` 取单位（`battle_small→enemy_small`、`battle_boss→boss_langren`）读取 `attack/maxHp`，骨骼取该行新增列 `skeletonPrefab`（小怪 `Pets/Monster_1_Salamander`、BOSS `Prefabs/Air/Hero_Role_cunmin` 右侧镜像）；
+   - 隐藏 `TopArea/PlayerSlot` 下运行时的站立阿狼 `Skeleton`，调用嵌入工厂。
+3. **嵌入工厂 `InvasionBattleView.BuildEmbedded(RectTransform hostRect, BattleSession session, string enemyPrefab, Action<bool> onEnded)`：**
+   - 战斗根节点父挂 `hostRect`（即 `TopArea`）并全屏拉伸到该区域；`embedded=true`；
+   - **不创建战斗背景 `BattleBackground`（关闭 `AirUI/ZhanDou_1` 背景图）**，直接透出 `InvasionBattleModal_2` 自身背景；
+   - 用传入 `enemyPrefab` 覆盖默认敌人骨骼；**跳过农场附件**（自动连战行、返回家园按钮、战斗中入口、倒计时宿主、上场精灵槽）；
+   - 战斗数值/伤害/回合/结算经新增抽象 **`IBattleCombatDriver`** 由轻量 **`LocalBattleCombatDriver`** 本地驱动（内联伤害与结束判定），**不经 `InvasionService`**，因此**不扣体力、不触发 180s 倒计时、不弹主角升级弹窗、不做主线推进**。
+4. **结算（`onEnded(bool playerWon)`）：** 销毁嵌入战斗、恢复站立阿狼；**胜**→`SetNextDayButtonMode(Normal)`，玩家可继续「下一天」；**负**→`Hide()` 关闭 `InvasionBattleModal_2`（本局结束）。
+
+**解耦要点 / Decoupling：** `InvasionBattleView` 既有的 `service.GetBattleSession/ApplyDamageToEnemy/ApplyDamageToPlayer/SetTurn` 改经 `combatDriver`（`InvasionService` 实现同名接口作适配器、嵌入态用 `LocalBattleCombatDriver`）；所有 `EnteredBattleViaFriendHome/GetPhase/CloseBattle/自动连战/返回家园/战斗中入口/主角升级` 等农场路径以 `if (!embedded && service != null)` 守卫，保证既有主线/好友家园/自动连战全屏战斗（§12.3/§12.9/§13.4）行为不变。
+
+**English:** The `Battle` event (`battle_small` / `battle_boss`) **reuses the §12.3 `InvasionBattleView` level battle simulation** (left-side 阿狼, player-first turn loop, dual HP bars, result dialog, red damage floats) rather than a new system. After the reveal the `NextDayButton` enters the `Battle` "战斗" state and `RevealEventRoutine` records `pendingBattleKind`. Tapping "战斗" calls `LaunchEmbeddedBattle()`: player stats come from the in-run `runStats` clone (`atk`/`maxHp`); the enemy is looked up from §B.9 `invasion_units.csv` by kind (`enemy_small`/`boss_langren`) with its skeleton from the new `skeletonPrefab` column (small `Pets/Monster_1_Salamander`, boss `Prefabs/Air/Hero_Role_cunmin` mirrored); the standing 阿狼 is hidden and `InvasionBattleView.BuildEmbedded(hostRect, session, enemyPrefab, onEnded)` is invoked. The embedded factory parents the battle root into `TopArea` (stretched), **omits `BattleBackground` (disables `AirUI/ZhanDou_1`)**, overrides the enemy prefab, skips farm extras, and drives combat locally via the new `IBattleCombatDriver` / `LocalBattleCombatDriver` (no `InvasionService`, so no stamina/countdown/level-up/main-story advance). On `onEnded(playerWon)` the embedded battle is destroyed and the standing 阿狼 restored: win → button back to "下一天"; lose → `Hide()` the modal (run over). Existing fullscreen battles (§12.3/§12.9/§13.4) are unaffected because all service-only paths are guarded by `if (!embedded && service != null)`.
+
+---
+
+### 12.12 老虎机抽奖界面 / SlotMachineModal (v3.171)
+
+**中文：** 自 v3.171 起，`InvasionBattleModal_2`「下一天」玩法的 **`抽奖 Lottery` 事件**接入两种**老虎机抽奖界面**：**三轴** `SlotMachineModal_3`（奖励 `slot3`）与**五轴** `SlotMachineModal_5`（奖励 `slot5`）。二者**机制与产出基本一致**，仅**轴数**（3/5）、**随机选项数**（2/4）与所用素材（`Zhou_3_*`/`Zhou_5_*`）不同。**采用预制体的方式制作**：`Resources/Prefabs/Battle/SlotMachineModal_3.prefab` 与 `SlotMachineModal_5.prefab`，由编辑器菜单 **`Tools/PetDemo/Generate Slot Machine Modal Prefabs`** 生成；根节点挂 `SlotMachineModalView`。  
+**English:** Since v3.171 the `Lottery` event of the `InvasionBattleModal_2` "Next Day" flow opens one of two **slot-machine screens**: **3-reel** `SlotMachineModal_3` (reward `slot3`) and **5-reel** `SlotMachineModal_5` (reward `slot5`). They are **mechanically and reward-wise identical** except for **reel count** (3/5), **number of randomly-selected items** (2/4) and assets (`Zhou_3_*`/`Zhou_5_*`). Built as prefabs `SlotMachineModal_3/5.prefab` via editor menu **`Tools/PetDemo/Generate Slot Machine Modal Prefabs`**; the root carries `SlotMachineModalView`.
+
+#### 12.12.1 打开方式与层级 / Open Path and Layering
+
+**中文：** 打开入口为 `InvasionBattleModal_2` 下部 `NextDayButton` 处于 **`Lottery` 态「打开」** 时的点击：按当前事件奖励 `slot3`→`SlotMachineModalView.GetOrCreate(canvasRect, 3)`、`slot5`→`GetOrCreate(canvasRect, 5)`，随后 `Show(reelCount, catalog, onComplete)`。界面为**全屏 `modal`**（主 Canvas 直接子节点，1080×1920 全屏拉伸），`Show()` 时 `SetAsLastSibling()` 置顶；`GetOrCreate` 优先 `Resources.Load` 预制体、缺失回退运行时代码构建（与 §12.11.9 `SkillPickThreeModalView` 同范式）。  
+**画面为全屏展示，层级由下至上：**  
+1. **纯黑色背景**（全屏 `Image`，`RGBA(0,0,0,1)`，`raycastTarget=true` 兼作点击拦截）；  
+2. **轴背景** `Zhou`：三轴 `AirUI/Zhou_3_2`、五轴 `AirUI/Zhou_5_2`；  
+3. **各轴中心的属性项图标层**（每轴一个 `Image`，定位在**本轴中心点**；层级**介于轴背景与样式图之间**）；  
+4. **老虎机样式图**：三轴 `AirUI/Zhou_3_1`、五轴 `AirUI/Zhou_5_1`（叠在轴背景之上）；  
+5. **底部「摇奖」按钮**与右上角关闭按钮（最上层）。  
+
+**English:** Entry is a tap on `InvasionBattleModal_2`'s `NextDayButton` while in the `Lottery` "打开" state: `slot3`→`GetOrCreate(canvasRect, 3)`, `slot5`→`GetOrCreate(canvasRect, 5)`, then `Show(reelCount, catalog, onComplete)`. Fullscreen `modal` (direct Canvas child, 1080×1920 stretch), `SetAsLastSibling()` on `Show()`; prefab-first with runtime fallback (same pattern as §12.11.9). Layering bottom→top: (1) **pure black background** (`RGBA(0,0,0,1)`, `raycastTarget=true`); (2) **reel background** `Zhou_3_2`/`Zhou_5_2`; (3) **per-reel item-icon layer** at each reel center, **between reel-bg and frame**; (4) **slot frame** `Zhou_3_1`/`Zhou_5_1`; (5) bottom "摇奖" button + top-right close (topmost).
+
+#### 12.12.2 玩法机制 / Gameplay Mechanic
+
+**中文：** `Show(reelCount, catalog, onComplete)` 流程：  
+1. **随机选项**：在**属性增强表**（§B.19）随机**不重复**选取 **`reelCount - 1` 项**（三轴 2 项、五轴 4 项），作为本次每个轴的**限定候选项**（所有轴共用同一候选集）；  
+2. **概率计算**：每个轴对候选项**等概率**——每项出现概率 `= 1 / (reelCount - 1)`（三轴每项 50%、五轴每项 25%）；  
+3. **摇奖**：玩家点击「摇奖」按钮，**每个轴独立**按上述概率抽出**一项**具体属性项，图标定格在**本轴中心**；  
+4. **产出结算**：所有轴定格后，统计**每个属性项出现的次数** `count`，对每个出现过的属性项读取属性增强表的 **`value{count}`**（如某项出现 2 次取 `value2`）作为该项的**固定增加值**；汇总为一组 `(attrId, count, gain)` 通过 `onComplete` 回调返回。  
+
+**English:** `Show(reelCount, catalog, onComplete)`: (1) pick **`reelCount-1` distinct** items from §B.19 (3-reel 2, 5-reel 4) as the shared candidate set for every reel; (2) each reel uses **equal** probability `1/(reelCount-1)` per candidate; (3) on "摇奖" each reel independently draws one item, its icon locks at the reel center; (4) after all reels settle, count each item's appearances `count`, read `value{count}` from §B.19 as that item's **fixed gain**, and return the aggregated `(attrId, count, gain)` list via `onComplete`.
+
+#### 12.12.3 产出应用与叠加 / Applying and Stacking Gains
+
+**中文：** `InvasionBattleModal2View` 的 `onComplete` 回调把每个 `(attrId, gain)` 通过 `ApplyFlatStat(attrId, gain)` **累加到玩法局内属性副本 `runStats`** 对应的 `RoleStats` 字段（`hp`→`maxHp`+同步 `currentHp`、`atk`→`atk`、`def`→`def`、`speed`→`agility`；未识别的 `attrId` 仅 `LogWarning`、不加值），随后 `RefreshRoleStats()` 刷新中部属性、并向事件日志追加一条**结果卡**（列出各属性项名称与获得值）。**增加的值每次抽奖后即固定并累加**：同一局内再次抽奖，新值以**总值相加**方式叠加到 `runStats`（与 §12.11.3 属性副本一致，关闭/重开重置、不写回存档）。老虎机界面回调后 `Hide()`，主界面 `NextDayButton` 恢复常态「下一天」。  
+**English:** `InvasionBattleModal2View`'s `onComplete` applies each `(attrId, gain)` via `ApplyFlatStat` to the in-run `runStats` field (`hp`→`maxHp`(+sync `currentHp`), `atk`→`atk`, `def`→`def`, `speed`→`agility`; unknown `attrId` → `LogWarning`, no change), refreshes the middle stats, and appends a **result card**. Gains are **fixed and accumulated**: further draws in the same run **add to the totals** in `runStats` (per-run only, reset on close). After the callback the slot screen `Hide()`s and the button returns to "下一天".
+
+#### 12.12.4 资源清单 / Asset Manifest
+
+| 资源 / Asset | 路径 / Path | 来源 / Source |
+|---|---|---|
+| 三轴轴背景 / 3-reel reel bg | `Resources/AirUI/Zhou_3_2` | 已存在 / existing |
+| 三轴样式图 / 3-reel frame | `Resources/AirUI/Zhou_3_1` | 已存在 / existing |
+| 五轴轴背景 / 5-reel reel bg | `Resources/AirUI/Zhou_5_2` | 已存在 / existing |
+| 五轴样式图 / 5-reel frame | `Resources/AirUI/Zhou_5_1` | 已存在 / existing |
+| 属性项图标 / Item icons | `Resources/{attr_enhance.icon}` | **本期占位**（纯色块+属性名），CSV 保留 `icon` 字段后续替换 / placeholder this release |
+| 三轴界面预制体 / 3-reel prefab | `Resources/Prefabs/Battle/SlotMachineModal_3.prefab` | **新建 / NEW**，菜单生成 |
+| 五轴界面预制体 / 5-reel prefab | `Resources/Prefabs/Battle/SlotMachineModal_5.prefab` | **新建 / NEW**，菜单生成 |
+| 属性增强表 / Attr-enhance table | `Resources/Configs/Battle/attr_enhance.csv` | **新建 / NEW**，详见 §B.19 |
+
+#### 12.12.5 数据结构 / Data Structures
+
+```text
+// AttrEnhanceConfig — 属性增强表一行（来自附录 B.19）
+// AttrEnhanceConfig — one attr-enhance-table row (from Appendix B.19)
+struct AttrEnhanceConfig {
+  string attrId;    // 属性项 id，作 RoleStats 字段键 hp/atk/def/speed / stat key
+  string attrName;  // 属性名称（展示）/ display name
+  string icon;      // 图标 Resources 路径（本期可空→占位）/ icon path (may be empty → placeholder)
+  string desc;      // 文字描述 / description
+  int[]  values;    // 长度 5：value1..value5，出现 n 次时取 values[n-1] / gain per appearance count
+  int GetGain(int count); // count 1..5 → values[count-1]（越界钳制）/ clamped
+}
+
+// SlotMachineModalView.Show 回调项 / callback item
+struct SlotResult { AttrEnhanceConfig cfg; int count; int gain; }
+```
 ---
 
 ## 13. 好友系统 / Friends System (v3.125)
@@ -4077,8 +4343,8 @@ PlantingService.kInitialGuidancePresets : readonly list of GuidanceTilePreset
 
 #### B.9.1 字段定义 / Field Definitions
 
-**中文：** 配置表 `invasion_units.csv` 提供 §12「怪物入侵系统」每个战斗单位的静态参数。当前 P0 仅含 `player` 与 `boss_langren` 两条；P1 起可按相同表头追加多种敌人或多名玩家用单位，运行时由 `InvasionConfigCatalog.LoadInvasionUnitsFromCsv()` 装载并以 `unitId` 索引。  
-**English:** The `invasion_units.csv` table provides static parameters for each combat unit in §12 "Monster Invasion System". P0 ships only `player` and `boss_langren`; from P1 onward, more enemies or alternative player units can be appended using the same header, loaded at runtime by `InvasionConfigCatalog.LoadInvasionUnitsFromCsv()` and indexed by `unitId`.
+**中文：** 配置表 `invasion_units.csv` 提供 §12「怪物入侵系统」每个战斗单位的静态参数。含 `player`、`enemy_small`（小怪）、`boss_langren`（BOSS）三条（v3.172 起新增 `enemy_small` 与 `skeletonPrefab` 列）；可按相同表头追加多种敌人或多名玩家用单位，运行时由 `InvasionConfigCatalog.LoadInvasionUnitsFromCsv()` 装载并以 `unitId` 索引。  
+**English:** The `invasion_units.csv` table provides static parameters for each combat unit in §12 "Monster Invasion System". It ships `player`, `enemy_small`, and `boss_langren` (v3.172 adds `enemy_small` and the `skeletonPrefab` column); more enemies or alternative player units can be appended using the same header, loaded at runtime by `InvasionConfigCatalog.LoadInvasionUnitsFromCsv()` and indexed by `unitId`.
 
 | 字段 / Field | 类型 / Type | 默认值 / Default | 说明 / Notes |
 |---|---|---|---|
@@ -4086,24 +4352,27 @@ PlantingService.kInitialGuidancePresets : readonly list of GuidanceTilePreset
 | `displayName` | string | — | 显示名（中文），保留给 UI 展示（如结果弹窗或调试日志） / display name (Chinese), reserved for UI (e.g. result dialog or debug logs) |
 | `attack` | int | — | 单次攻击造成的固定伤害；忽略防御 / fixed damage per attack, defense ignored |
 | `maxHp` | int | — | 总血量上限；战斗开始时 `currentHp = maxHp` / max HP cap; `currentHp = maxHp` at battle start |
+| `skeletonPrefab` | string | 否 / no（可空）| **（v3.172 新增）** 该敌方单位的骨骼预制体 Resources 路径（供 §12.11.10 嵌入战斗按单位切换敌人形象）；空则由调用方回退默认。例：`Pets/Monster_1_Salamander`、`Prefabs/Air/Hero_Role_cunmin` / enemy skeleton prefab resources path for §12.11.10 embedded battle; empty → caller default |
 
 #### B.9.2 Demo 默认数据 / Demo Default Data
 
-**中文：** P0 默认两条；玩家攻击高血厚，单回合胜负压力低，便于 Demo 验收：  
-**English:** P0 ships two defaults; the player out-damages and out-tanks the enemy to keep early demos easy:
+**中文：** 默认数据；玩家攻击高血厚，单回合胜负压力低，便于 Demo 验收；`enemy_small`（小怪）与 `boss_langren`（BOSS）供 §12.11.10 嵌入小战斗/BOSS 战使用（玩家侧数值改由 `runStats` 提供，`player` 行仅供 §12.3 全屏战斗回退）：  
+**English:** Defaults; the player out-damages/out-tanks for easy demos; `enemy_small` and `boss_langren` drive §12.11.10 embedded small/boss battles (player stats now come from `runStats`; the `player` row only backs the §12.3 fullscreen fallback):
 
-| `unitId` | `displayName` | `attack` | `maxHp` |
-|---|---|---:|---:|
-| `player` | Role | 12 | 80 |
-| `boss_langren` | 狼人入侵者 | 8 | 60 |
+| `unitId` | `displayName` | `attack` | `maxHp` | `skeletonPrefab` |
+|---|---|---:|---:|---|
+| `player` | Role | 12 | 80 | （空 / empty） |
+| `enemy_small` | 小怪 | 6 | 40 | `Pets/Monster_1_Salamander` |
+| `boss_langren` | 狼人入侵者 | 8 | 60 | `Prefabs/Air/Hero_Role_cunmin` |
 
 **中文：** **CSV 等价表达**（即 `invasion_units.csv` 内容）：  
 **English:** **CSV equivalent** (the actual content of `invasion_units.csv`):
 
 ```text
-unitId, displayName, attack, maxHp
-player, Role, 12, 80
-boss_langren, 狼人入侵者, 8, 60
+unitId, displayName, attack, maxHp, skeletonPrefab
+player, Role, 12, 80,
+enemy_small, 小怪, 6, 40, Pets/Monster_1_Salamander
+boss_langren, 狼人入侵者, 8, 60, Prefabs/Air/Hero_Role_cunmin
 ```
 
 #### B.9.3 加载流程与回退 / Loading and Fallback
@@ -4310,6 +4579,188 @@ Seed:fanqie:2;Fertilizer:demo:1;SeedPack:Common:1
 | `虫子底色色号` | `#RRGGBB` |
 
 **加载：** `PestControlValueColorCatalog.GetColors(value, out wolfBg, out bugBg)`；缺表回退内置 2/4/8/16/32 行。
+
+### B.16 入侵事件天数表（v3.169）/ Invasion Event Day Table (v3.169)
+
+**中文：** 供 §12.11 `InvasionBattleModal_2` 的「下一天」玩法按**当前天数**筛选并加权随机抽取事件；每行给出「某一天可触发的某事件及其权重」，同一天可有多行。  
+**English:** Drives the "Next Day" mechanic — filter by the **current day** and weighted-random pick; each row is "an event triggerable on a given day + its weight"; multiple rows per day allowed.
+
+**路径 / Path：** `Assets/Resources/Configs/Battle/invasion_event_days.csv`
+
+#### B.16.1 字段定义 / Field Definitions
+
+| 列 / Column | 类型 / Type | 必填 / Required | 说明 / Notes |
+|---|---|---|---|
+| `id` | int/string | 是 / yes | 行唯一编号（编辑用途）/ row id (for editing) |
+| `day` | int | 是 / yes | 精确匹配的天数，须 ≥ 1 / exact matching day, ≥ 1 |
+| `eventId` | string | 是 / yes | 指向事件表（§B.17）的事件 id / event id referencing §B.17 |
+| `weight` | int | 是 / yes | 加权随机权重，须 > 0 / weighted-random weight, > 0 |
+
+#### B.16.2 Demo 默认数据 / Demo Default Data
+
+| id | day | eventId | weight |
+|---|---|---|---|
+| 1 | 1 | `evt_calm` | 50 |
+| 2 | 1 | `evt_boost_atk` | 30 |
+| 3 | 1 | `evt_forage` | 20 |
+| 4 | 2 | `evt_calm` | 40 |
+| 5 | 2 | `evt_boost_hp` | 30 |
+| 6 | 2 | `evt_fight_small` | 30 |
+| 7 | 3 | `evt_lottery` | 40 |
+| 8 | 3 | `evt_curse_speed` | 30 |
+| 9 | 3 | `evt_fight_boss` | 30 |
+| 10 | 1 | `evt_insight` | 40 |
+| 11 | 2 | `evt_insight` | 40 |
+| 12 | 3 | `evt_epiphany` | 40 |
+| 13 | 2 | `evt_lottery5` | 30 |
+| 14 | 3 | `evt_lottery5` | 30 |
+
+#### B.16.3 加载与回退 / Loading and Fallback
+
+**中文：** `InvasionEventConfigCatalog.LoadDayTableFromCsv()`（`CsvTable` 解析，非法行 `Warning` 跳过）；缺文件或全部非法 → `BuildDefaultDayEntries()`（等价上表）。加权随机由 `PickWeightedByDay(List<InvasionEventDayEntry>, int day)` 提供：先按 `entry.day == day` 过滤，再按 `weight` 抽 1 条 `eventId`；无可用事件返回 `null`。  
+**English:** `InvasionEventConfigCatalog.LoadDayTableFromCsv()` (`CsvTable`; invalid rows warned/skipped); missing/all-invalid → `BuildDefaultDayEntries()`. Weighted random via `PickWeightedByDay(List<InvasionEventDayEntry>, int day)`: filter by `entry.day == day`, pick 1 `eventId` by `weight`; `null` when none.
+
+---
+
+### B.17 入侵事件明细表（v3.169）/ Invasion Event Detail Table (v3.169)
+
+**中文：** 描述每个事件的类型、文本、奖励与背景框；被 §B.16 天数表通过 `eventId` 引用。  
+**English:** Describes each event's type, text, rewards and background frame; referenced by the §B.16 day table via `eventId`.
+
+**路径 / Path：** `Assets/Resources/Configs/Battle/invasion_events.csv`
+
+#### B.17.1 字段定义 / Field Definitions
+
+| 列 / Column | 类型 / Type | 必填 / Required | 说明 / Notes |
+|---|---|---|---|
+| `eventId` | string | 是 / yes | 事件唯一 id / unique event id |
+| `eventType` | enum | 是 / yes | `调整属性/战斗/抽奖/奇遇`（兼容英文 `AdjustAttr/Battle/Lottery/Adventure`）/ type (Chinese or English) |
+| `eventText` | string | 是 / yes | 事件文本；支持 Unity 富文本 `<color=#RRGGBB>…</color>` 局部变色；多条用字面 **`/n`** 分隔（每条一张卡）/ rich-text; split by literal `/n` into cards |
+| `eventReward` | string | 否 / no | 奖励串，多条以 `;` 分隔（见 B.17.2）；空表示无奖励 / reward string, `;`-separated |
+| `background` | int | 否 / no | 背景框序号 1~5 → `AirUI/ShiJian_{n}`（缺省或非法回退 1）/ frame index 1~5 |
+
+#### B.17.2 奖励串编码 / Reward String Encoding
+
+**中文：** 单条格式如下，多条以 `;` 分隔：  
+- `attr:hp|atk|speed:±百分比` —— 增减属性百分比（**本期落地**，作用于玩法局内属性副本）。例：`attr:atk:+10`、`attr:hp:-5`、`attr:speed:+20`。  
+- `battle_small` —— 触发小战斗（**本期落地**：嵌入复用关卡战斗模拟、敌人 `enemy_small`，见 §12.11.10）。  
+- `battle_boss` —— 触发最终 BOSS 战斗（**本期落地**：嵌入复用关卡战斗模拟、敌人 `boss_langren`，见 §12.11.10）。  
+- `slot3` —— 触发**三轴老虎机**（**本期落地**，见 §12.12）。  
+- `slot5` —— 触发**五轴老虎机**（**本期落地**，见 §12.12）。  
+- `pick3:normal` —— 触发**普通品质**三选一（领悟，**本期落地**，见 §12.11.9）。  
+- `pick3:legendary` —— 触发**传说品质**三选一（顿悟，**本期落地**，见 §12.11.9）。  
+- `pick3` —— 裸写默认等价 `pick3:normal`（兼容）。  
+
+**English:** One reward per token, `;`-separated: `attr:hp|atk|speed:±percent` (applied to the in-run stats clone this release); `slot3` / `slot5` trigger the 3-reel/5-reel slot machine (applied this release, see §12.12); `pick3:normal` / `pick3:legendary` trigger the Normal/Legendary skill pick-three (领悟/顿悟, applied this release, see §12.11.9; bare `pick3` defaults to `pick3:normal`); `battle_small` / `battle_boss` embed and reuse the level battle simulation (applied this release, enemies `enemy_small` / `boss_langren`, see §12.11.10).
+
+#### B.17.3 Demo 默认数据 / Demo Default Data
+
+| eventId | eventType | eventText | eventReward | background |
+|---|---|---|---|---|
+| `evt_calm` | 奇遇 | 平静的一天，你稍作休整。 | | 1 |
+| `evt_boost_atk` | 调整属性 | 你找到一柄利器，`<color=#FF3B30>攻击提升 10%</color>`！ | `attr:atk:+10` | 2 |
+| `evt_boost_hp` | 调整属性 | 温泉让你恢复元气，`<color=#33CC33>生命提升 15%</color>`。 | `attr:hp:+15` | 2 |
+| `evt_curse_speed` | 奇遇 | 沼泽拖慢了脚步，`<color=#3399FF>速度下降 10%</color>`。/n但你发现了一条捷径。 | `attr:speed:-10` | 3 |
+| `evt_forage` | 调整属性 | 发现补给。/n`<color=#33CC33>生命 +5%</color>`、`<color=#FF3B30>攻击 +5%</color>`。 | `attr:hp:+5;attr:atk:+5` | 4 |
+| `evt_fight_small` | 战斗 | 前方出现一群小怪！ | `battle_small` | 5 |
+| `evt_fight_boss` | 战斗 | `<color=#FF3B30>最终 BOSS 出现了！</color>` | `battle_boss` | 5 |
+| `evt_lottery` | 抽奖 | 你发现一个神秘宝箱。 | `slot3` | 4 |
+| `evt_lottery5` | 抽奖 | 一台华丽的五轴宝机出现在眼前！ | `slot5` | 4 |
+| `evt_insight` | 奇遇 | 你静心参悟，`<color=#33CC33>领悟</color>`了新的招式。 | `pick3:normal` | 1 |
+| `evt_epiphany` | 奇遇 | 灵光乍现，你`<color=#FFB300>顿悟</color>`了传说级奥义！ | `pick3:legendary` | 3 |
+
+**注 / Note：** 表内 `eventText` 的反引号仅为 Markdown 展示富文本标签，实际 CSV 不含反引号。/ Backticks above are Markdown-only; the actual CSV has no backticks.
+
+#### B.17.4 加载与回退 / Loading and Fallback
+
+**中文：** `InvasionEventConfigCatalog.LoadEventsFromCsv()` → `Dictionary<string, InvasionEventConfig>`（`CsvTable` 解析，`eventText` 按 `/n` 拆 `textSegments`，`eventReward` 交 `InvasionEventReward` 解析器，非法行/非法奖励条目 `Warning` 跳过）；缺文件或全部非法 → `BuildDefaultEvents()`（等价上表）。  
+**English:** `InvasionEventConfigCatalog.LoadEventsFromCsv()` → `Dictionary<string, InvasionEventConfig>` (`CsvTable`; `eventText` split by `/n`, `eventReward` parsed; invalid rows/tokens warned & skipped); missing/all-invalid → `BuildDefaultEvents()`.
+
+---
+
+### B.18 技能表（v3.170）/ Skill Table (v3.170)
+
+**中文：** 供 §12.11.9 领悟/顿悟三选一按**技能品质**筛选并加权随机抽取 3 项技能；被事件表（§B.17）的 `pick3:normal|legendary` 奖励通过品质引用。  
+**English:** Drives the §12.11.9 pick-three — filter by **quality** and weighted-random pick 3 skills; referenced by §B.17 `pick3:normal|legendary` rewards via quality.
+
+**路径 / Path：** `Assets/Resources/Configs/Battle/skills.csv`
+
+#### B.18.1 字段定义 / Field Definitions
+
+| 列 / Column | 类型 / Type | 必填 / Required | 说明 / Notes |
+|---|---|---|---|
+| `skillId` | string | 是 / yes | 技能唯一 id / unique id |
+| `skillName` | string | 是 / yes | 技能名称 / name |
+| `quality` | enum | 是 / yes | `普通`/`传说`（兼容英文 `Normal`/`Legendary`）/ quality |
+| `description` | string | 否 / no | 技能描述；支持富文本 `<color=#RRGGBB>…</color>` 局部变色（字段内禁用英文逗号，用全角）/ rich-text |
+| `icon` | string | 是 / yes | 图标文件名 → `AirUI/SkillIcon/{icon}`（如 `Card_30101`）/ icon file name |
+| `effect` | string | 否 / no | 技能效果（**本期占位，不具体设计**）/ effect (placeholder) |
+| `weight` | int | 是 / yes | 加权随机权重，须 > 0 / weighted-random weight, > 0 |
+
+#### B.18.2 Demo 默认数据 / Demo Default Data（节选 / excerpt）
+
+| skillId | skillName | quality | icon | weight |
+|---|---|---|---|---|
+| `skill_n_1` | 迅捷步伐 | 普通 | `Card_30101` | 10 |
+| `skill_n_2` | 铁骨强身 | 普通 | `Card_30102` | 10 |
+| `skill_n_3` | 锐利爪击 | 普通 | `Card_30103` | 10 |
+| `skill_n_4` | 回复吐息 | 普通 | `Card_30104` | 8 |
+| `skill_n_5` | 坚韧护盾 | 普通 | `Card_30105` | 8 |
+| `skill_n_6` | 疾风连打 | 普通 | `Card_30106` | 6 |
+| `skill_l_1` | 龙神之怒 | 传说 | `Card_30201` | 5 |
+| `skill_l_2` | 不灭金身 | 传说 | `Card_30203` | 5 |
+| `skill_l_3` | 万象天引 | 传说 | `Card_30204` | 4 |
+| `skill_l_4` | 时空断裂 | 传说 | `Card_30205` | 3 |
+
+**注 / Note：** `description` 列本表从略；实际 CSV 每行含富文本描述与占位 `effect`。/ `description` omitted here; the actual CSV includes rich-text descriptions and placeholder `effect`.
+
+#### B.18.3 加载与回退 / Loading and Fallback
+
+**中文：** `SkillConfigCatalog.LoadSkillsFromCsv()` → `List<BattleSkillConfig>`（`CsvTable` 解析，`quality` 非法回退 `普通`，`weight` 非法/≤0 的行 `Warning` 跳过）；缺文件或全部非法 → `BuildDefaultSkills()`（等价上表）。抽取由 `PickThreeByQuality(all, quality, excludeIds)` 提供：按 `quality` 过滤 + 排除 `excludeIds`（本局已获得），按 `weight` **无重复**加权随机取**最多 3 项**；不足 3 项则返回全部剩余，无剩余返回空。  
+**English:** `SkillConfigCatalog.LoadSkillsFromCsv()` → `List<BattleSkillConfig>` (`CsvTable`; invalid `quality` → `普通`, invalid/≤0 `weight` rows warned & skipped); missing/all-invalid → `BuildDefaultSkills()`. `PickThreeByQuality(all, quality, excludeIds)` filters by quality, excludes acquired ids, and weighted-random picks **up to 3 distinct** by `weight`.
+
+---
+
+### B.19 属性增强表（v3.171）/ Attribute Enhancement Table (v3.171)
+
+**中文：** 供 §12.12 三轴/五轴老虎机抽奖使用：老虎机每次随机选取若干属性项作为候选，玩家摇奖后按**属性项出现的次数**读取对应的**固定增加值**并累加到玩法局内属性副本 `runStats`。  
+**English:** Drives the §12.12 3-reel/5-reel slot machine: the machine randomly selects candidate items; after the spin, each item's **fixed gain** is read by its **appearance count** and accumulated into the in-run `runStats`.
+
+**路径 / Path：** `Assets/Resources/Configs/Battle/attr_enhance.csv`
+
+#### B.19.1 字段定义 / Field Definitions
+
+| 列 / Column | 类型 / Type | 必填 / Required | 说明 / Notes |
+|---|---|---|---|
+| `attrId` | string | 是 / yes | 属性项 id，作为 `RoleStats` 字段键：`hp`(→`maxHp`)、`atk`、`def`、`speed`(→`agility`)；未识别键仅记录展示、不加数值 / stat key mapping to `RoleStats` |
+| `attrName` | string | 是 / yes | 属性名称（界面展示 + 结果卡）/ display name |
+| `icon` | string | 否 / no | 图标 Resources 相对路径（不带扩展名）；**本期可空 → 占位纯色块+属性名**，后续替换真实素材 / icon path (may be empty → placeholder) |
+| `desc` | string | 否 / no | 文字描述（支持富文本；字段内禁用英文逗号，用全角）/ description |
+| `value1` | int | 是 / yes | 该项在 **1 个轴**出现时的固定增加值 / gain when landing on 1 reel |
+| `value2` | int | 是 / yes | 出现在 **2 个轴** / on 2 reels |
+| `value3` | int | 是 / yes | 出现在 **3 个轴** / on 3 reels |
+| `value4` | int | 是 / yes | 出现在 **4 个轴** / on 4 reels |
+| `value5` | int | 是 / yes | 出现在 **5 个轴** / on 5 reels |
+
+**说明：** 三轴最多出现 3 次（用到 `value1..value3`），五轴最多 5 次（用到 `value1..value5`）。`GetGain(count)` 取 `value{count}`（`count` 钳制到 `1..5`）。/ 3-reel uses `value1..value3`, 5-reel `value1..value5`; `GetGain(count)` clamps `count` to `1..5`.
+
+#### B.19.2 Demo 默认数据 / Demo Default Data
+
+| attrId | attrName | icon | value1 | value2 | value3 | value4 | value5 |
+|---|---|---|---|---|---|---|---|
+| `atk` | 攻击 | | 3 | 8 | 15 | 24 | 35 |
+| `hp` | 生命 | | 5 | 12 | 22 | 35 | 50 |
+| `def` | 防御 | | 2 | 5 | 9 | 14 | 20 |
+| `speed` | 速度 | | 1 | 3 | 6 | 10 | 15 |
+| `atk2` | 暴击强化 | | 4 | 10 | 18 | 28 | 40 |
+| `hp2` | 体魄 | | 6 | 14 | 25 | 38 | 55 |
+
+**注 / Note：** `desc` 列本表从略；`icon` 本期留空走占位。`atk2/hp2` 为额外展示项（分别叠加到 `atk`/`maxHp`），用于让候选池 > 4 项以支持五轴随机不重复选 4。/ `desc` omitted; `icon` empty for placeholder; `atk2/hp2` map onto `atk`/`maxHp` and enlarge the pool beyond 4 for 5-reel selection.
+
+#### B.19.3 加载与回退 / Loading and Fallback
+
+**中文：** `AttrEnhanceConfigCatalog.LoadFromCsv()` → `List<AttrEnhanceConfig>`（`CsvTable` 解析，`IndexOfHeader` 按列名取索引，缺必需列或整表非法 → `BuildDefault()`（等价上表），非法行 `Warning` 跳过，缺失的 `value{n}` 补 0）。随机由 `PickDistinct(all, count)` 提供：从全部项中**随机不重复**取 `count` 项（`count` 大于池大小时返回洗牌后的全部）。产出由 `GetGain(count)` 提供。  
+**English:** `AttrEnhanceConfigCatalog.LoadFromCsv()` → `List<AttrEnhanceConfig>` (`CsvTable` + `IndexOfHeader`; missing required columns or all-invalid → `BuildDefault()`, invalid rows warned/skipped, missing `value{n}` default 0). `PickDistinct(all, count)` random-distinct picks `count`; `GetGain(count)` returns the per-count gain.
 
 ---
 

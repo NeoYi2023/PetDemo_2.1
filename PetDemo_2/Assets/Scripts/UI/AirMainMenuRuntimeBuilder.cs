@@ -724,9 +724,10 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
             var mainStoryScreen = MainStoryLineScreenView.BuildInto(canvasRect, barView, PlantingService.Instance);
             ApplyHudScreenTier(mainStoryScreen);
 
-            // SPEC §9.8.8.6：主线「选择关卡」全屏层（预制体 ZhuXian_2）。
-            var levelSelectScreen = LevelSelectScreenPanelView.BuildInto(canvasRect, barView, mainStoryScreen);
-            ApplyHudScreenTier(levelSelectScreen);
+            // SPEC §9.8.8 (v3.167)：主线「选择关卡」全屏层暂时停用（保留脚本与预制体，不再预建）。
+            // 主线「前往」自 v3.167 起直接打开 §12.11 InvasionBattleModal_2；需恢复时取消下方注释即可。
+            // var levelSelectScreen = LevelSelectScreenPanelView.BuildInto(canvasRect, barView, mainStoryScreen);
+            // ApplyHudScreenTier(levelSelectScreen);
 
             // SPEC §9.8.16：竞技场全屏界面（预制体）+ 底栏 Tab 清理订阅。
             var arenaScreen = ArenaScreenPanelView.BuildInto(canvasRect, barView);

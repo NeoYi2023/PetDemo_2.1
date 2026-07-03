@@ -567,6 +567,8 @@ namespace PetDemo.Core
         public string displayName;
         public int attack;
         public int maxHp;
+        // SPEC §B.9 (v3.172)：该敌方单位的骨骼预制体 Resources 路径（供 §12.11.10 嵌入战斗按单位切换敌人形象）；可空。
+        public string skeletonPrefab;
     }
 
     // SPEC §12.5：入口图标 / 全局阶段。

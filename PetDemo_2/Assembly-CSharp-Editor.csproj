@@ -80,6 +80,9 @@
     <Compile Include="Assets\Scripts\UI\Farm\Editor\PestControlGameModelTests.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\RoleGrowthPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\HeroStatsRowPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\Editor\InvasionBattleModal2PrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\Editor\SkillPickThreeModalPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\Editor\SlotMachineModalPrefabGenerator.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">

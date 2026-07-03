@@ -47,6 +47,8 @@ namespace PetDemo.UI
 
         [SerializeField] private Image background;
         [SerializeField] private Button addButton;
+        // SPEC §9.14.1（v3.166）：加号态全屏纯黑背景（置于 AddButton 之下、其余全部 UI 之上）。
+        [SerializeField] private Image addButtonBackdrop;
         [SerializeField] private RectTransform roleMount;
         [SerializeField] private Button enterHomeButton;
         [SerializeField] private GameObject needFavorPanel;
@@ -214,9 +216,12 @@ namespace PetDemo.UI
             EnsureEnterHomeTopPanelRuntime();
             EnsureFieldsFromHierarchy();
             EnsureScreenCloseButton();
+            EnsureAddButtonTopLevel();
             WireOnce();
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
+            // SPEC §9.14.1（v3.166）：默认隐藏加号态黑底，由 RefreshState 决定是否显示。
+            SetActiveSafe(addButtonBackdrop != null ? addButtonBackdrop.gameObject : null, false);
             HideFriendListPopup();
             HideQinMiDuPopup();
             HideZhuanQianPopup();
@@ -327,13 +332,18 @@ namespace PetDemo.UI
 
         private void ShowPlusState()
         {
+            // SPEC §9.14.1（v3.166）：加号态显示全屏纯黑背景，加号浮于黑底之上（仅露 AddButton）。
+            EnsureAddButtonTopLevel();
+            SetActiveSafe(addButtonBackdrop != null ? addButtonBackdrop.gameObject : null, true);
             SetActiveSafe(addButton != null ? addButton.gameObject : null, true);
+            SetAddButtonTopSiblingOrder();
             SetActiveSafe(needFavorPanel, false);
             SetRoleVisible(false);
         }
 
         private void ShowNeedFavorState()
         {
+            SetActiveSafe(addButtonBackdrop != null ? addButtonBackdrop.gameObject : null, false);
             SetActiveSafe(addButton != null ? addButton.gameObject : null, false);
             SetActiveSafe(needFavorPanel, true);
             SetRoleVisible(false);
@@ -342,6 +352,7 @@ namespace PetDemo.UI
 
         private void ShowRoleState()
         {
+            SetActiveSafe(addButtonBackdrop != null ? addButtonBackdrop.gameObject : null, false);
             SetActiveSafe(addButton != null ? addButton.gameObject : null, false);
             SetActiveSafe(needFavorPanel, false);
             EnsureRoleSpine();
@@ -1551,6 +1562,8 @@ namespace PetDemo.UI
                 background = FindImage("Background");
             if (addButton == null)
                 addButton = FindButton("AddButton");
+            if (addButtonBackdrop == null)
+                addButtonBackdrop = FindImage("AddButtonBackdrop");
             if (roleMount == null)
                 roleMount = FindRect("RoleMount");
             if (enterHomeButton == null)
@@ -1666,6 +1679,42 @@ namespace PetDemo.UI
             screenCloseButtonBuilt = true;
             screenCloseButton.onClick.RemoveAllListeners();
             screenCloseButton.onClick.AddListener(OnScreenCloseClicked);
+        }
+
+        /// <summary>
+        /// SPEC §9.14.1（v3.166）：确保 AddButton 位于根节点最高层级，并补建/置顶全屏纯黑背景。
+        /// 兼容 AddButton 仍位于 DisplayArea 下的旧预制体（运行时重挂到 panelRt）。
+        /// </summary>
+        private void EnsureAddButtonTopLevel()
+        {
+            if (panelRt == null)
+                return;
+
+            if (addButton != null && addButton.transform.parent != panelRt)
+                addButton.transform.SetParent(panelRt, false);
+
+            if (addButtonBackdrop == null)
+            {
+                var existing = FindDescendantByName(transform, "AddButtonBackdrop");
+                if (existing != null)
+                    addButtonBackdrop = existing.GetComponent<Image>();
+                if (addButtonBackdrop == null)
+                    addButtonBackdrop = CharacterCreationScreenLayout.CreateAddButtonBackdrop(panelRt);
+            }
+
+            if (addButtonBackdrop != null && addButtonBackdrop.transform.parent != panelRt)
+                addButtonBackdrop.transform.SetParent(panelRt, false);
+
+            SetAddButtonTopSiblingOrder();
+        }
+
+        /// <summary>黑底在 AddButton 之下、其余全部 UI 之上：先置顶黑底，再置顶加号。</summary>
+        private void SetAddButtonTopSiblingOrder()
+        {
+            if (addButtonBackdrop != null)
+                addButtonBackdrop.transform.SetAsLastSibling();
+            if (addButton != null)
+                addButton.transform.SetAsLastSibling();
         }
 
         private Image FindImage(string name)

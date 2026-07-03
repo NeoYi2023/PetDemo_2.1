@@ -1,0 +1,16 @@
+﻿# 属性增强表（SPEC §B.19 / §12.12）—— SlotMachineModal 三轴/五轴老虎机抽奖候选与产出,,,,,,,,
+# 列：attrId, attrName, icon, desc, value1, value2, value3, value4, value5
+# attrId：属性项 id，作为 RoleStats 字段键：hp(→maxHp) / atk / def / speed(→agility)；未识别键仅展示不加值,,,,,,,,
+#   （atk2→atk、hp2→maxHp 为额外展示项，用于扩大候选池以支持五轴随机不重复选 4）,,,,,,,,
+# attrName：属性名称（界面与结果卡展示）；icon：图标 Resources 相对路径（无扩展名），本期留空走占位,,,,,,,,
+# desc：文字描述（支持富文本；字段内禁用英文逗号，用全角）,,,,,,,,
+# value{n}：该属性项在 n 个轴上同时出现时获得的固定增加值（三轴用 value1~3，五轴用 value1~5）,,,,,,,,
+attrId, attrName, icon, desc,               value1, value2, value3, value4, value5
+Life,生命,battle_img_009_01,生命+1,1,3,6,12,20
+Attack,攻击,battle_img_001_01,攻击+1,1,3,6,12,20
+Critical Hit,暴击,     battle_img_003_01,暴击+1,1,3,6,12,20
+Combo,连击, battle_img_005_01,连击+1,1,3,6,12,20
+Counterattack,反击,battle_img_007_01,反击+1,1,3,6,12,20
+Stun,击晕,     battle_img_008_01,击晕+1,1,3,6,12,20
+Evasion,闪避,     battle_img_004_01,闪避+1,1,3,6,12,20
+Life Steal,吸血,battle_img_006_01,吸血+1,1,3,6,12,20

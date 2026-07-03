@@ -14,6 +14,11 @@ namespace PetDemo.UI
         private static readonly Color DimColor = new Color(0f, 0f, 0f, 0.6f);
         private static readonly Vector2 ScreenCloseButtonSize = new Vector2(72f, 72f);
 
+        // SPEC §9.14.1（v3.166）：加号按钮精灵与尺寸；加号态全屏纯黑背景。
+        private const string AddButtonResource = "AirUI/AddButton";
+        private static readonly Vector2 AddButtonSize = new Vector2(1080f, 1076f);
+        private static readonly Vector2 AddButtonAnchoredPos = new Vector2(0f, 80f);
+
         // SPEC §9.14.10（v3.139）：底部页签栏。
         private const float BottomTabBarHeight = 160f;
         private const int BottomTabCount = 4;
@@ -72,9 +77,7 @@ namespace PetDemo.UI
             var displayArea = CreateChild(rootRt, "DisplayArea", Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
             StretchFull(displayArea);
 
-            // 加号态：大加号按钮。
-            var addBtn = CreateButton(displayArea, "AddButton", "+",
-                new Vector2(0.5f, 0.5f), new Vector2(0f, 80f), new Vector2(260f, 260f), ButtonColor, 180);
+            // SPEC §9.14.1（v3.166）：加号按钮不再置于展示区，改挂根节点最高层级（见文件末尾 BuildAddButton）。
 
             // 主角挂点（720x1000；Spine 运行时挂入）。
             CreateChild(displayArea, "RoleMount", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -103,7 +106,49 @@ namespace PetDemo.UI
             // 右上角关闭（回退 §9.15 APP 首页）。
             BuildScreenCloseButton(rootRt);
 
+            // SPEC §9.14.1（v3.166）：加号态全屏纯黑背景 + 加号按钮置于根节点最高层级
+            // （最后创建 = 最上渲染，黑底在其下、其余全部 UI 之上）。
+            CreateAddButtonBackdrop(rootRt);
+            BuildAddButton(rootRt);
+
             return root;
+        }
+
+        /// <summary>SPEC §9.14.1（v3.166）：加号态全屏纯黑背景（默认隐藏，仅阻挡点击）。运行时补建旧预制体亦复用。</summary>
+        public static Image CreateAddButtonBackdrop(RectTransform rootRt)
+        {
+            var backdrop = CreateChild(rootRt, "AddButtonBackdrop", Vector2.zero, Vector2.one,
+                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            StretchFull(backdrop);
+            var img = backdrop.gameObject.AddComponent<Image>();
+            img.color = Color.black;
+            img.raycastTarget = true;
+            backdrop.gameObject.SetActive(false);
+            return img;
+        }
+
+        /// <summary>SPEC §9.14.1（v3.166）：加号按钮（精灵 AirUI/AddButton），置于根节点最高层级。</summary>
+        public static Button BuildAddButton(RectTransform rootRt)
+        {
+            var btn = CreateButton(rootRt, "AddButton", "+",
+                new Vector2(0.5f, 0.5f), AddButtonAnchoredPos, AddButtonSize, Color.white, 180);
+            var img = btn.GetComponent<Image>();
+            var sprite = Resources.Load<Sprite>(AddButtonResource);
+            if (sprite != null)
+            {
+                img.sprite = sprite;
+                img.color = Color.white;
+                img.preserveAspect = true;
+                // 有图时隐藏「+」文字占位。
+                var label = btn.transform.Find("Label");
+                if (label != null)
+                    label.gameObject.SetActive(false);
+            }
+            else
+            {
+                img.color = ButtonColor;
+            }
+            return btn;
         }
 
         // ---- SPEC §9.14.10（v3.139）底部页签栏 ----

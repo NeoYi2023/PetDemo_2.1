@@ -190,6 +190,13 @@
     <Compile Include="Assets\Scripts\UI\CharacterCreationScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\FruitWarehouseListView.cs" />
     <Compile Include="Assets\Scripts\UI\SkeletonGraphicUiMaterialFactory.cs" />
+    <Compile Include="Assets\Scripts\Battle\InvasionEventConfigCatalog.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\InvasionBattleModal2View.cs" />
+    <Compile Include="Assets\Scripts\Battle\SkillConfigCatalog.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\SkillPickThreeModalView.cs" />
+    <Compile Include="Assets\Scripts\Battle\AttrEnhanceConfigCatalog.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\SlotMachineModalView.cs" />
+    <Compile Include="Assets\Scripts\Battle\IBattleCombatDriver.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />

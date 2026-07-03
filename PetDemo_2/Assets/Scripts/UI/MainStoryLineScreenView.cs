@@ -233,14 +233,15 @@ namespace PetDemo.UI
 
         private void OnGoButtonClicked()
         {
-            // SPEC §9.8.8.3 (v3.48)：主线「前往」→ 打开选择关卡全屏层。
+            // SPEC §9.8.8 (v3.167)：主线「前往」→ 直接打开新战斗界面 InvasionBattleModal_2（§12.11）。
+            // v3.48 的「打开选择关卡全屏层」已停用（LevelSelectScreenPanel 保留代码与预制体，不再从此打开）。
             if (canvasRectCache == null)
             {
-                UnityEngine.Debug.LogWarning("[MainStoryLineScreenView] canvasRectCache 为空，无法打开选择关卡。");
+                UnityEngine.Debug.LogWarning("[MainStoryLineScreenView] canvasRectCache 为空，无法打开 InvasionBattleModal_2。");
                 return;
             }
-            levelSelectPanel = LevelSelectScreenPanelView.BuildInto(canvasRectCache, bottomNav, this);
-            levelSelectPanel?.Show();
+            var modal2 = PetDemo.UI.Battle.InvasionBattleModal2View.GetOrCreate(canvasRectCache);
+            modal2?.Show(plantingService);
         }
 
         /// <summary>

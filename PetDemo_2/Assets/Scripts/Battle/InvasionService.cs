@@ -21,7 +21,7 @@ using UnityEngine;
 namespace PetDemo.Battle
 {
     [DisallowMultipleComponent]
-    public class InvasionService : MonoBehaviour
+    public class InvasionService : MonoBehaviour, IBattleCombatDriver
     {
         public const float FirstCountdownSeconds = 10f;
         public const float NormalCountdownSeconds = 180f;

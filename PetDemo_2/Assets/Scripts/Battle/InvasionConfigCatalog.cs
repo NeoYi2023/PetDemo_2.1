@@ -14,6 +14,9 @@ namespace PetDemo.Battle
 
         public const string PlayerUnitId = "player";
         public const string DefaultEnemyUnitId = "boss_langren";
+        // SPEC §12.11.10 (v3.172)：嵌入小战斗/BOSS 战的敌人单位 id。
+        public const string SmallEnemyUnitId = "enemy_small";
+        public const string BossEnemyUnitId = "boss_langren";
 
         public static List<InvasionUnitConfig> LoadInvasionUnitsFromCsv()
         {
@@ -29,6 +32,8 @@ namespace PetDemo.Battle
             int idxName = table.IndexOfHeader("displayName");
             int idxAtk = table.IndexOfHeader("attack");
             int idxHp = table.IndexOfHeader("maxHp");
+            // SPEC §B.9 (v3.172)：skeletonPrefab 为可选列，缺列兼容旧表。
+            int idxPrefab = table.IndexOfHeader("skeletonPrefab");
             if (idxId < 0 || idxName < 0 || idxAtk < 0 || idxHp < 0)
             {
                 UnityEngine.Debug.LogWarning("[InvasionConfigCatalog] invasion_units.csv 缺少必需列，回退到 BuildDefaultInvasionUnits。");
@@ -58,12 +63,15 @@ namespace PetDemo.Battle
                     continue;
                 }
 
+                string prefab = idxPrefab >= 0 ? row.Get(idxPrefab) : null;
+
                 list.Add(new InvasionUnitConfig
                 {
                     unitId = id,
                     displayName = name,
                     attack = atk,
                     maxHp = hp,
+                    skeletonPrefab = string.IsNullOrEmpty(prefab) ? null : prefab,
                 });
             }
 
@@ -81,7 +89,8 @@ namespace PetDemo.Battle
             return new List<InvasionUnitConfig>
             {
                 new InvasionUnitConfig { unitId = PlayerUnitId, displayName = "Role", attack = 12, maxHp = 80 },
-                new InvasionUnitConfig { unitId = DefaultEnemyUnitId, displayName = "狼人入侵者", attack = 8, maxHp = 60 },
+                new InvasionUnitConfig { unitId = SmallEnemyUnitId, displayName = "小怪", attack = 6, maxHp = 40, skeletonPrefab = "Pets/Monster_1_Salamander" },
+                new InvasionUnitConfig { unitId = BossEnemyUnitId, displayName = "狼人入侵者", attack = 8, maxHp = 60, skeletonPrefab = "Prefabs/Air/Hero_Role_cunmin" },
             };
         }
 

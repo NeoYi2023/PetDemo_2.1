@@ -1,0 +1,19 @@
+# 技能表（SPEC §B.18 / §12.11.9）—— InvasionBattleModal_2 领悟/顿悟 三选一技能池
+# 列：skillId, skillName, quality, description, icon, effect, weight
+# quality：普通 / 传说（兼容英文 Normal/Legendary）
+# description：支持 Unity 富文本 <color=#RRGGBB>...</color> 局部变色
+#   注意：字段内禁止使用英文逗号（,），请用全角逗号（，）
+# icon：图标文件名 → AirUI/SkillIcon/{icon}（如 Card_30101）
+# effect：技能效果占位（本期不具体设计）
+# weight：加权随机权重（>0）
+skillId,     skillName, quality, description,                                                    icon,       effect, weight
+skill_n_1,   迅捷步伐,   普通,     身法灵动，<color=#33CC33>速度提升</color>，先发制人。,               Card_30101, tbd,    10
+skill_n_2,   铁骨强身,   普通,     筋骨如铁，<color=#33CC33>生命上限提升</color>，更加耐打。,           Card_30102, tbd,    10
+skill_n_3,   锐利爪击,   普通,     爪锋凌厉，<color=#FF3B30>攻击提升</color>，撕裂防御。,               Card_30103, tbd,    10
+skill_n_4,   回复吐息,   普通,     吐纳生息，每回合<color=#33CC33>恢复少量生命</color>。,              Card_30104, tbd,    8
+skill_n_5,   坚韧护盾,   普通,     凝聚护盾，<color=#3399FF>减免一次伤害</color>。,                    Card_30105, tbd,    8
+skill_n_6,   疾风连打,   普通,     出手如风，<color=#FF3B30>连续攻击两次</color>。,                    Card_30106, tbd,    6
+skill_l_1,   龙神之怒,   传说,     召唤龙神之力，<color=#FFB300>造成范围毁灭打击</color>。,            Card_30201, tbd,    5
+skill_l_2,   不灭金身,   传说,     化身不灭，<color=#FFB300>短时间内免疫致命伤害</color>。,            Card_30203, tbd,    5
+skill_l_3,   万象天引,   传说,     操纵万象，<color=#FFB300>牵引全场并大幅削弱敌人</color>。,          Card_30204, tbd,    4
+skill_l_4,   时空断裂,   传说,     撕裂时空，<color=#FFB300>令敌人停滞一回合</color>。,                Card_30205, tbd,    3

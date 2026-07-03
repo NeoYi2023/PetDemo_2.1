@@ -1,0 +1,35 @@
+﻿# 入侵事件日程表（SPEC §B.16 / §12.11.5）—— InvasionBattleModal_2 每一天可随机到的事件与权重,,,
+# 列：id, day, eventId, weight,,,
+# day：天数，>=1；eventId：事件编号，引用 invasion_events.csv 中的 eventId,,,
+# weight：该事件在当天的随机权重，>0（同一天内按权重占比抽取）,,,
+id, day, eventId,         weight
+1,1,   evt_insight,50
+2,1,   evt_insight,30
+3,1,   evt_insight,20
+4,2,evt_boost_atk,40
+5,2,evt_boost_hp,30
+6,2,evt_forage,30
+7,3,   evt_lottery,40
+8,3,   evt_lottery,30
+9,3,   evt_lottery,30
+10,4,evt_fight_small,40
+11,4,evt_fight_small,40
+12,4,evt_fight_small,40
+13,5,evt_epiphany,40
+14,5,evt_epiphany,40
+15,5,evt_epiphany,40
+16,6,evt_boost_atk,40
+17,6,evt_boost_hp,30
+18,6,evt_forage,30
+19,7,   evt_lottery,40
+20,7,   evt_lottery,30
+21,7,   evt_lottery,30
+22,8,evt_fight_small,40
+23,8,evt_fight_small,40
+24,8,evt_fight_small,40
+25,9,evt_boost_atk,40
+26,9,evt_boost_hp,30
+27,9,evt_forage,30
+28,10,   evt_fight_boss,100
+29,3,   evt_lottery5,30
+30,7,   evt_lottery5,30

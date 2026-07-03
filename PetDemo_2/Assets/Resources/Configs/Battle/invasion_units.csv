@@ -1,7 +1,9 @@
 # 入侵单位配置表（SPEC §B.9 / §12）
-# 列：unitId, displayName, attack, maxHp
-# unitId 约定：player = 玩家方；boss_* = 敌方
+# 列：unitId, displayName, attack, maxHp, skeletonPrefab
+# unitId 约定：player = 玩家方；enemy_small = 小怪；boss_* = 敌方 BOSS
 # attack >= 0（单次固定伤害，忽略防御）；maxHp >= 1
-unitId,        displayName,    attack, maxHp
-player,        Role,           12,     80
-boss_langren,  狼人入侵者,     8,      60
+# skeletonPrefab：敌方骨骼预制体 Resources 路径（供 §12.11.10 嵌入战斗切换敌人形象），可空
+unitId,        displayName,    attack, maxHp, skeletonPrefab
+player,        Role,           12,     80,
+enemy_small,   小怪,           6,      40,    Pets/Monster_1_Salamander
+boss_langren,  狼人入侵者,     8,      60,    Prefabs/Air/Hero_Role_cunmin
