@@ -45,6 +45,16 @@ namespace PetDemo.UI.Battle
         private const float PetCharacterScale = 0.40f;
         // SPEC §12.11.10 (v3.172)：嵌入 TopArea 区域比全屏小，整体缩放使角色与血条收进该区域（可按实际显示微调）。
         private const float EmbeddedScale = 0.75f;
+        // SPEC §12.11.10.1 (v3.174)：嵌入结算弹窗全屏居中尺寸与遮罩色。
+        private static readonly Vector2 EmbeddedResultDialogSize = new Vector2(856f, 883f);
+        private static readonly Color EmbeddedResultBackdropColor = new Color(0f, 0f, 0f, 0.72f);
+        // SPEC §12.11.10.1 (v3.176)：嵌入结算 ResultDialog 内文本排版（运行时覆写，不影响 §12.3 全屏 prefab）。
+        private const float EmbeddedResultTextPosY = 175f;
+        private const int EmbeddedResultTextFontSize = 64;
+        private const float EmbeddedHintTextPosY = -340f;
+        private const int EmbeddedHintTextFontSize = 40;
+        private const string EmbeddedResultOverlayName = "EmbeddedResultOverlay";
+        private const string EmbeddedResultBackdropName = "DimBackdrop";
         private const string PetAttackAnimName = "attack";
         private static readonly string[] PetAttackAnimFallbacks = { "Attack", "attack_1" };
 
@@ -104,6 +114,7 @@ namespace PetDemo.UI.Battle
         private IBattleCombatDriver combatDriver;
         private System.Action<bool> onEmbeddedEnded;
         private string embeddedEnemyPrefab;
+        private RectTransform embeddedResultOverlayRt;
 
         public static InvasionBattleView BuildInto(
             RectTransform canvasRect,
@@ -171,7 +182,8 @@ namespace PetDemo.UI.Battle
             RectTransform hostRect,
             BattleSession session,
             string enemyPrefab,
-            System.Action<bool> onEnded)
+            System.Action<bool> onEnded,
+            RectTransform resultOverlayHost = null)
         {
             if (hostRect == null || session == null)
                 return null;
@@ -198,7 +210,10 @@ namespace PetDemo.UI.Battle
             view.BuildPlayerSlot(modalRt);
             view.BuildEnemySlot(modalRt);
             view.BuildHpBars(modalRt);
-            view.InstantiateResultDialog(modalRt);
+            if (resultOverlayHost != null)
+                view.InstantiateEmbeddedResultOverlay(resultOverlayHost);
+            else
+                view.InstantiateResultDialog(modalRt);
 
             view.StartEmbeddedBattle();
             return view;
@@ -209,7 +224,9 @@ namespace PetDemo.UI.Battle
             if (modalRt == null)
                 return;
             modalRt.gameObject.SetActive(true);
-            if (resultDialogRt != null)
+            if (embeddedResultOverlayRt != null)
+                embeddedResultOverlayRt.gameObject.SetActive(false);
+            else if (resultDialogRt != null)
                 resultDialogRt.gameObject.SetActive(false);
 
             playerTurnCounter = 0;
@@ -235,6 +252,11 @@ namespace PetDemo.UI.Battle
         private void OnDestroy()
         {
             UnbindAutoAdvanceListeners();
+            if (embeddedResultOverlayRt != null)
+            {
+                Destroy(embeddedResultOverlayRt.gameObject);
+                embeddedResultOverlayRt = null;
+            }
             if (service == null)
                 return;
             service.OnPhaseChanged -= OnPhaseChanged;
@@ -590,8 +612,16 @@ namespace PetDemo.UI.Battle
                 resultDialogView.RebuildRewards(playerWon, null);
                 resultDialogView.SetAutoAdvanceRowVisible(false);
 
-                resultDialogRt.gameObject.SetActive(true);
-                resultDialogRt.SetAsLastSibling();
+                if (embeddedResultOverlayRt != null)
+                {
+                    embeddedResultOverlayRt.gameObject.SetActive(true);
+                    embeddedResultOverlayRt.SetAsLastSibling();
+                }
+                else
+                {
+                    resultDialogRt.gameObject.SetActive(true);
+                    resultDialogRt.SetAsLastSibling();
+                }
 
                 bool embeddedClicked = false;
                 var embeddedBtn = resultDialogView.ClosePanelButton;
@@ -608,7 +638,10 @@ namespace PetDemo.UI.Battle
                 while (!embeddedClicked)
                     yield return null;
 
-                resultDialogRt.gameObject.SetActive(false);
+                if (embeddedResultOverlayRt != null)
+                    embeddedResultOverlayRt.gameObject.SetActive(false);
+                else
+                    resultDialogRt.gameObject.SetActive(false);
                 onEmbeddedEnded?.Invoke(playerWon);
                 yield break;
             }
@@ -1205,6 +1238,99 @@ namespace PetDemo.UI.Battle
             resultDialogRt = resultDialogView.RootRt;
             autoAdvanceWinToggle = resultDialogView.AutoAdvanceToggle;
             resultDialogRt.gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// SPEC §12.11.10.1 (v3.174)：于 Modal_2 根节点创建全屏结算遮罩 + 居中放大 ResultDialog。
+        /// </summary>
+        private void InstantiateEmbeddedResultOverlay(RectTransform host)
+        {
+            if (host == null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[InvasionBattleView] resultOverlayHost 为空，回退为 EmbeddedBattle 内实例化 ResultDialog。");
+                InstantiateResultDialog(modalRt);
+                return;
+            }
+
+            embeddedResultOverlayRt = CreateChildRect(
+                host, EmbeddedResultOverlayName,
+                Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            StretchFull(embeddedResultOverlayRt);
+            embeddedResultOverlayRt.gameObject.SetActive(false);
+
+            var backdropRt = CreateChildRect(
+                embeddedResultOverlayRt, EmbeddedResultBackdropName,
+                Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            StretchFull(backdropRt);
+            var backdropImg = backdropRt.gameObject.AddComponent<Image>();
+            backdropImg.color = EmbeddedResultBackdropColor;
+            backdropImg.raycastTarget = true;
+
+            var resPath = InvasionBattleResultDialogView.ResPrefabPath;
+            var prefab = Resources.Load<GameObject>(resPath);
+            if (prefab == null)
+            {
+                UnityEngine.Debug.LogError(
+                    "[InvasionBattleView] 缺少预制体 Resources/" + resPath
+                    + "，请在编辑器执行 Tools/PetDemo/Generate Invasion Battle Result Dialog Prefab。");
+                return;
+            }
+
+            var go = Instantiate(prefab, embeddedResultOverlayRt, false);
+            go.name = "ResultDialog";
+            resultDialogView = go.GetComponent<InvasionBattleResultDialogView>();
+            if (resultDialogView == null)
+            {
+                UnityEngine.Debug.LogError(
+                    "[InvasionBattleView] 预制体缺少 InvasionBattleResultDialogView 组件，请重新执行生成菜单。");
+                Destroy(go);
+                return;
+            }
+
+            resultDialogRt = resultDialogView.RootRt;
+            autoAdvanceWinToggle = resultDialogView.AutoAdvanceToggle;
+            resultDialogRt.anchorMin = new Vector2(0.5f, 0.5f);
+            resultDialogRt.anchorMax = new Vector2(0.5f, 0.5f);
+            resultDialogRt.pivot = new Vector2(0.5f, 0.5f);
+            resultDialogRt.anchoredPosition = Vector2.zero;
+            resultDialogRt.sizeDelta = EmbeddedResultDialogSize;
+            resultDialogRt.localScale = Vector3.one;
+            ApplyEmbeddedResultDialogTextLayout(resultDialogView);
+        }
+
+        /// <summary>SPEC §12.11.10.1 (v3.176)：嵌入结算弹窗内 ResultText / HintText 排版覆写。</summary>
+        private static void ApplyEmbeddedResultDialogTextLayout(InvasionBattleResultDialogView dialogView)
+        {
+            if (dialogView == null)
+                return;
+
+            var titleText = dialogView.TitleText;
+            if (titleText != null)
+            {
+                var titleRt = titleText.rectTransform;
+                var titlePos = titleRt.anchoredPosition;
+                titleRt.anchoredPosition = new Vector2(titlePos.x, EmbeddedResultTextPosY);
+                titleText.fontSize = EmbeddedResultTextFontSize;
+                titleText.fontStyle = FontStyle.Bold;
+            }
+
+            var hintTransform = dialogView.transform.Find("HintText");
+            if (hintTransform == null)
+                return;
+
+            if (hintTransform is RectTransform hintRt)
+            {
+                var hintPos = hintRt.anchoredPosition;
+                hintRt.anchoredPosition = new Vector2(hintPos.x, EmbeddedHintTextPosY);
+            }
+
+            var hintText = hintTransform.GetComponent<Text>();
+            if (hintText == null)
+                return;
+
+            hintText.fontSize = EmbeddedHintTextFontSize;
+            hintText.fontStyle = FontStyle.Bold;
         }
 
         private static Toggle BuildLabeledToggleOnRow(RectTransform rowRt, string labelText)

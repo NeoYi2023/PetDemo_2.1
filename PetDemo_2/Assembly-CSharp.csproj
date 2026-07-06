@@ -75,6 +75,7 @@
     <Compile Include="Assets\Scripts\UI\ArenaChallengeOverlayView.cs" />
     <Compile Include="Assets\Scripts\UI\JiaYuanWorldDepthSorter.cs" />
     <Compile Include="Assets\Scripts\UI\JiaYuanWindEffectController.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\SlotMachineModalView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\PlantSpineAnimationPlayer.cs" />
     <Compile Include="Assets\Scripts\Core\CsvTable.cs" />
     <Compile Include="Assets\Scripts\UI\LevelSelectLevelInfoOverlayView.cs" />
@@ -103,6 +104,7 @@
     <Compile Include="Assets\Scripts\UI\Guild\VirtualJoystickView.cs" />
     <Compile Include="Assets\Scripts\Save\GameSaveSnapshot.cs" />
     <Compile Include="Assets\Scripts\Save\GameSaveCoordinator.cs" />
+    <Compile Include="Assets\Scripts\Battle\InvasionEventConfigCatalog.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GongHuiScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\PetPreviewRig.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GuildSceneUiFactory.cs" />
@@ -111,6 +113,7 @@
     <Compile Include="Assets\Scripts\UI\Farm\RoleGrowthPetBagCellView.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GongHuiCommunityOverlayView.cs" />
     <Compile Include="Assets\Scripts\UI\MainUiSortTier.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\SkillPickThreeModalView.cs" />
     <Compile Include="Assets\Scripts\UI\JiaYuanViewportFollowController.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\MutationRevealPopupView.cs" />
     <Compile Include="Assets\Scripts\Farm\FarmBootstrap.cs" />
@@ -131,6 +134,7 @@
     <Compile Include="Assets\Scripts\UI\TopDingBarView.cs" />
     <Compile Include="Assets\Scripts\UI\RewardFlyFx.cs" />
     <Compile Include="Assets\Scripts\UI\App\AppSingleChatPanelLayout.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\InvasionBattleModal2View.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\TileSlotView.cs" />
     <Compile Include="Assets\Scripts\UI\FoodWarehouseModalView.cs" />
     <Compile Include="Assets\Scripts\Core\MainStoryLevelConfigCatalog.cs" />
@@ -146,6 +150,7 @@
     <Compile Include="Assets\Scripts\UI\Friend\FriendEntryView.cs" />
     <Compile Include="Assets\Scripts\UI\DressUpPanelLayout.cs" />
     <Compile Include="Assets\Scripts\UI\App\AppScreenLayout.cs" />
+    <Compile Include="Assets\Scripts\Battle\AttrEnhanceConfigCatalog.cs" />
     <Compile Include="Assets\Scripts\UI\DressUpActionSpinePresenter.cs" />
     <Compile Include="Assets\Scripts\UI\PetCompanionClickRelay.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\FarmGridView.cs" />
@@ -153,6 +158,7 @@
     <Compile Include="Assets\Scripts\UI\App\AppScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\PetInteractionHudView.cs" />
     <Compile Include="Assets\Scripts\UI\BottomNavButtonView.cs" />
+    <Compile Include="Assets\Scripts\Battle\SkillConfigCatalog.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\UnifiedActionButtonView.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GuildProximityController.cs" />
     <Compile Include="Assets\Scripts\UI\FantaziaMonsterDisplay.cs" />
@@ -190,13 +196,10 @@
     <Compile Include="Assets\Scripts\UI\CharacterCreationScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\FruitWarehouseListView.cs" />
     <Compile Include="Assets\Scripts\UI\SkeletonGraphicUiMaterialFactory.cs" />
-    <Compile Include="Assets\Scripts\Battle\InvasionEventConfigCatalog.cs" />
-    <Compile Include="Assets\Scripts\UI\Battle\InvasionBattleModal2View.cs" />
-    <Compile Include="Assets\Scripts\Battle\SkillConfigCatalog.cs" />
-    <Compile Include="Assets\Scripts\UI\Battle\SkillPickThreeModalView.cs" />
-    <Compile Include="Assets\Scripts\Battle\AttrEnhanceConfigCatalog.cs" />
-    <Compile Include="Assets\Scripts\UI\Battle\SlotMachineModalView.cs" />
     <Compile Include="Assets\Scripts\Battle\IBattleCombatDriver.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\DetailAttributeModalView.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\HexRadarChartGraphic.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\SlotAttrFlyFx.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />

@@ -19,6 +19,7 @@ namespace PetDemo.EditorTools
         private const string PrefabPath = PrefabDir + "/InvasionBattleModal_2.prefab";
         private const string BackgroundSpriteAsset = "Assets/Resources/AirUI/ZhanDou_0.png";
         private const string NextDayButtonSpriteAsset = "Assets/Resources/AirUI/InvasionBattleModal_2_Button_1.png";
+        private const string DetailAttrButtonSpriteAsset = "Assets/Resources/AirUI/JiNengLiebiao.png";
 
         private static readonly Vector2 CharacterSize = new Vector2(720f, 1200f);
         private const float CharacterScale = 0.53f;
@@ -103,6 +104,8 @@ namespace PetDemo.EditorTools
                 "--", 40, TextAnchor.MiddleCenter);
             var speedText = CreateText(midArea, "SpeedText", new Vector2(0.5f, 0.5f), new Vector2(200f, -40f), new Vector2(400f, 60f),
                 "--", 40, TextAnchor.MiddleCenter);
+            var detailAttrSprite = AssetDatabase.LoadAssetAtPath<Sprite>(DetailAttrButtonSpriteAsset);
+            var detailAttrButton = BuildDetailAttrButton(midArea, detailAttrSprite);
 
             // 下部：BottomArea + 天数 + 事件日志（ScrollRect）+ 下一天按钮
             var bottomArea = CreateArea(rootRt, InvasionBattleModal2View.BottomAreaName, new Vector2(0f, 0f), new Vector2(1f, 0.30f));
@@ -115,7 +118,8 @@ namespace PetDemo.EditorTools
             var closeButton = BuildCloseButton(rootRt);
 
             SerializeView(root.GetComponent<InvasionBattleModal2View>(),
-                playerSlot, hpText, atkText, speedText, eventScroll, eventContent, dayLabel, nextDayButton, closeButton);
+                playerSlot, hpText, atkText, speedText, eventScroll, eventContent, dayLabel, nextDayButton, closeButton,
+                detailAttrButton);
 
             var prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
             Object.DestroyImmediate(root);
@@ -157,6 +161,38 @@ namespace PetDemo.EditorTools
             return btn;
         }
 
+        private static Button BuildDetailAttrButton(RectTransform parent, Sprite sprite)
+        {
+            var rt = CreateChild(parent, InvasionBattleModal2View.DetailAttrButtonName,
+                new Vector2(1f, 0.5f), new Vector2(-60f, 0f), new Vector2(96f, 96f));
+            var img = rt.gameObject.AddComponent<Image>();
+            img.preserveAspect = true;
+            img.raycastTarget = true;
+            if (sprite != null)
+            {
+                img.sprite = sprite;
+                img.color = Color.white;
+            }
+            else
+            {
+                UnityEngine.Debug.LogWarning("[InvasionBattleModal2PrefabGenerator] 未找到详细属性按钮图: " + DetailAttrButtonSpriteAsset);
+                img.color = new Color(0.5f, 0.55f, 0.7f, 1f);
+            }
+            var btn = rt.gameObject.AddComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+            btn.targetGraphic = img;
+
+            var labelRt = CreateChild(rt, "Label", new Vector2(0.5f, 0f), new Vector2(0f, -52f), new Vector2(120f, 36f));
+            var txt = labelRt.gameObject.AddComponent<Text>();
+            txt.text = "详细属性";
+            txt.font = LoadBuiltinFont();
+            txt.fontSize = 22;
+            txt.alignment = TextAnchor.MiddleCenter;
+            txt.color = Color.white;
+            txt.raycastTarget = false;
+            return btn;
+        }
+
         private static Button BuildCloseButton(RectTransform parent)
         {
             var rt = CreateChild(parent, "CloseButton", new Vector2(1f, 1f), new Vector2(-40f, -40f), CloseButtonSize);
@@ -183,7 +219,7 @@ namespace PetDemo.EditorTools
             RectTransform playerSlot,
             Text hpText, Text atkText, Text speedText,
             ScrollRect eventScrollRect, RectTransform eventContent, Text dayLabel,
-            Button nextDayButton, Button closeButton)
+            Button nextDayButton, Button closeButton, Button detailAttrButton)
         {
             var so = new SerializedObject(view);
             so.FindProperty("playerSlot").objectReferenceValue = playerSlot;
@@ -195,6 +231,7 @@ namespace PetDemo.EditorTools
             so.FindProperty("dayLabel").objectReferenceValue = dayLabel;
             so.FindProperty("nextDayButton").objectReferenceValue = nextDayButton;
             so.FindProperty("closeButton").objectReferenceValue = closeButton;
+            so.FindProperty("detailAttrButton").objectReferenceValue = detailAttrButton;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 

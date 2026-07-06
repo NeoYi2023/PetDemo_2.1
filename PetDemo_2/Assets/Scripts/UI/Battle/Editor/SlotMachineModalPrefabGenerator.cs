@@ -40,7 +40,11 @@ namespace PetDemo.EditorTools
         {
             if (!File.Exists(path))
                 return false;
-            return AssetDatabase.LoadAssetAtPath<GameObject>(path) != null;
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (prefab == null)
+                return false;
+            // v3.179：需含 ResultSummary 节点（§12.12.7）
+            return prefab.transform.Find(SlotMachineModalView.ResultSummaryName) != null;
         }
 
         [MenuItem("Tools/PetDemo/Generate Slot Machine Modal Prefabs")]

@@ -1,19 +1,19 @@
-# 入侵事件明细表（SPEC §B.17 / §12.11.5）—— InvasionBattleModal_2「下一天」事件细节
+﻿# 入侵事件明细表（SPEC §B.17 / §12.11.5）—— InvasionBattleModal_2「下一天」事件细节,,,,
 # 列：eventId, eventType, eventText, eventReward, background
-# eventType：调整属性 / 战斗 / 抽奖 / 奇遇（兼容英文 AdjustAttr/Battle/Lottery/Adventure）
-# eventText：支持 Unity 富文本 <color=#RRGGBB>...</color> 局部变色；多条用字面 /n 分隔（每条一张卡）
-#   注意：字段内禁止使用英文逗号（,），中文请用全角逗号（，）
-# eventReward：奖励串，多条以 ; 分隔；attr:hp|atk|speed:±% 本期生效，其余为占位
-# background：背景框序号 1~5 → AirUI/ShiJian_{n}（九宫格）
+# eventType：调整属性 / 战斗 / 抽奖 / 奇遇（兼容英文 AdjustAttr/Battle/Lottery/Adventure）,,,,
+# eventText：支持 Unity 富文本 <color=#RRGGBB>...</color> 局部变色；多条用字面 /n 分隔（每条一张卡）,,,,
+#   注意：字段内禁止使用英文逗号（,），中文请用全角逗号（，）,,,
+# eventReward：奖励串，多条以 ; 分隔；attr:hp|atk|speed:±% 本期生效，其余为占位,,,,
+# background：背景框序号 1~5 → AirUI/ShiJian_{n}（九宫格）,,,,
 eventId,         eventType, eventText,                                                                      eventReward,          background
-evt_calm,        奇遇,       平静的一天，你稍作休整。,                                                          ,                     1
-evt_boost_atk,   调整属性,   你找到一柄利器，<color=#FF3B30>攻击提升 10%</color>！,                              attr:atk:+10,         2
-evt_boost_hp,    调整属性,   温泉让你恢复元气，<color=#33CC33>生命提升 15%</color>。,                            attr:hp:+15,          2
-evt_curse_speed, 奇遇,       沼泽拖慢了脚步，<color=#3399FF>速度下降 10%</color>。/n但你发现了一条捷径。,          attr:speed:-10,       3
-evt_forage,      调整属性,   发现补给。/n<color=#33CC33>生命 +5%</color>、<color=#FF3B30>攻击 +5%</color>。,     attr:hp:+5;attr:atk:+5, 4
-evt_fight_small, 战斗,       前方出现一群小怪！,                                                               battle_small,         5
-evt_fight_boss,  战斗,       <color=#FF3B30>最终 BOSS 出现了！</color>,                                        battle_boss,          5
-evt_lottery,     抽奖,       你发现一个神秘宝箱。,                                                             slot3,                4
-evt_lottery5,    抽奖,       一台华丽的五轴宝机出现在眼前！,                                                    slot5,                4
-evt_insight,     奇遇,       你静心参悟，<color=#33CC33>领悟</color>了新的招式。,                               pick3:normal,         4
-evt_epiphany,    奇遇,       灵光乍现，你<color=#FFB300>顿悟</color>了传说级奥义！,                             pick3:legendary,      4
+evt_calm,        奇遇,       平静的一天，你稍作休整。,                                                          ,1
+evt_boost_atk,   调整属性,   你找到一柄利器，<color=#FF3B30>攻击提升 10%</color>！,                              attr:atk:+10,3
+evt_boost_hp,    调整属性,   温泉让你恢复元气，<color=#33CC33>生命提升 15%</color>。,                            attr:hp:+15,3
+evt_curse_speed, 奇遇,       沼泽拖慢了脚步，<color=#3399FF>速度下降 10%</color>。/n但你发现了一条捷径。,          attr:speed:-10,2
+evt_forage,      调整属性,   发现补给。/n<color=#33CC33>生命 +5%</color>、<color=#FF3B30>攻击 +5%</color>。,     attr:hp:+5;attr:atk:+5,3
+evt_fight_small, 战斗,       前方出现一群小怪！,                                                               battle_small,1
+evt_fight_boss,  战斗,       <color=#FF3B30>最终 BOSS 出现了！</color>,                                        battle_boss,1
+evt_lottery,     抽奖,       你发现一个神秘宝箱。,                                                             slot3,4
+evt_lottery5,    抽奖,       一台华丽的五轴宝机出现在眼前！,                                                    slot5,4
+evt_insight,     奇遇,       你静心参悟，<color=#33CC33>领悟</color>了新的招式。,                               pick3:normal,4
+evt_epiphany,    奇遇,       灵光乍现，你<color=#FFB300>顿悟</color>了传说级奥义！,                             pick3:legendary,4

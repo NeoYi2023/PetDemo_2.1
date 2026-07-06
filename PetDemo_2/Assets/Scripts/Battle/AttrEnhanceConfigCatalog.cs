@@ -1,7 +1,5 @@
-// SPEC §B.19 / §12.12：属性增强表静态配置目录（SlotMachineModal 三轴/五轴老虎机候选与产出）。
+// SPEC §B.19 / §12.12 / §12.13：属性增强表静态配置目录（SlotMachineModal 三轴/五轴老虎机候选与产出 + 详细属性六宫图）。
 // 表 Resources/Configs/Battle/attr_enhance.csv：attrId, attrName, icon, desc, value1..value5。
-// value{n} = 该属性项在 n 个轴上同时出现时获得的固定增加值；GetGain(count) 取 value{count}（钳制 1..5）。
-// 解析约定与 §B.2.1 / Core/CsvTable 一致：UTF-8、header、`#` 注释、空行跳过、字段 Trim()、非法行 Warning 跳过。
 using System;
 using System.Collections.Generic;
 using PetDemo.Core;
@@ -12,13 +10,12 @@ namespace PetDemo.Battle
     /// <summary>SPEC §B.19 / §12.12.5：属性增强表一行。</summary>
     public sealed class AttrEnhanceConfig
     {
-        public string attrId;    // 作为 RoleStats 字段键：hp/atk/def/speed（atk2→atk、hp2→maxHp 为额外展示项）
-        public string attrName;  // 属性名称（展示）
-        public string icon;      // 图标 Resources 相对路径（无扩展名），可空 → 占位
-        public string desc;      // 文字描述
-        public int[] values;     // 长度 5：value1..value5
+        public string attrId;
+        public string attrName;
+        public string icon;
+        public string desc;
+        public int[] values;
 
-        /// <summary>出现 count 次时的固定增加值；count 钳制到 1..5。</summary>
         public int GetGain(int count)
         {
             if (values == null || values.Length == 0)
@@ -32,6 +29,129 @@ namespace PetDemo.Battle
     {
         public const string AttrEnhanceCsvResourcePath = "Configs/Battle/attr_enhance";
         public const int ValueColumnCount = 5;
+
+        public const string AttrLife = "Life";
+        public const string AttrAttack = "Attack";
+        public const string AttrCriticalHit = "Critical Hit";
+        public const string AttrCombo = "Combo";
+        public const string AttrCounterattack = "Counterattack";
+        public const string AttrStun = "Stun";
+        public const string AttrEvasion = "Evasion";
+        public const string AttrLifeSteal = "Life Steal";
+
+        /// <summary>六宫图属性 id（顺序 = 0° 起顺时针每 60°，§12.13.2）。</summary>
+        public static readonly string[] HexRadarAttrIds =
+        {
+            AttrCriticalHit,
+            AttrCombo,
+            AttrCounterattack,
+            AttrStun,
+            AttrEvasion,
+            AttrLifeSteal,
+        };
+
+        public static readonly string[] HexRadarDisplayNames =
+        {
+            "暴击", "连击", "反击", "击晕", "闪避", "吸血",
+        };
+
+        // ============================================================
+        // attrId 规范化（§12.12.3 / §B.19）
+        // ============================================================
+        public static bool TryNormalizeAttrId(string raw, out string canonical)
+        {
+            canonical = null;
+            if (string.IsNullOrWhiteSpace(raw))
+                return false;
+
+            string key = raw.Trim();
+            switch (key.ToLowerInvariant())
+            {
+                case "life":
+                case "hp":
+                case "hp2":
+                    canonical = AttrLife;
+                    return true;
+                case "attack":
+                case "atk":
+                case "atk2":
+                    canonical = AttrAttack;
+                    return true;
+                case "def":
+                    canonical = "def";
+                    return true;
+                case "speed":
+                    canonical = "speed";
+                    return true;
+                case "critical hit":
+                case "criticalhit":
+                    canonical = AttrCriticalHit;
+                    return true;
+                case "combo":
+                    canonical = AttrCombo;
+                    return true;
+                case "counterattack":
+                    canonical = AttrCounterattack;
+                    return true;
+                case "stun":
+                    canonical = AttrStun;
+                    return true;
+                case "evasion":
+                    canonical = AttrEvasion;
+                    return true;
+                case "life steal":
+                case "lifesteal":
+                    canonical = AttrLifeSteal;
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        public static bool IsHexRadarAttr(string canonicalOrRaw)
+        {
+            if (TryNormalizeAttrId(canonicalOrRaw, out string c))
+            {
+                for (int i = 0; i < HexRadarAttrIds.Length; i++)
+                {
+                    if (string.Equals(HexRadarAttrIds[i], c, StringComparison.Ordinal))
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>从局外 RoleStats 读取六宫属性值（§5 / §12.13）。</summary>
+        public static int GetHexValueFromRole(RoleStats role, string canonicalAttrId)
+        {
+            if (role == null || string.IsNullOrEmpty(canonicalAttrId))
+                return 0;
+            switch (canonicalAttrId)
+            {
+                case AttrCriticalHit: return Mathf.Max(0, role.criticalHit);
+                case AttrCombo: return Mathf.Max(0, role.combo);
+                case AttrCounterattack: return Mathf.Max(0, role.counterattack);
+                case AttrStun: return Mathf.Max(0, role.stun);
+                case AttrEvasion: return Mathf.Max(0, role.evasion);
+                case AttrLifeSteal: return Mathf.Max(0, role.lifeSteal);
+                default: return 0;
+            }
+        }
+
+        /// <summary>将局外 RoleStats 六宫字段写入 runEnhanceBonuses 基线（Show 时调用）。</summary>
+        public static void SeedHexBonusesFromRole(RoleStats role, Dictionary<string, int> target)
+        {
+            if (target == null)
+                return;
+            target.Clear();
+            if (role == null)
+                return;
+            for (int i = 0; i < HexRadarAttrIds.Length; i++)
+            {
+                string id = HexRadarAttrIds[i];
+                target[id] = GetHexValueFromRole(role, id);
+            }
+        }
 
         // ============================================================
         // 加载与解析（§B.19.3）
@@ -74,7 +194,7 @@ namespace PetDemo.Battle
 
                 var cfg = new AttrEnhanceConfig
                 {
-                    attrId = attrId,
+                    attrId = attrId.Trim(),
                     attrName = idName >= 0 ? row.Get(idName) : attrId,
                     icon = idIcon >= 0 ? row.Get(idIcon) : null,
                     desc = idDesc >= 0 ? row.Get(idDesc) : null,
@@ -103,10 +223,6 @@ namespace PetDemo.Battle
             return int.TryParse(raw.Trim(), out int value) ? value : 0;
         }
 
-        // ============================================================
-        // 随机不重复选取（§12.12.2 第一步）
-        // ============================================================
-        /// <summary>从 all 中随机不重复取 count 项；count 大于池大小时返回洗牌后的全部；输入为空返回空表。</summary>
         public static List<AttrEnhanceConfig> PickDistinct(List<AttrEnhanceConfig> all, int count)
         {
             var result = new List<AttrEnhanceConfig>();
@@ -124,31 +240,30 @@ namespace PetDemo.Battle
             return result;
         }
 
-        // ============================================================
-        // Demo 默认数据（等价 §B.19.2）
-        // ============================================================
         public static List<AttrEnhanceConfig> BuildDefault()
         {
             return new List<AttrEnhanceConfig>
             {
-                Make("atk", "攻击", "攻击力提升", 3, 8, 15, 24, 35),
-                Make("hp", "生命", "生命上限提升", 5, 12, 22, 35, 50),
-                Make("def", "防御", "防御力提升", 2, 5, 9, 14, 20),
-                Make("speed", "速度", "速度提升", 1, 3, 6, 10, 15),
-                Make("atk2", "暴击强化", "额外攻击提升", 4, 10, 18, 28, 40),
-                Make("hp2", "体魄", "额外生命提升", 6, 14, 25, 38, 55),
+                Make(AttrLife, "生命", "battle_img_009_01", 1, 3, 6, 12, 20),
+                Make(AttrAttack, "攻击", "battle_img_001_01", 1, 3, 6, 12, 20),
+                Make(AttrCriticalHit, "暴击", "battle_img_003_01", 1, 3, 6, 12, 20),
+                Make(AttrCombo, "连击", "battle_img_005_01", 1, 3, 6, 12, 20),
+                Make(AttrCounterattack, "反击", "battle_img_007_01", 1, 3, 6, 12, 20),
+                Make(AttrStun, "击晕", "battle_img_008_01", 1, 3, 6, 12, 20),
+                Make(AttrEvasion, "闪避", "battle_img_004_01", 1, 3, 6, 12, 20),
+                Make(AttrLifeSteal, "吸血", "battle_img_006_01", 1, 3, 6, 12, 20),
             };
         }
 
-        private static AttrEnhanceConfig Make(string id, string name, string desc,
+        private static AttrEnhanceConfig Make(string id, string name, string icon,
             int v1, int v2, int v3, int v4, int v5)
         {
             return new AttrEnhanceConfig
             {
                 attrId = id,
                 attrName = name,
-                icon = null,
-                desc = desc,
+                icon = icon,
+                desc = null,
                 values = new[] { v1, v2, v3, v4, v5 },
             };
         }

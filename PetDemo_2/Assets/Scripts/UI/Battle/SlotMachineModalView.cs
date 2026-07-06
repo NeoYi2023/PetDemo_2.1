@@ -8,6 +8,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 using PetDemo.Battle;
 using PetDemo.UI;
 using PetDemo.UI.Farm;
@@ -22,6 +23,39 @@ namespace PetDemo.UI.Battle
         public AttrEnhanceConfig cfg;
         public int count;
         public int gain;
+    }
+
+    /// <summary>SPEC §12.12.7：摇奖结果汇总文案（与 EventScroll EventCard 一致）。</summary>
+    public static class SlotMachineResultText
+    {
+        public const string EmptyFallback = "摇奖结束，未获得可用属性。";
+
+        public static string FormatResultSummary(IReadOnlyList<SlotMachineResultItem> results)
+        {
+            if (results == null || results.Count == 0)
+                return EmptyFallback;
+
+            var sb = new StringBuilder();
+            sb.Append("摇奖结果：");
+            bool any = false;
+            for (int i = 0; i < results.Count; i++)
+            {
+                var item = results[i];
+                if (item == null || item.cfg == null || item.gain == 0)
+                    continue;
+                if (!AttrEnhanceConfigCatalog.TryNormalizeAttrId(item.cfg.attrId, out _))
+                    continue;
+                if (any)
+                    sb.Append("，");
+                sb.Append(item.cfg.attrName).Append(" +").Append(item.gain);
+                any = true;
+            }
+
+            if (!any)
+                return EmptyFallback;
+            sb.Append("。");
+            return sb.ToString();
+        }
     }
 
     [DisallowMultipleComponent]
@@ -39,6 +73,7 @@ namespace PetDemo.UI.Battle
         public const string BackgroundName = "Background";
         public const string ReelBgName = "ReelBackground";
         public const string IconLayerName = "IconLayer";
+        public const string ResultSummaryName = "ResultSummary";
         public const string FrameName = "Frame";
         public const string ShakeButtonName = "ShakeButton";
         public const string CloseButtonName = "CloseButton";
@@ -49,6 +84,12 @@ namespace PetDemo.UI.Battle
         public const float ReelSpacing3 = 250f;
         public const float ReelSpacing5 = 175f;
         public const float ReelCenterY = 40f;
+        public const float ReelLabelTop = 78f;
+        public const float ReelLabelBottom = -78f;
+
+        public const string ResResultFrame = "AirUI/ShiJian_1";
+        public static readonly Vector2 ResultSummarySize = new Vector2(900f, 120f);
+        public const float ResultSummaryY = -220f;
 
         public static readonly Vector2 ShakeSize = new Vector2(360f, 130f);
         public static readonly Vector2 ShakePos = new Vector2(0f, -740f);
@@ -57,12 +98,15 @@ namespace PetDemo.UI.Battle
 
         private const float SpinDuration = 1.0f;
         private const float SpinTick = 0.06f;
+        private const float ReelStopStaggerSec = 0.3f;
 
         private static SlotMachineModalView instance;
 
         [SerializeField] private Image background;
         [SerializeField] private Image reelBackground;
         [SerializeField] private RectTransform iconLayer;
+        [SerializeField] private RectTransform resultSummaryRoot;
+        [SerializeField] private Text resultSummaryText;
         [SerializeField] private Image frame;
         [SerializeField] private Image[] reelIcons;
         [SerializeField] private Text[] reelLabels;
@@ -73,6 +117,7 @@ namespace PetDemo.UI.Battle
 
         private RectTransform panelRt;
         private RectTransform canvasRectCache;
+        private RectTransform attrFlyTarget;
 
         private List<AttrEnhanceConfig> candidates;
         private Action<List<SlotMachineResultItem>> onComplete;
@@ -89,12 +134,15 @@ namespace PetDemo.UI.Battle
 
         /// <summary>运行时回退构建时注入引用（编辑器生成器亦复用同一 Builder 直接赋值序列化字段）。</summary>
         internal void AssignRuntimeRefs(int builtReelCount, Image bg, Image reelBg, RectTransform icons,
-            Image slotFrame, Image[] icoImgs, Text[] icoLabels, Button shake, Text shakeTxt, Button close)
+            RectTransform resultSummary, Text resultSummaryTxt, Image slotFrame, Image[] icoImgs, Text[] icoLabels,
+            Button shake, Text shakeTxt, Button close)
         {
             reelCount = builtReelCount;
             background = bg;
             reelBackground = reelBg;
             iconLayer = icons;
+            resultSummaryRoot = resultSummary;
+            resultSummaryText = resultSummaryTxt;
             frame = slotFrame;
             reelIcons = icoImgs;
             reelLabels = icoLabels;
@@ -172,12 +220,14 @@ namespace PetDemo.UI.Battle
         // 玩法（§12.12.2）
         // ============================================================
         public void Show(int reelCountParam, List<AttrEnhanceConfig> catalog,
-            Action<List<SlotMachineResultItem>> completeCallback)
+            Action<List<SlotMachineResultItem>> completeCallback,
+            RectTransform flyTarget = null)
         {
             EnsureFieldsFromHierarchy();
             WireOnce();
 
             onComplete = completeCallback;
+            attrFlyTarget = flyTarget;
             finalized = false;
 
             // 候选数 = 轴数 - 1（三轴选 2 / 五轴选 4）。以预制体烘焙的 reelCount 为准。
@@ -257,29 +307,53 @@ namespace PetDemo.UI.Battle
         private IEnumerator SpinRoutine()
         {
             SetState(SlotState.Spinning);
+            HideResultSummary();
+
+            var predetermined = new AttrEnhanceConfig[reelCount];
+            for (int i = 0; i < reelCount; i++)
+                predetermined[i] = candidates[UnityEngine.Random.Range(0, candidates.Count)];
 
             float elapsed = 0f;
             while (elapsed < SpinDuration)
             {
-                for (int i = 0; i < reelCount; i++)
-                {
-                    var rnd = candidates[UnityEngine.Random.Range(0, candidates.Count)];
-                    ApplyReelVisual(i, rnd);
-                }
+                SpinUnsettledReels(0);
                 yield return new WaitForSeconds(SpinTick);
                 elapsed += SpinTick;
             }
 
-            // 定格：每轴等概率抽 1 项
+            var reelStopped = new bool[reelCount];
             for (int i = 0; i < reelCount; i++)
             {
-                var chosen = candidates[UnityEngine.Random.Range(0, candidates.Count)];
-                reelResults[i] = chosen;
-                ApplyReelVisual(i, chosen);
+                reelResults[i] = predetermined[i];
+                ApplyReelVisual(i, predetermined[i]);
+                reelStopped[i] = true;
+
+                if (i < reelCount - 1)
+                {
+                    float wait = 0f;
+                    while (wait < ReelStopStaggerSec)
+                    {
+                        SpinUnsettledReels(i + 1, reelStopped);
+                        yield return new WaitForSeconds(SpinTick);
+                        wait += SpinTick;
+                    }
+                }
             }
 
+            ShowResultSummary(BuildResults());
             spinRoutine = null;
             SetState(SlotState.Settled);
+        }
+
+        private void SpinUnsettledReels(int firstUnsettledIndex, bool[] reelStopped = null)
+        {
+            for (int j = firstUnsettledIndex; j < reelCount; j++)
+            {
+                if (reelStopped != null && reelStopped[j])
+                    continue;
+                var rnd = candidates[UnityEngine.Random.Range(0, candidates.Count)];
+                ApplyReelVisual(j, rnd);
+            }
         }
 
         // ============================================================
@@ -316,9 +390,20 @@ namespace PetDemo.UI.Battle
             if (finalized)
                 return;
             finalized = true;
+
+            List<RectTransform> flyIcons = null;
+            if (state == SlotState.Settled && canvasRectCache != null && reelIcons != null)
+                flyIcons = SlotAttrFlyFx.CreateIconsAtReels(canvasRectCache, reelIcons);
+
             var cb = onComplete;
+            var flyTarget = attrFlyTarget;
             onComplete = null;
+            attrFlyTarget = null;
             Hide();
+
+            if (flyIcons != null && flyIcons.Count > 0)
+                SlotAttrFlyFx.Launch(canvasRectCache, flyIcons, flyTarget);
+
             cb?.Invoke(results ?? new List<SlotMachineResultItem>());
         }
 
@@ -336,6 +421,7 @@ namespace PetDemo.UI.Battle
 
         private void ResetReelVisuals()
         {
+            HideResultSummary();
             if (reelIcons == null)
                 return;
             for (int i = 0; i < reelIcons.Length; i++)
@@ -357,35 +443,71 @@ namespace PetDemo.UI.Battle
             var img = reelIcons[reelIndex];
             if (img != null)
             {
-                Sprite sprite = !string.IsNullOrEmpty(cfg != null ? cfg.icon : null)
-                    ? Resources.Load<Sprite>(cfg.icon)
-                    : null;
-                if (sprite != null)
+                string iconPath = cfg != null ? cfg.icon : null;
+                Sprite sprite = LoadAttrEnhanceIcon(iconPath);
+                img.sprite = sprite;
+                img.preserveAspect = true;
+                img.color = sprite != null
+                    ? Color.white
+                    : new Color(1f, 1f, 1f, 0.15f);
+                if (sprite == null && !string.IsNullOrEmpty(iconPath))
                 {
-                    img.sprite = sprite;
-                    img.color = Color.white;
-                    img.preserveAspect = true;
-                }
-                else
-                {
-                    // 占位：纯色块（按 attrId 派生颜色）+ 属性名文字
-                    img.sprite = null;
-                    img.color = PlaceholderColor(cfg != null ? cfg.attrId : "");
+                    UnityEngine.Debug.LogWarning(
+                        "[SlotMachineModalView] 缺少图标 Resources/" + iconPath +
+                        "（已尝试 AirUI/ 前缀），Reel" + reelIndex);
                 }
             }
             if (reelLabels != null && reelIndex < reelLabels.Length && reelLabels[reelIndex] != null)
                 reelLabels[reelIndex].text = cfg != null ? cfg.attrName : "";
         }
 
-        private static Color PlaceholderColor(string key)
+        private void ShowResultSummary(List<SlotMachineResultItem> results)
         {
-            if (string.IsNullOrEmpty(key))
-                return new Color(0.5f, 0.5f, 0.5f, 1f);
-            int h = 17;
-            for (int i = 0; i < key.Length; i++)
-                h = h * 31 + key[i];
-            float hue = (Mathf.Abs(h) % 360) / 360f;
-            return Color.HSVToRGB(hue, 0.55f, 0.9f);
+            EnsureResultSummaryPanel();
+            if (resultSummaryText == null)
+                return;
+            resultSummaryText.text = SlotMachineResultText.FormatResultSummary(results);
+            if (resultSummaryRoot != null)
+                resultSummaryRoot.gameObject.SetActive(true);
+        }
+
+        private void HideResultSummary()
+        {
+            if (resultSummaryRoot != null)
+                resultSummaryRoot.gameObject.SetActive(false);
+        }
+
+        private void EnsureResultSummaryPanel()
+        {
+            if (resultSummaryRoot == null)
+                resultSummaryRoot = FindDescendantRect(ResultSummaryName);
+            if (resultSummaryText == null && resultSummaryRoot != null)
+            {
+                var t = FindDescendantByName(resultSummaryRoot, "Text");
+                resultSummaryText = t != null ? t.GetComponent<Text>() : null;
+            }
+            if (resultSummaryRoot != null && resultSummaryText != null)
+                return;
+
+            var root = transform as RectTransform;
+            if (root == null)
+                return;
+            SlotMachineModalBuilder.BuildResultSummary(root, out var summaryRt, out var summaryTxt);
+            resultSummaryRoot = summaryRt;
+            resultSummaryText = summaryTxt;
+            HideResultSummary();
+        }
+
+        private static Sprite LoadAttrEnhanceIcon(string iconPath)
+        {
+            if (string.IsNullOrEmpty(iconPath))
+                return null;
+            var sprite = Resources.Load<Sprite>(iconPath);
+            if (sprite != null)
+                return sprite;
+            if (iconPath.IndexOf('/') < 0)
+                return Resources.Load<Sprite>("AirUI/" + iconPath);
+            return null;
         }
 
         // ============================================================
@@ -401,6 +523,13 @@ namespace PetDemo.UI.Battle
                 reelBackground = FindDescendantImage(ReelBgName);
             if (iconLayer == null)
                 iconLayer = FindDescendantRect(IconLayerName);
+            if (resultSummaryRoot == null)
+                resultSummaryRoot = FindDescendantRect(ResultSummaryName);
+            if (resultSummaryText == null && resultSummaryRoot != null)
+            {
+                var t = FindDescendantByName(resultSummaryRoot, "Text");
+                resultSummaryText = t != null ? t.GetComponent<Text>() : null;
+            }
             if (frame == null)
                 frame = FindDescendantImage(FrameName);
             if (shakeButton == null)
@@ -533,12 +662,16 @@ namespace PetDemo.UI.Battle
                     out reelIcons[i], out reelLabels[i]);
             }
 
-            // 4) 老虎机样式图 Zhou_x_1（叠在轴背景之上）
+            // 4) 结果汇总条（IconLayer 下方，§12.12.7）
+            BuildResultSummary(root, out var resultSummaryRt, out var resultSummaryTxt);
+            resultSummaryRt.gameObject.SetActive(false);
+
+            // 5) 老虎机样式图 Zhou_x_1（叠在轴背景之上）
             var frame = AddFullscreenSprite(root, SlotMachineModalView.FrameName, framePath,
                 new Color(1f, 1f, 1f, 0f));
             frame.raycastTarget = false;
 
-            // 5) 「摇奖」按钮 + 关闭按钮（最上层）
+            // 6) 「摇奖」按钮 + 关闭按钮（最上层）
             var shakeButton = BuildTextButton(root, SlotMachineModalView.ShakeButtonName, "摇奖",
                 SlotMachineModalView.ShakePos, SlotMachineModalView.ShakeSize, font, out var shakeLabel);
 
@@ -552,8 +685,59 @@ namespace PetDemo.UI.Battle
                 closeRt.anchoredPosition = SlotMachineModalView.ClosePos;
             }
 
-            view.AssignRuntimeRefs(rc, background, reelBg, iconLayer, frame,
+            view.AssignRuntimeRefs(rc, background, reelBg, iconLayer, resultSummaryRt, resultSummaryTxt, frame,
                 reelIcons, reelLabels, shakeButton, shakeLabel, closeButton);
+        }
+
+        public static void BuildResultSummary(RectTransform root, out RectTransform summaryRt, out Text summaryText)
+        {
+            var font = FarmGridView.LoadBuiltinFont();
+
+            summaryRt = BottomNavAttachedScreenLayout.CreateChildRect(
+                root, SlotMachineModalView.ResultSummaryName,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(0f, SlotMachineModalView.ResultSummaryY),
+                SlotMachineModalView.ResultSummarySize);
+
+            var frameImg = summaryRt.gameObject.AddComponent<Image>();
+            var frameSprite = Resources.Load<Sprite>(SlotMachineModalView.ResResultFrame);
+            if (frameSprite != null)
+            {
+                frameImg.sprite = frameSprite;
+                frameImg.type = Image.Type.Sliced;
+                frameImg.fillCenter = true;
+                frameImg.color = Color.white;
+            }
+            else
+            {
+                frameImg.color = new Color(0f, 0f, 0f, 0.35f);
+            }
+            frameImg.raycastTarget = false;
+
+            var vlg = summaryRt.gameObject.AddComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(48, 48, 30, 30);
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = true;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+
+            var fitter = summaryRt.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var textGo = new GameObject("Text");
+            var textRt = textGo.AddComponent<RectTransform>();
+            textRt.SetParent(summaryRt, false);
+            summaryText = textGo.AddComponent<Text>();
+            summaryText.font = font;
+            summaryText.fontSize = 34;
+            summaryText.color = Color.black;
+            summaryText.alignment = TextAnchor.MiddleLeft;
+            summaryText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            summaryText.verticalOverflow = VerticalWrapMode.Overflow;
+            summaryText.supportRichText = true;
+            summaryText.raycastTarget = false;
+            summaryText.text = "";
         }
 
         private static Image AddFullscreenSprite(RectTransform parent, string name, string resPath, Color fallback)
@@ -585,12 +769,15 @@ namespace PetDemo.UI.Battle
                 parent, "Reel" + index,
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), pos, size);
             icon = reelRt.gameObject.AddComponent<Image>();
-            icon.color = new Color(1f, 1f, 1f, 0.15f);
+            icon.color = Color.white;
+            icon.preserveAspect = true;
             icon.raycastTarget = false;
 
             var labelRt = BottomNavAttachedScreenLayout.CreateChildRect(
                 reelRt, "Label", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             BottomNavAttachedScreenLayout.StretchFull(labelRt);
+            labelRt.offsetMax = new Vector2(labelRt.offsetMax.x, -SlotMachineModalView.ReelLabelTop);
+            labelRt.offsetMin = new Vector2(labelRt.offsetMin.x, SlotMachineModalView.ReelLabelBottom);
             label = labelRt.gameObject.AddComponent<Text>();
             label.font = font;
             label.fontSize = 34;

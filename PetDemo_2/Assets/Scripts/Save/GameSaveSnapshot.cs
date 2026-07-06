@@ -139,6 +139,12 @@ namespace PetDemo.Save
         public float comboResist;
         public float counterResist;
         public float blockResist;
+        public int criticalHit;
+        public int combo;
+        public int counterattack;
+        public int stun;
+        public int evasion;
+        public int lifeSteal;
 
         public static RoleStatsSave From(RoleStats r)
         {
@@ -162,12 +168,18 @@ namespace PetDemo.Save
                 comboResist = r.comboResist,
                 counterResist = r.counterResist,
                 blockResist = r.blockResist,
+                criticalHit = r.criticalHit,
+                combo = r.combo,
+                counterattack = r.counterattack,
+                stun = r.stun,
+                evasion = r.evasion,
+                lifeSteal = r.lifeSteal,
             };
         }
 
         public RoleStats ToModel()
         {
-            return new RoleStats
+            var role = new RoleStats
             {
                 displayName = displayName,
                 atk = atk,
@@ -185,7 +197,31 @@ namespace PetDemo.Save
                 comboResist = comboResist,
                 counterResist = counterResist,
                 blockResist = blockResist,
+                criticalHit = criticalHit,
+                combo = combo,
+                counterattack = counterattack,
+                stun = stun,
+                evasion = evasion,
+                lifeSteal = lifeSteal,
             };
+            ApplyHexDefaultsIfLegacyUnset(role);
+            return role;
+        }
+
+        /// <summary>旧存档无六宫字段时（全 0）回填 §5 默认值。</summary>
+        private static void ApplyHexDefaultsIfLegacyUnset(RoleStats role)
+        {
+            if (role == null)
+                return;
+            if (role.criticalHit != 0 || role.combo != 0 || role.counterattack != 0
+                || role.stun != 0 || role.evasion != 0 || role.lifeSteal != 0)
+                return;
+            role.criticalHit = 3;
+            role.combo = 6;
+            role.counterattack = 12;
+            role.stun = 2;
+            role.evasion = 4;
+            role.lifeSteal = 8;
         }
     }
 

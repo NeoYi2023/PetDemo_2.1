@@ -27,6 +27,7 @@ namespace PetDemo.UI.Battle
         public const string ResNextDayButton = "AirUI/InvasionBattleModal_2_Button_1";
         public const string ResBattleButton = "AirUI/InvasionBattleModal_2_Button_2";
         public const string ResLotteryButton = "AirUI/InvasionBattleModal_2_Button_3";
+        public const string ResDetailAttrButton = "AirUI/JiNengLiebiao";
         public const string ResEventFramePrefix = "AirUI/ShiJian_";
         public const string ResPlayerPrefab = "Prefabs/Air/Hero_Role_cunmin";
         public const string SkeletonGraphicShaderName = "Spine/SkeletonGraphic";
@@ -34,6 +35,7 @@ namespace PetDemo.UI.Battle
         public const string PanelObjectName = "InvasionBattleModal_2";
         public const string TopAreaName = "TopArea";
         public const string MiddleAreaName = "MiddleArea";
+        public const string DetailAttrButtonName = "DetailAttrButton";
         public const string BottomAreaName = "BottomArea";
         public const string PlayerSlotName = "PlayerSlot";
         public const string EventScrollName = "EventScroll";
@@ -43,6 +45,7 @@ namespace PetDemo.UI.Battle
         private const float CharacterScale = 0.53f;
         private static readonly Vector2 NextDayButtonSize = new Vector2(360f, 140f);
         private static readonly Vector2 CloseButtonSize = new Vector2(96f, 96f);
+        private static readonly Vector2 DetailAttrButtonSize = new Vector2(96f, 96f);
 
         private static readonly Color ButtonGreyTint = new Color(0.55f, 0.55f, 0.55f, 1f);
         private const float RevealSegmentInterval = 0.15f;
@@ -63,6 +66,7 @@ namespace PetDemo.UI.Battle
         [SerializeField] private Text dayLabel;
         [SerializeField] private Button nextDayButton;
         [SerializeField] private Button closeButton;
+        [SerializeField] private Button detailAttrButton;
 
         private RectTransform panelRt;
         private RectTransform canvasRectCache;
@@ -78,6 +82,7 @@ namespace PetDemo.UI.Battle
 
         private RoleStats runStats;
         private bool runStatsDirty;
+        private readonly Dictionary<string, int> runEnhanceBonuses = new Dictionary<string, int>();
 
         private Image nextDayButtonImage;
         private Text nextDayLabel;
@@ -203,8 +208,10 @@ namespace PetDemo.UI.Battle
 
             runStats = CloneRoleStats(service != null ? service.GetRoleStats() : null);
             runStatsDirty = false;
+            InitRunEnhanceBonusesFromStats();
             RefreshRoleStats();
             EnsureRoleStatsSubscription();
+            EnsureDetailAttrButton();
 
             ClearEventLog();
             SetNextDayButtonMode(NextDayButtonMode.Normal);
@@ -231,6 +238,7 @@ namespace PetDemo.UI.Battle
             }
             SkillPickThreeModalView.HideIfAny();
             SlotMachineModalView.HideIfAny();
+            DetailAttributeModalView.HideIfAny();
             gameObject.SetActive(false);
         }
 
@@ -266,6 +274,11 @@ namespace PetDemo.UI.Battle
             {
                 closeButton.onClick.RemoveAllListeners();
                 closeButton.onClick.AddListener(OnCloseClicked);
+            }
+            if (detailAttrButton != null)
+            {
+                detailAttrButton.onClick.RemoveAllListeners();
+                detailAttrButton.onClick.AddListener(OnDetailAttrClicked);
             }
             wired = true;
         }
@@ -533,7 +546,18 @@ namespace PetDemo.UI.Battle
                 maxHp = src.maxHp,
                 currentHp = src.currentHp,
                 agility = src.agility,
+                criticalHit = src.criticalHit,
+                combo = src.combo,
+                counterattack = src.counterattack,
+                stun = src.stun,
+                evasion = src.evasion,
+                lifeSteal = src.lifeSteal,
             };
+        }
+
+        private void InitRunEnhanceBonusesFromStats()
+        {
+            AttrEnhanceConfigCatalog.SeedHexBonusesFromRole(runStats, runEnhanceBonuses);
         }
 
         // ============================================================
@@ -601,7 +625,12 @@ namespace PetDemo.UI.Battle
             // 战斗期间灰置底部按钮，避免重复触发。
             SetNextDayButtonMode(NextDayButtonMode.Revealing);
 
-            embeddedBattle = InvasionBattleView.BuildEmbedded(topArea, session, enemyPrefab, OnEmbeddedBattleEnded);
+            EnsureFieldsFromHierarchy();
+            if (panelRt == null)
+                panelRt = transform as RectTransform;
+
+            embeddedBattle = InvasionBattleView.BuildEmbedded(
+                topArea, session, enemyPrefab, OnEmbeddedBattleEnded, panelRt);
             if (embeddedBattle == null)
             {
                 UnityEngine.Debug.LogWarning("[InvasionBattleModal2View] 嵌入战斗构建失败，恢复常态。");
@@ -621,8 +650,16 @@ namespace PetDemo.UI.Battle
 
             if (playerWon)
             {
-                // 胜：恢复常态，玩家可继续「下一天」。
-                SetNextDayButtonMode(NextDayButtonMode.Normal);
+                // SPEC §12.11.10 (v3.181)：BOSS 胜 → 关闭探索界面并返回关卡选择；小怪胜 → 继续「下一天」。
+                if (pendingBattleKind == InvasionEventRewardKind.BattleBoss)
+                {
+                    Hide();
+                    MainStoryLineScreenView.ShowLevelSelectPanel();
+                }
+                else
+                {
+                    SetNextDayButtonMode(NextDayButtonMode.Normal);
+                }
             }
             else
             {
@@ -745,40 +782,37 @@ namespace PetDemo.UI.Battle
                 SetNextDayButtonMode(NextDayButtonMode.Normal);
                 return;
             }
-            slot.Show(rc, attrEnhanceCatalog, OnSlotComplete);
+            var flyTargetRt = detailAttrButton != null
+                ? detailAttrButton.transform as RectTransform
+                : null;
+            slot.Show(rc, attrEnhanceCatalog, OnSlotComplete, flyTargetRt);
         }
 
         private void OnSlotComplete(List<SlotMachineResultItem> results)
         {
             if (results != null && results.Count > 0)
             {
-                var sb = new System.Text.StringBuilder();
-                sb.Append("摇奖结果：");
-                bool any = false;
+                var summary = SlotMachineResultText.FormatResultSummary(results);
+                bool anyApplied = false;
                 for (int i = 0; i < results.Count; i++)
                 {
                     var item = results[i];
                     if (item == null || item.cfg == null || item.gain == 0)
                         continue;
-                    bool applied = ApplyFlatStat(item.cfg.attrId, item.gain);
-                    if (!applied)
-                        continue;
-                    if (any)
-                        sb.Append("，");
-                    sb.Append(item.cfg.attrName).Append(" +").Append(item.gain);
-                    any = true;
+                    if (ApplyFlatStat(item.cfg.attrId, item.gain))
+                        anyApplied = true;
                 }
 
-                if (any)
+                if (anyApplied)
                 {
                     runStatsDirty = true;
                     RefreshRoleStats();
-                    sb.Append("。");
-                    AppendEventCard(sb.ToString(), InvasionEventConfigCatalog.MinBackgroundIndex);
+                    AppendEventCard(summary, InvasionEventConfigCatalog.MinBackgroundIndex);
                 }
                 else
                 {
-                    AppendEventCard("摇奖结束，未获得可用属性。", InvasionEventConfigCatalog.MinBackgroundIndex);
+                    AppendEventCard(SlotMachineResultText.EmptyFallback,
+                        InvasionEventConfigCatalog.MinBackgroundIndex);
                 }
                 ScrollEventLogToBottom();
             }
@@ -786,34 +820,127 @@ namespace PetDemo.UI.Battle
             SetNextDayButtonMode(NextDayButtonMode.Normal);
         }
 
-        /// <summary>SPEC §12.12.3：把老虎机固定增加值累加到局内属性副本 runStats（映射 RoleStats 字段）。</summary>
+        /// <summary>SPEC §12.12.3 / §12.13：把老虎机固定增加值累加到局内属性副本（Life/Attack→runStats，六宫项→runEnhanceBonuses）。</summary>
         private bool ApplyFlatStat(string attrId, int delta)
         {
-            if (runStats == null || string.IsNullOrEmpty(attrId) || delta == 0)
+            if (string.IsNullOrEmpty(attrId) || delta == 0)
                 return false;
 
-            switch (attrId.Trim().ToLowerInvariant())
+            if (!AttrEnhanceConfigCatalog.TryNormalizeAttrId(attrId, out string canonical))
             {
-                case "hp":
-                case "hp2":
+                UnityEngine.Debug.LogWarning(
+                    "[InvasionBattleModal2View] 属性增强项 attrId 未映射，仅展示不加值：" + attrId);
+                return false;
+            }
+
+            switch (canonical)
+            {
+                case AttrEnhanceConfigCatalog.AttrLife:
+                    if (runStats == null)
+                        return false;
                     runStats.maxHp = Mathf.Max(1, runStats.maxHp + delta);
                     runStats.currentHp = Mathf.Clamp(runStats.currentHp + delta, 0, runStats.maxHp);
                     return true;
-                case "atk":
-                case "atk2":
+                case AttrEnhanceConfigCatalog.AttrAttack:
+                    if (runStats == null)
+                        return false;
                     runStats.atk = Mathf.Max(0, runStats.atk + delta);
                     return true;
                 case "def":
+                    if (runStats == null)
+                        return false;
                     runStats.def = Mathf.Max(0, runStats.def + delta);
                     return true;
                 case "speed":
+                    if (runStats == null)
+                        return false;
                     runStats.agility = Mathf.Max(0, runStats.agility + delta);
                     return true;
                 default:
-                    UnityEngine.Debug.LogWarning(
-                        "[InvasionBattleModal2View] 属性增强项 attrId 未映射到 RoleStats 字段，仅展示不加值：" + attrId);
-                    return false;
+                    if (!AttrEnhanceConfigCatalog.IsHexRadarAttr(canonical))
+                        return false;
+                    if (!runEnhanceBonuses.TryGetValue(canonical, out int cur))
+                        cur = 0;
+                    runEnhanceBonuses[canonical] = Mathf.Max(0, cur + delta);
+                    return true;
             }
+        }
+
+        /// <summary>SPEC §12.13：读取六宫属性局内累加值（局外初始 0）。</summary>
+        public int GetRunEnhanceValue(string attrId)
+        {
+            if (!AttrEnhanceConfigCatalog.TryNormalizeAttrId(attrId, out string canonical))
+                return 0;
+            return runEnhanceBonuses.TryGetValue(canonical, out int v) ? v : 0;
+        }
+
+        public IReadOnlyDictionary<string, int> GetRunEnhanceBonuses() => runEnhanceBonuses;
+
+        private void OnDetailAttrClicked()
+        {
+            if (canvasRectCache == null)
+                canvasRectCache = panelRt != null ? panelRt.parent as RectTransform : null;
+            var modal = DetailAttributeModalView.GetOrCreate(canvasRectCache);
+            if (modal == null)
+                return;
+            modal.Show(runStats, runEnhanceBonuses);
+        }
+
+        /// <summary>SPEC §12.13：兼容缺 DetailAttrButton 的旧预制体，运行时补建。</summary>
+        private void EnsureDetailAttrButton()
+        {
+            if (detailAttrButton != null)
+                return;
+
+            var midArea = FindDescendantRect(MiddleAreaName);
+            if (midArea == null)
+                return;
+
+            detailAttrButton = CreateDetailAttrButton(midArea);
+            if (detailAttrButton != null && wired)
+            {
+                detailAttrButton.onClick.RemoveAllListeners();
+                detailAttrButton.onClick.AddListener(OnDetailAttrClicked);
+            }
+        }
+
+        private static Button CreateDetailAttrButton(RectTransform midArea)
+        {
+            var rt = BottomNavAttachedScreenLayout.CreateChildRect(
+                midArea, DetailAttrButtonName,
+                new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                new Vector2(-60f, 0f), DetailAttrButtonSize);
+
+            var img = rt.gameObject.AddComponent<Image>();
+            img.preserveAspect = true;
+            img.raycastTarget = true;
+            var sprite = Resources.Load<Sprite>(ResDetailAttrButton);
+            if (sprite != null)
+            {
+                img.sprite = sprite;
+                img.color = Color.white;
+            }
+            else
+            {
+                img.color = new Color(0.5f, 0.55f, 0.7f, 1f);
+            }
+
+            var btn = rt.gameObject.AddComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+            btn.targetGraphic = img;
+
+            var labelRt = BottomNavAttachedScreenLayout.CreateChildRect(
+                rt, "Label", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(0f, -52f), new Vector2(120f, 36f));
+            var txt = labelRt.gameObject.AddComponent<Text>();
+            txt.text = "详细属性";
+            txt.font = FarmGridView.LoadBuiltinFont();
+            txt.fontSize = 22;
+            txt.alignment = TextAnchor.MiddleCenter;
+            txt.color = Color.white;
+            txt.raycastTarget = false;
+
+            return btn;
         }
 
         private void AddSkillIconToStrip(BattleSkillConfig skill)
@@ -1052,6 +1179,7 @@ namespace PetDemo.UI.Battle
             if (runStatsDirty)
                 return;
             runStats = CloneRoleStats(service != null ? service.GetRoleStats() : null);
+            InitRunEnhanceBonusesFromStats();
             RefreshRoleStats();
         }
 
@@ -1262,6 +1390,8 @@ namespace PetDemo.UI.Battle
                 nextDayButton = FindDescendantButton("NextDayButton");
             if (closeButton == null)
                 closeButton = FindDescendantButton("CloseButton");
+            if (detailAttrButton == null)
+                detailAttrButton = FindDescendantButton(DetailAttrButtonName);
         }
 
         private RectTransform FindDescendantRect(string nodeName)
@@ -1327,6 +1457,7 @@ namespace PetDemo.UI.Battle
                 "--", 40, TextAnchor.MiddleCenter);
             view.speedText = CreateAreaText(midArea, "SpeedText", new Vector2(200f, -40f), new Vector2(400f, 60f),
                 "--", 40, TextAnchor.MiddleCenter);
+            view.detailAttrButton = CreateDetailAttrButton(midArea);
 
             // 下部：事件日志 + 天数 + 下一天按钮
             var bottomArea = CreateArea(rootRt, BottomAreaName, new Vector2(0f, 0f), new Vector2(1f, 0.30f));

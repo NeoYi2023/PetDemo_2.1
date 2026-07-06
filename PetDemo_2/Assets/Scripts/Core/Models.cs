@@ -349,10 +349,10 @@ namespace PetDemo.Core
     {
         public string displayName = "Role";
 
-        public int atk = 9;
+        public int atk = 12;
         public int def = 5;
-        public int maxHp = 7;
-        public int currentHp = 7;
+        public int maxHp = 25;
+        public int currentHp = 25;
         public int agility = 2;
 
         // SPEC §5 / §9.8.12 (v3.40)：体力字段。默认 0，上限 100；
@@ -370,6 +370,14 @@ namespace PetDemo.Core
         public float comboResist;
         public float counterResist;
         public float blockResist;
+
+        // SPEC §5 / §12.13 (v3.180)：六宫属性局外初始值（详细属性弹窗；与 Tier-2 触发率独立）。
+        public int criticalHit = 3;
+        public int combo = 6;
+        public int counterattack = 12;
+        public int stun = 2;
+        public int evasion = 4;
+        public int lifeSteal = 8;
 
         public static RoleStats CreateDefault()
         {

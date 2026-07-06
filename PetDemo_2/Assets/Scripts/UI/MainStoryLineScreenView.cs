@@ -59,6 +59,8 @@ namespace PetDemo.UI
         private FoodWarehouseModalView foodWarehouseModal;
         private LevelSelectScreenPanelView levelSelectPanel;
 
+        private static MainStoryLineScreenView instance;
+
         public static MainStoryLineScreenView BuildInto(
             RectTransform canvasRect,
             BottomNavBarView barView,
@@ -181,7 +183,35 @@ namespace PetDemo.UI
             root.gameObject.SetActive(false);
             barView.OnOpenChanged += view.OnBottomNavOpenChanged;
             view.OnBottomNavOpenChanged(barView.OpenIndex, barView.OpenKey);
+            instance = view;
             return view;
+        }
+
+        /// <summary>
+        /// SPEC §12.11.10 (v3.181)：嵌入 BOSS 战胜利后，从 <see cref="InvasionBattleModal2View"/> 返回关卡选择层。
+        /// </summary>
+        public static void ShowLevelSelectPanel()
+        {
+            if (instance == null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[MainStoryLineScreenView] ShowLevelSelectPanel: 主线层未初始化，无法打开关卡选择。");
+                return;
+            }
+            instance.EnsureLevelSelectPanelShown();
+        }
+
+        private void EnsureLevelSelectPanelShown()
+        {
+            if (canvasRectCache == null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[MainStoryLineScreenView] canvasRectCache 为空，无法打开关卡选择层。");
+                return;
+            }
+            if (levelSelectPanel == null)
+                levelSelectPanel = LevelSelectScreenPanelView.BuildInto(canvasRectCache, bottomNav, this);
+            levelSelectPanel?.Show();
         }
 
         private void OnBottomNavOpenChanged(int index, string key)
@@ -491,6 +521,8 @@ namespace PetDemo.UI
 
         private void OnDestroy()
         {
+            if (instance == this)
+                instance = null;
             if (bottomNav != null)
                 bottomNav.OnOpenChanged -= OnBottomNavOpenChanged;
             if (subscribedWarehouseHub != null)
