@@ -2956,28 +2956,31 @@ flowchart TD
 
 #### 9.14.10 底部页签栏 / Bottom Tab Bar (v3.139)
 
-**中文：** 创角界面底部新增**常驻页签栏 `BottomTabBar`**（锚定屏幕底部、占满宽度、固定高度），**只要处于创角界面即在三态（加号/缺好感/主角）下一直显示**。页签栏含 **4 个等宽互斥页签**（左→右，沿用 §9.10 `RoleGrowthTabBar` 等宽槽位范式，`TabSlotWidth = 屏宽 / 4`）：
+**中文：** 创角界面底部新增**常驻页签栏 `BottomTabBar`**（锚定屏幕底部、占满宽度、固定高度），**只要处于创角界面即在三态（加号/缺好感/主角）下一直显示**。页签栏含 **5 个等宽互斥页签**（左→右，沿用 §9.10 `RoleGrowthTabBar` 等宽槽位范式，`TabSlotWidth = 屏宽 / 5`；水平内边距 `±5`）：
 
 | 索引 | 节点名 | 文案 | 点击行为 |
 |------|--------|------|----------|
 | 0 | `IntimacyTab` | 亲密度 | 切换显示 `IntimacyTopPanel` 全量好友列表（见 §9.14.8 第 1 点）于**内容区**；再次点击或切到他页签则收起 |
 | 1 | `DressUpButton` | 装扮 | 切换显示装扮界面 `DressUpPanel`（§9.14.9）**分屏占满上40%+下60%**并隐藏 `DisplayArea`（见 §9.14.9 v3.144）；再次点击或切到他页签则收起并恢复 `DisplayArea` |
-| 2 | `EnterHomeButton` | 进入家园 | 切换显示 `EnterHomeTopPanel` 固定 3 项跳转列表（见下）于**内容区**；再次点击或切到他页签则收起 |
-| 3 | `RoleAddFavorButton` | 加好感 | 切换显示 `AirUI/ZhuanQian` 赚钱介绍图（见 §9.14.8 第 4 点）于**内容区**；再次点击或切到他页签则收起 |
+| 2 | `HomeTabButton` | 家园 | **占位**（v3.184）：切换显示 `HomeTabPlaceholderPanel` 空面板于**内容区**；图标 `AirUI/bottom_bar_c_1`（Closed）/ `bottom_bar_c_2`（Open）；再次点击或切到他页签则收起 |
+| 3 | `EnterHomeButton` | 进入家园 | **自 v3.184 起**：在创角界面内**嵌入** `GongHuiScreenView`（等价主 HUD `BottomNavSlot_GongHui`），全屏区域止于 `BottomTabBar` 之上并**隐藏 `DisplayArea`**；**不**调用 `OnNavigateToBottomNav` / `RestoreFromOverlay`；**底栏仍用创角 `BottomTabBar`**，不显示 `MainHudLayerRoot` 的 `BottomNavBar`；再次点击或切到他页签则收起 |
+| 4 | `RoleAddFavorButton` | 加好感 | 切换显示 `AirUI/ZhuanQian` 赚钱介绍图（见 §9.14.8 第 4 点）于**内容区**；再次点击或切到他页签则收起 |
 
 **中文（自 v3.146 起）：** 每次 `CharacterCreationScreenView.Show()`（选档后首次进入、TopDingBar / APP 热区 / 狼宝等任意路径再次打开）**默认激活「亲密度」页签**（索引 0）：`SetActiveTab(0)` 并 `ShowIntimacyPanel()`，不再以无激活页签（`activeTabIndex = -1`）作为初始态。  
 **English (since v3.146):** Every `CharacterCreationScreenView.Show()` defaults to the **亲密度 / Intimacy** tab (index 0) via `SetActiveTab(0)` + `ShowIntimacyPanel()`, instead of starting with no active tab.
 
-**中文（自 v3.142 起，非全屏内容区改造）：** 4 个页签**统一为内容型页签**：同一时刻至多一个页签处于激活高亮态，点击切换在**内容区**展示各自内容，再次点击当前页签或切到他页签则收起/切换。关键约束：
+**中文（自 v3.142 起，非全屏内容区改造）：** 5 个页签**统一为内容型页签**：同一时刻至多一个页签处于激活高亮态，点击切换在**内容区**展示各自内容，再次点击当前页签或切到他页签则收起/切换。关键约束：
 
-1. **非全屏内容区**：亲密度 / 进入家园 / 加好感 3 个页签内容显示在屏幕**下方 60%** 的内容区（`anchorMax.y = 0.6`，底边位于 `BottomTabBar` 之上 `offsetMin.y = BottomTabBarHeight`）；屏幕**上方 40% 持续显示 `DisplayArea`**。**装扮页签为例外**（§9.14.9 v3.144）：打开时隐藏 `DisplayArea`，`DressUpPanel.TopHalf` / `BottomHalf` 分别占屏上 40% 与屏下 60%。
+1. **非全屏内容区**：亲密度 / 家园占位 / 加好感 3 个页签内容显示在屏幕**下方 60%** 的内容区（`anchorMax.y = 0.6`，底边位于 `BottomTabBar` 之上 `offsetMin.y = BottomTabBarHeight`）；屏幕**上方 40% 持续显示 `DisplayArea`**。**装扮页签与进入家园（公会嵌入）为例外**（§9.14.9 v3.144 / v3.184）：打开时隐藏 `DisplayArea`；装扮 `DressUpPanel.TopHalf` / `BottomHalf` 分别占屏上 40% 与屏下 60%；公会嵌入 `GongHuiEmbedMount` 全屏拉伸且 `offsetMin.y = BottomTabBarHeight`。
 2. **底栏常驻**：无论切换到哪个页签，`BottomTabBar` 始终显示且不被内容区覆盖（内容区与底栏不重叠）。
 3. **背景图底部对齐**：各页签内容的背景图统一采用**底部对齐**模式（水平拉伸、`pivot.y=0`、贴内容区底边、`preserveAspect`）。
 4. **无关闭按钮**：删除「装扮」`DressUpPanel` 与「加好感」`ZhuanQian` 原右上角 `CloseButton`；二者由全屏覆盖层改为**嵌入内容区**的内容型页签，靠页签互斥/再次点击收起，不再依赖独立关闭按钮（`DressUpPanel` 亦不再使用全屏 `Dim` 关闭）。
 
-**中文（自 v3.159 起，页签双态图标）：** 每个页签按钮（`IntimacyTab` / `DressUpButton` / `EnterHomeButton` / `RoleAddFavorButton`）除 `Label` 外含 **`IconOpen`** / **`IconClosed`** 两个 `Image` 子节点；**打开态 sprite 由预制体作者挂载**，代码不在 Resources 中硬编码各页签图标路径。`CharacterCreationScreenView.SetTabHighlight(button, active)` **仅切换 `IconOpen`/`IconClosed` 显隐**，**不再修改根 `Image.color`**（开关态背景均不变色）。`EnsureBottomTabButton` 在 `WireOnce` 时启用透明命中区（根 `Image` 可禁用/透明）、`Button.transition = None`，并关闭图标 `raycastTarget` 以免挡点击。子节点缺失时静默跳过，兼容旧 prefab。
+**中文（自 v3.159 起，页签双态图标）：** 每个页签按钮（`IntimacyTab` / `DressUpButton` / `HomeTabButton` / `EnterHomeButton` / `RoleAddFavorButton`）除 `Label` 外含 **`IconOpen`** / **`IconClosed`** 两个 `Image` 子节点；**打开态 sprite 由预制体作者挂载**（`HomeTabButton` 例外：`CharacterCreationScreenLayout` 构建时加载 `AirUI/bottom_bar_c_1` / `bottom_bar_c_2`）。`CharacterCreationScreenView.SetTabHighlight(button, active)` **仅切换 `IconOpen`/`IconClosed` 显隐**，**不再修改根 `Image.color`**（开关态背景均不变色）。`EnsureBottomTabButton` 在 `WireOnce` 时启用透明命中区（根 `Image` 可禁用/透明）、`Button.transition = None`，并关闭图标 `raycastTarget` 以免挡点击。子节点缺失时静默跳过，兼容旧 prefab。
 
-**中文（自 v3.141）：`EnterHomeTopPanel` 跳转列表** — 结构镜像 `IntimacyTopPanel`（`EnterHomeScrollView` / `Viewport` / `EnterHomeContent` / `EnterHomeNavCellTemplate`），固定 **3 条**（非动态数据）：
+**中文（自 v3.184 起，公会嵌入创角）：** `EnterHomeButton` 通过 `GongHuiScreenView.EnterCharacterCreationEmbed(GongHuiEmbedMount, BottomTabBarHeight)` 复用主 HUD 已构建的 `builtGongHuiScreen` 单例；嵌入期间 `OnBottomNavOpenChanged` 忽略主底栏事件；`ExitCharacterCreationEmbed` 在切页签 / `Hide()` / 关闭创角时调用。`AirMainMenuRuntimeBuilder` 在 `builtGongHuiScreen` 创建后调用 `CharacterCreationScreenView.BindEmbeddedGongHui(builtGongHuiScreen)`。
+
+**中文（自 v3.141，保留供其它入口）：`EnterHomeTopPanel` 跳转列表** — 结构镜像 `IntimacyTopPanel`（`EnterHomeScrollView` / `Viewport` / `EnterHomeContent` / `EnterHomeNavCellTemplate`），固定 **6 条**（非动态数据）；**不再由 `EnterHomeButton` 触发**，仍供任务列表「前往」等经 `OnNavigateToBottomNav` 跳转：
 
 | navKey | 显示名 | 对应底栏槽位 | 图标资源（缺图回退纯色） |
 |--------|--------|--------------|--------------------------|
@@ -2993,17 +2996,18 @@ flowchart TD
 flowchart TD
     A["创角界面 三态常驻底栏 上40%常显DisplayArea"] --> T0[亲密度页签]
     A --> T1[装扮页签]
-    A --> T2[进入家园页签]
-    A --> T3[加好感页签]
+    A --> T2[家园页签 占位]
+    A --> T3[进入家园页签]
+    A --> T4[加好感页签]
     T0 -->|"内容区(下60%)"| L[显示好友列表]
     L -->|每行右侧| R0[去找Ta 占位]
     L --> R1[去Ta家 OnVisitFriendHome]
     L --> R2[发消息 占位]
     R1 --> H[FriendHomeScreenView.ShowFor]
     T1 -->|"隐藏DisplayArea 上40%TopHalf+下60%BottomHalf"| D[DressUpPanel 分屏 无关闭按钮]
-    T2 -->|"内容区(下60%)"| EH[显示 EnterHomeTopPanel 3 项跳转列表]
-    EH -->|跳转 GongHui/JiaYuan/ZhuXian| NAV[OnNavigateToBottomNav RestoreFromOverlay]
-    T3 -->|"内容区(下60%) 底部对齐"| Z[嵌入 ZhuanQian 无关闭按钮]
+    T2 -->|"内容区(下60%)"| HP[HomeTabPlaceholderPanel 占位]
+    T3 -->|"嵌入 GongHuiEmbedMount 保留BottomTabBar"| GH[GongHuiScreenView 公会场景]
+    T4 -->|"内容区(下60%) 底部对齐"| Z[嵌入 ZhuanQian 无关闭按钮]
 ```
 
 ---
@@ -3152,6 +3156,7 @@ function executeUnifiedAction():
 | 3.178 | 2026-07-07 | **公会镜头即时跟随（修复 scale 滞后）**：§9.8.9.6——`JiaYuanViewportFollowController` 计算跟随位移时将目标在 `worldContent` 局部偏移乘以 `localScale` 再写入 `anchoredPosition`（修复 `WorldContentLocalScale=1.7` 时镜头跟不上角色）；`GuildPlayerController` 位移后同帧 `SnapToTarget`。 / **Guild instant camera follow (scale fix):** §9.8.9.6 — viewport follow multiplies target local offset by `localScale` before setting `anchoredPosition`; same-frame snap after player move. |
 | 3.177 | 2026-07-06 | **`InvasionBattleModal_2` 详细属性弹窗（`DetailAttributeModal`）**：新增 §12.13——`MiddleArea` 最右侧 `DetailAttrButton`（`AirUI/JiNengLiebiao`）打开独立预制体 `DetailAttributeModal`；全屏纯黑半透明遮罩；上/中/下三区（角色待机、`LiuGong_1` 底 + 与主界面一致 HP/攻击/速度、六宫雷达图）；六宫 6 项局外初始 0、仅累加本局老虎机增益至 `runEnhanceBonuses`；动态比例绘制多边形。修订 §12.12.3 / §B.19 `attrId` 映射（`Life`/`Attack` + 六宫项）。 / **`InvasionBattleModal_2` detail-attribute modal:** new §12.13 — `DetailAttrButton` on `MiddleArea` opens `DetailAttributeModal` prefab; semi-transparent black dim; top/middle/bottom (idle character, `LiuGong_1` + same HP/atk/speed as main, hex radar); hex attrs start at 0 outside run, slot gains in `runEnhanceBonuses`; dynamic-scale polygon. §12.12.3 / §B.19 `attrId` mapping updated. |
 | 3.176 | 2026-07-06 | **嵌入结算 `ResultDialog` 文本排版**：§12.11.10.1——`EmbeddedResultOverlay/ResultDialog` 内 `ResultText` `PosY=175`、`fontSize=64`、`FontStyle=Bold`；`HintText` `PosY=-340`、`fontSize=40`、`FontStyle=Bold`；由 `InvasionBattleView.ApplyEmbeddedResultDialogTextLayout` 于嵌入实例化后运行时覆写，§12.3 全屏 prefab 默认不变。 / **Embedded result dialog text layout:** §12.11.10.1 — `ResultText` `PosY=175`, `fontSize=64`, bold; `HintText` `PosY=-340`, `fontSize=40`, bold; applied at runtime via `ApplyEmbeddedResultDialogTextLayout`; §12.3 fullscreen prefab defaults unchanged. |
+| 3.184 | 2026-07-08 | **创角底栏五页签 + 公会内嵌**：§9.14.10 底栏由 4 等宽扩为 **5 等宽**（`TabSlotWidth = 屏宽/5`）；`DressUpButton` 与 `EnterHomeButton` 之间新增 `HomeTabButton`（家园，图标 `AirUI/bottom_bar_c_1`/`bottom_bar_c_2`，本期占位 `HomeTabPlaceholderPanel`）；`EnterHomeButton` 改为在创角界面内嵌入 `GongHuiScreenView`（`EnterCharacterCreationEmbed`/`ExitCharacterCreationEmbed`），保留创角 `BottomTabBar`、不走 `OnNavigateToBottomNav`；`EnterHomeTopPanel` 保留供任务列表等其它入口；`AirMainMenuRuntimeBuilder.BindEmbeddedGongHui`；需重生成 `CharacterCreationScreen.prefab`。 / **Character-creation 5-tab bar + embedded guild:** §9.14.10 expands to **5 equal tabs**; new `HomeTabButton` (家园, `bottom_bar_c_1/2`, placeholder panel) between dress-up and enter-home; `EnterHomeButton` embeds `GongHuiScreenView` inside character creation while keeping `BottomTabBar`; `EnterHomeTopPanel` kept for other nav flows; regen prefab. |
 | 3.176 | 2026-07-07 | **公会背景切块扩为 3×3**：§9.8.9 背景拼图由 2×2（`2086×3000`）扩为 **3×3**（单块 `1043×1500` → 世界 **`3129×4500`**）；资源命名仍为 `Resources/AirUI/GongHui_0_1_r{row}_c{col}`（`row/col` 均 `0..2`），`GongHuiBackgroundBuilder` 自动扫描矩形网格，`GongHuiScreenView.Awake` 重拼切块并更新 `GongHuiWorldContent.sizeDelta`。 / **Guild background expanded to 3×3 tiles:** §9.8.9 tiled art grows from 2×2 (`2086×3000`) to **3×3** (`1043×1500` per tile → **`3129×4500`** world); same `GongHui_0_1_r{row}_c{col}` naming (`row/col` `0..2`); `GongHuiBackgroundBuilder` auto-scans the rectangular grid; `GongHuiScreenView.Awake` rebuilds tiles and updates world size. |
 | 3.175 | 2026-07-06 | **`SlotMachineModal` Reel 真实图标与 Label 布局**：§12.12.1——`IconLayer/Reel{n}` 根 `Image` 从 `attr_enhance.icon` 加载 `Resources` Sprite（`Color.white`、`preserveAspect=true`；裸文件名自动回退 `AirUI/{icon}`）；子 `Label` 展示 `attrName`，拉伸锚点 **Top=78、Bottom=-78**（`offsetMax.y=-78`、`offsetMin.y=-78`）。§12.12.4 属性项图标由占位改为 `Resources/AirUI/{icon}`；§B.19.1 `icon` 已填入图标名并记录加载回退规则。 / **`SlotMachineModal` reel real icons & label layout:** §12.12.1 — `IconLayer/Reel{n}` root `Image` loads `attr_enhance.icon` via `Resources` (`Color.white`, `preserveAspect=true`; bare filenames fall back to `AirUI/{icon}`); child `Label` shows `attrName` with stretch **Top=78, Bottom=-78** (`offsetMax.y=-78`, `offsetMin.y=-78`). §12.12.4 item icons no longer placeholder; §B.19.1 documents icon names and load fallback. |
 | 3.174 | 2026-07-06 | **`InvasionBattleModal_2` 嵌入战斗结算弹窗提层级与全屏遮罩**：§12.11.10 新增「嵌入结算弹窗层级（Embedded ResultDialog Overlay）」——嵌入战斗 `ShowResultDialog` 时于 `InvasionBattleModal_2` 根 `panelRt` 下创建 `EmbeddedResultOverlay`（显示时 `SetAsLastSibling` 置顶），其下全屏 `DimBackdrop` `RGBA(0,0,0,0.72)` + 居中 `ResultDialog`（`856×883`，`localScale=(1,1,1)`）；`BuildEmbedded` 增可选参数 `resultOverlayHost`；§12.3 全屏战斗结算弹窗规格不变。 / **`InvasionBattleModal_2` embedded battle result dialog layering:** §12.11.10 adds Embedded ResultDialog Overlay — on embedded `ShowResultDialog`, create `EmbeddedResultOverlay` under the modal root (`SetAsLastSibling` on show), with full-screen `DimBackdrop` `RGBA(0,0,0,0.72)` and centered `ResultDialog` (`856×883`, `localScale=(1,1,1)`); `BuildEmbedded` gains optional `resultOverlayHost`; §12.3 fullscreen result dialog unchanged. |
