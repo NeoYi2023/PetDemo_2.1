@@ -1,6 +1,6 @@
-// SPEC §9.8.9 (v3.123；背景分块 v3.133)：公会场景层 — 预制体优先（Resources/Prefabs/Farm/GongHuiScreenPanel）
+// SPEC §9.8.9 (v3.123；背景分块 v3.133；3×3 v3.176；全景 v3.183)：公会场景层 — 预制体优先（Resources/Prefabs/Farm/GongHuiScreenPanel）
 // + 运行时回退；大图世界 + 视口跟随（复用 JiaYuanViewportFollowController）、透明摇杆移动主角、
-// 碰撞阻挡、建筑/NPC 接近名牌；OpenKey == "GongHui" 时显示，否则隐藏。
+// 碰撞阻挡、建筑/NPC/响应区接近名牌、右下角全景切换；OpenKey == "GongHui" 时显示，否则隐藏。
 using System;
 using UnityEngine;
 using UnityEngine.UI;
@@ -24,13 +24,16 @@ namespace PetDemo.UI
         [SerializeField] private RectTransform obstaclesRootRt;
         [SerializeField] private RectTransform buildingsRootRt;
         [SerializeField] private RectTransform npcsRootRt;
+        [SerializeField] private RectTransform responseAreasRootRt;
         [SerializeField] private VirtualJoystickView joystick;
+        [SerializeField] private Button panoramaButton;
 
         private BottomNavBarView bottomNav;
         private TopDingBarView topDingBar;
         private JiaYuanViewportFollowController followController;
         private GuildPlayerController playerController;
         private GuildProximityController proximityController;
+        private GuildPanoramaController panoramaController;
         private GuildNpcFollowController npcFollowController;
         private RectTransform playerRt;
         private bool sceneSpawned;
@@ -38,6 +41,8 @@ namespace PetDemo.UI
         private void Awake()
         {
             EnsureTiledBackground();
+            if (panoramaButton == null)
+                BuildPanoramaButton((RectTransform)transform, this);
         }
 
         /// <summary>v3.133：预制体若仍挂旧单图 Background，Awake 时重拼切块。</summary>
@@ -111,7 +116,8 @@ namespace PetDemo.UI
             RectTransform obstaclesRoot,
             RectTransform buildingsRoot,
             RectTransform npcsRoot,
-            VirtualJoystickView joystickView)
+            VirtualJoystickView joystickView,
+            RectTransform responseAreasRoot = null)
         {
             viewportRt = viewport;
             worldContentRt = worldContent;
@@ -119,6 +125,7 @@ namespace PetDemo.UI
             obstaclesRootRt = obstaclesRoot;
             buildingsRootRt = buildingsRoot;
             npcsRootRt = npcsRoot;
+            responseAreasRootRt = responseAreasRoot;
             joystick = joystickView;
         }
 
@@ -150,6 +157,7 @@ namespace PetDemo.UI
             }
             else
             {
+                panoramaController?.ExitPanoramaIfActive();
                 if (followController != null)
                     followController.SetFollowEnabled(false);
                 gameObject.SetActive(false);
@@ -186,6 +194,7 @@ namespace PetDemo.UI
             playerController.Initialize(playerRt, worldContentRt, joystick, playerSkeleton, obstacles);
 
             followController.SetFollowTarget(playerRt);
+            playerController.BindViewportFollowSync(followController.ApplyPlayerContentDelta);
 
             // NPC：每个标记点位生成对应骨骼 Spine；互动按钮接跟随控制器（SPEC §9.8.9 v3.124 / §9.8.9.9 v3.156）。
             npcFollowController = gameObject.AddComponent<GuildNpcFollowController>();
@@ -214,10 +223,55 @@ namespace PetDemo.UI
             var buildings = buildingsRootRt != null
                 ? buildingsRootRt.GetComponentsInChildren<GuildBuildingMarker>(true)
                 : Array.Empty<GuildBuildingMarker>();
+
+            var responseAreas = responseAreasRootRt != null
+                ? responseAreasRootRt.GetComponentsInChildren<GuildResponseAreaMarker>(true)
+                : Array.Empty<GuildResponseAreaMarker>();
+            for (int i = 0; i < responseAreas.Length; i++)
+            {
+                if (responseAreas[i] == null)
+                    continue;
+                responseAreas[i].Entered += HandleResponseAreaEntered;
+            }
+
             proximityController = gameObject.AddComponent<GuildProximityController>();
-            proximityController.Initialize(playerRt, worldContentRt, buildings, npcs);
+            proximityController.Initialize(playerRt, worldContentRt, buildings, npcs, responseAreas);
+
+            panoramaController = gameObject.AddComponent<GuildPanoramaController>();
+            panoramaController.Initialize(
+                viewportRt, worldContentRt, followController, joystick,
+                proximityController, playerController);
+            WirePanoramaButton();
 
             TryWireTopDingBar();
+        }
+
+        private void WirePanoramaButton()
+        {
+            if (panoramaButton == null)
+                panoramaButton = transform.Find("PanoramaButtonLayer/PanoramaButton")
+                    ?.GetComponent<Button>();
+            if (panoramaButton == null || panoramaController == null)
+                return;
+
+            panoramaButton.onClick.RemoveListener(OnPanoramaButtonClicked);
+            panoramaButton.onClick.AddListener(OnPanoramaButtonClicked);
+        }
+
+        private void OnPanoramaButtonClicked()
+        {
+            panoramaController?.TogglePanorama();
+        }
+
+        // SPEC §9.8.9.11：响应区域进入占位跳转；后续按 navTargetKey 对接底栏/全屏面板。
+        private void HandleResponseAreaEntered(GuildResponseAreaMarker marker)
+        {
+            if (marker == null)
+                return;
+            UnityEngine.Debug.Log(
+                "[GongHuiScreen] 响应区域进入（占位跳转）: id=" + marker.AreaId
+                + ", name=" + marker.DisplayName
+                + ", navKey=" + marker.NavTargetKey);
         }
 
         // SPEC §9.8.9.4：缺预制体时以代码搭建等价骨架（空 Obstacles/Buildings/Npcs），仅保 Play 不空跑。
@@ -275,6 +329,7 @@ namespace PetDemo.UI
             var obstaclesRoot = CreateStretchedGroup(worldContent, "Obstacles");
             var buildingsRoot = CreateStretchedGroup(worldContent, "Buildings");
             var npcsRoot = CreateStretchedGroup(worldContent, "Npcs");
+            var responseAreasRoot = CreateStretchedGroup(worldContent, "ResponseAreas");
 
             var playerSpawn = BottomNavAttachedScreenLayout.CreateChildRect(
                 worldContent, "PlayerSpawn",
@@ -285,7 +340,59 @@ namespace PetDemo.UI
 
             view.SetSceneRefs(
                 viewport, worldContent, playerSpawn,
-                obstaclesRoot, buildingsRoot, npcsRoot, joystickView);
+                obstaclesRoot, buildingsRoot, npcsRoot, joystickView, responseAreasRoot);
+
+            BuildPanoramaButton(root, view);
+        }
+
+        /// <summary>SPEC §9.8.9.12：右下角「全景」切换按钮（图片 ShouHuo_2）；预制体生成器与运行时回退共用。</summary>
+        public const string ResPanoramaButtonSprite = "AirUI/ShouHuo_2";
+
+        public static void BuildPanoramaButton(RectTransform screenRoot, GongHuiScreenView view)
+        {
+            if (screenRoot == null || view == null)
+                return;
+
+            var existing = screenRoot.Find("PanoramaButtonLayer/PanoramaButton");
+            if (existing != null)
+            {
+                view.panoramaButton = existing.GetComponent<Button>();
+                return;
+            }
+
+            var layerRt = BottomNavAttachedScreenLayout.CreateChildRect(
+                screenRoot, "PanoramaButtonLayer",
+                Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            BottomNavAttachedScreenLayout.StretchFull(layerRt);
+            layerRt.SetAsLastSibling();
+
+            // y 需抬到底部导航栏（高 160）之上，否则会被底栏遮挡（SPEC §9.8.9.12）。
+            var buttonRt = BottomNavAttachedScreenLayout.CreateChildRect(
+                layerRt, "PanoramaButton",
+                new Vector2(1f, 0f), new Vector2(1f, 0f),
+                new Vector2(-24f, 184f), new Vector2(160f, 160f));
+            buttonRt.pivot = new Vector2(1f, 0f);
+
+            var bg = buttonRt.gameObject.AddComponent<Image>();
+            bg.raycastTarget = true;
+            var sprite = Resources.Load<Sprite>(ResPanoramaButtonSprite);
+            if (sprite != null)
+            {
+                bg.sprite = sprite;
+                bg.preserveAspect = true;
+                bg.color = Color.white;
+            }
+            else
+            {
+                bg.color = new Color(0.05f, 0.08f, 0.14f, 0.78f);
+                UnityEngine.Debug.LogWarning(
+                    "[GongHuiScreenView] 缺少全景按钮图标 Resources/" + ResPanoramaButtonSprite + "。");
+            }
+
+            var btn = buttonRt.gameObject.AddComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+            btn.targetGraphic = bg;
+            view.panoramaButton = btn;
         }
 
         public static RectTransform CreateStretchedGroup(RectTransform parent, string name)

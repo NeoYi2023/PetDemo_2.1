@@ -123,10 +123,24 @@ namespace PetDemo.UI
             }
         }
 
-        public void SetPlateVisible(bool visible)
+        private bool panoramaOverrideActive;
+
+        public void SetPlateVisible(bool visible, bool panoramaOverride = false)
         {
-            if (isFollowing)
+            if (isFollowing && !panoramaOverride)
                 return;
+
+            if (panoramaOverride && visible)
+            {
+                panoramaOverrideActive = true;
+                if (overheadAvatarRt != null)
+                    overheadAvatarRt.gameObject.SetActive(false);
+            }
+            else if (!visible && panoramaOverrideActive)
+            {
+                panoramaOverrideActive = false;
+            }
+
             if (visible && plateRt == null)
                 TryAcquirePlateFromHierarchy();
             if (visible && plateRt == null)
@@ -142,6 +156,40 @@ namespace PetDemo.UI
                 plateRt.gameObject.SetActive(visible);
             if (actionIconRt != null && actionIconRt.gameObject.activeSelf != visible)
                 actionIconRt.gameObject.SetActive(visible);
+        }
+
+        public void ApplyPlateScaleCompensation(float compensation)
+        {
+            if (plateRt != null)
+                plateRt.localScale = Vector3.one * compensation;
+            if (actionIconRt != null)
+                actionIconRt.localScale = Vector3.one * compensation;
+        }
+
+        public void ResetPlateScale()
+        {
+            if (plateRt != null)
+                plateRt.localScale = Vector3.one;
+            if (actionIconRt != null)
+                actionIconRt.localScale = Vector3.one;
+        }
+
+        /// <summary>SPEC §9.8.9.12：退出全景时强制隐藏名牌并恢复跟随 UI。</summary>
+        public void ExitPanoramaPlateState()
+        {
+            panoramaOverrideActive = false;
+            ResetPlateScale();
+            if (plateRt != null)
+                plateRt.gameObject.SetActive(false);
+            if (actionIconRt != null)
+                actionIconRt.gameObject.SetActive(false);
+            if (isFollowing)
+            {
+                if (overheadAvatarRt == null)
+                    overheadAvatarRt = BuildOverheadAvatar();
+                if (overheadAvatarRt != null)
+                    overheadAvatarRt.gameObject.SetActive(true);
+            }
         }
 
         private void TryAcquirePlateFromHierarchy()

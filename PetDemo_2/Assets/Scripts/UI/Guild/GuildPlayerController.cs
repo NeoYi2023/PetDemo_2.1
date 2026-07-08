@@ -1,6 +1,7 @@
 // SPEC §9.8.9.4 / §9.8.9.6 ①：公会场景主角移动 — 摇杆方向 * moveSpeed * deltaTime，
 // 分轴（先 X 后 Y）与 GuildObstacleArea 矩形 AABB 检测实现阻挡 + 贴墙滑动，
-// 钳位在 GongHuiWorldContent 边界内；移动/待机切换 Spine 动画并按水平方向翻转。
+// 钳位在 GongHuiWorldContent 边界内；位移后同帧同步镜头（v3.178）。
+using System;
 using System.Collections.Generic;
 using Spine.Unity;
 using UnityEngine;
@@ -24,6 +25,8 @@ namespace PetDemo.UI
         private bool initialized;
         private bool moving;
         private bool animationLocked;
+        private bool movementEnabled = true;
+        private Action<Vector2> onMoved;
 
         public RectTransform PlayerRt => playerRt;
         public SkeletonGraphic PlayerSkeleton => skeletonGraphic;
@@ -32,6 +35,24 @@ namespace PetDemo.UI
         public void SetAnimationLocked(bool locked)
         {
             animationLocked = locked;
+        }
+
+        /// <summary>SPEC §9.8.9.12：全景模式等场景下禁用主角移动。</summary>
+        public void SetMovementEnabled(bool enabled)
+        {
+            movementEnabled = enabled;
+            if (!movementEnabled)
+            {
+                moving = false;
+                if (!animationLocked)
+                    PlayIdle();
+            }
+        }
+
+        /// <summary>主角位移后同帧回调（content 局部 delta，用于镜头反向平移，v3.179）。</summary>
+        public void BindViewportFollowSync(Action<Vector2> sync)
+        {
+            onMoved = sync;
         }
 
         /// <summary>work_2 等单次动作结束后，按当前移动状态恢复 idle/move 轨。</summary>
@@ -76,7 +97,7 @@ namespace PetDemo.UI
 
         private void Update()
         {
-            if (!initialized || playerRt == null || joystick == null)
+            if (!initialized || !movementEnabled || playerRt == null || joystick == null)
                 return;
 
             var dir = joystick.Direction;
@@ -86,9 +107,12 @@ namespace PetDemo.UI
             {
                 var delta = dir * (moveSpeed * Time.deltaTime);
                 var pos = playerRt.anchoredPosition;
+                var prevPos = pos;
                 pos = TryMoveAxis(pos, new Vector2(delta.x, 0f));
                 pos = TryMoveAxis(pos, new Vector2(0f, delta.y));
-                playerRt.anchoredPosition = ClampToWorld(pos);
+                pos = ClampToWorld(pos);
+                playerRt.anchoredPosition = pos;
+                onMoved?.Invoke(pos - prevPos);
 
                 if (Mathf.Abs(dir.x) > 0.01f)
                     GuildSpineCharacterBuilder.SetFacing(playerRt, dir.x > 0f);

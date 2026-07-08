@@ -10,7 +10,7 @@ using UnityEngine.UI;
 namespace PetDemo.EditorTools
 {
     /// <summary>
-    /// SPEC §9.8.9.2 (v3.123)：公会场景层预制体生成器。
+    /// SPEC §9.8.9.2 (v3.123；全景按钮 v3.183)：公会场景层预制体生成器。
     /// 产出 Assets/Resources/Prefabs/Farm/GongHuiScreenPanel.prefab，
     /// 内置示例碰撞体×3 / 建筑×2 / NPC×3，位置供人工在 Inspector 中调整。
     /// </summary>
@@ -41,7 +41,7 @@ namespace PetDemo.EditorTools
 
             var view = root.AddComponent<GongHuiScreenView>();
 
-            // 复用运行时骨架构建（Viewport/WorldContent/Background/分组根/PlayerSpawn/摇杆）。
+            // 复用运行时骨架构建（Viewport/WorldContent/Background/分组根/PlayerSpawn/摇杆/全景按钮）。
             GongHuiScreenView.BuildSceneSkeleton(rootRt, view);
 
             var worldContent = rootRt.Find(
@@ -52,6 +52,7 @@ namespace PetDemo.EditorTools
             var obstaclesRoot = worldContent.Find("Obstacles") as RectTransform;
             var buildingsRoot = worldContent.Find("Buildings") as RectTransform;
             var npcsRoot = worldContent.Find("Npcs") as RectTransform;
+            var responseAreasRoot = worldContent.Find("ResponseAreas") as RectTransform;
 
             // 示例碰撞体（无视觉，人工调整位置/大小）。
             BuildObstacle(obstaclesRoot, "Obstacle_1", new Vector2(-320f, 420f), new Vector2(360f, 220f));
@@ -66,6 +67,12 @@ namespace PetDemo.EditorTools
             BuildNpc(npcsRoot, "Npc_1", "friend-01", GuildNpcSkeletonKind.LangMeiRen, true, new Vector2(-330f, -120f));
             BuildNpc(npcsRoot, "Npc_2", "friend-02", GuildNpcSkeletonKind.LangRen, false, new Vector2(280f, -320f));
             BuildNpc(npcsRoot, "Npc_3", "friend-03", GuildNpcSkeletonKind.LangRen, false, new Vector2(40f, 180f));
+
+            // 示例响应区域（靠近显示名牌，走进半径自动触发占位跳转）。
+            BuildResponseArea(responseAreasRoot, "ResponseArea_1", "portal_shop", "商店入口",
+                "ShangDian", new Vector2(-120f, 520f));
+            BuildResponseArea(responseAreasRoot, "ResponseArea_2", "portal_adventure", "冒险传送",
+                "ZhuXian", new Vector2(420f, -180f));
 
             var prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
             Object.DestroyImmediate(root);
@@ -116,6 +123,30 @@ namespace PetDemo.EditorTools
             marker.SetSkeletonKind(skeletonKind);
             marker.SetShowActionIcon(showActionIcon);
             BakeNpcNamePlate(rt, npcId);
+        }
+
+        private static void BuildResponseArea(
+            RectTransform parent,
+            string nodeName,
+            string areaId,
+            string displayName,
+            string navTargetKey,
+            Vector2 anchoredPosition)
+        {
+            var rt = CreateCentered(parent, nodeName, anchoredPosition, new Vector2(10f, 10f));
+            var marker = rt.gameObject.AddComponent<GuildResponseAreaMarker>();
+            marker.SetAreaId(areaId);
+            marker.SetDisplayName(displayName);
+            marker.SetNavTargetKey(navTargetKey);
+            BakeResponseAreaNamePlate(rt, displayName);
+        }
+
+        private static void BakeResponseAreaNamePlate(RectTransform areaRt, string displayName)
+        {
+            var plateRt = GuildSceneUiFactory.BuildResponseAreaNamePlate(
+                areaRt, displayName, null,
+                new Color(0.35f, 0.55f, 0.72f, 1f), 140f);
+            plateRt.gameObject.SetActive(false);
         }
 
         /// <summary>预制体内烘焙 NamePlate/InteractButton/Label（默认隐藏，运行时复用）。</summary>

@@ -9,6 +9,7 @@ namespace PetDemo.UI
         public const string NpcInteractButtonLabel = "拉手";
         private const float NpcPlateWidth = 360f;
         private const float NpcPlateHeight = 180f;
+        private const float ResponseAreaPlateHeight = 140f;
         private const float NpcAvatarSize = 84f;
         public static RectTransform CreateChildRect(
             RectTransform parent, string name,
@@ -97,6 +98,32 @@ namespace PetDemo.UI
             AddButton(rt, "InteractButton", NpcInteractButtonLabel,
                 new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, 12f), new Vector2(140f, 56f));
+            return rt;
+        }
+
+        /// <summary>SPEC §9.8.9.11：响应区域名牌（图标 + 名称；无按钮，auto-enter）。</summary>
+        public static RectTransform BuildResponseAreaNamePlate(
+            RectTransform parent,
+            string displayName,
+            Sprite iconSprite,
+            Color iconFallbackColor,
+            float plateOffsetY)
+        {
+            var rt = CreatePlateRoot(
+                parent, "NamePlate", new Vector2(0f, plateOffsetY),
+                new Vector2(NpcPlateWidth, ResponseAreaPlateHeight));
+
+            var iconRt = CreateChildRect(rt, "Icon",
+                new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                new Vector2(16f, 0f), new Vector2(NpcAvatarSize, NpcAvatarSize));
+            var iconImg = iconRt.gameObject.AddComponent<Image>();
+            iconImg.raycastTarget = false;
+            ApplyAvatarImage(iconImg, iconSprite, iconFallbackColor);
+
+            AddText(rt, "NameText", displayName, 32,
+                new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                new Vector2(112f, 0f), new Vector2(230f, 48f),
+                TextAnchor.MiddleLeft);
             return rt;
         }
 

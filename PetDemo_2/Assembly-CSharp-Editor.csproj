@@ -75,6 +75,7 @@
     <Compile Include="Assets\Scripts\UI\Farm\Editor\FarmGridPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\InvasionBattleResultDialogPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\AppSingleChatPanelPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\Editor\DetailAttributeModalPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\RoleGrowthPetBagPagePrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\GongHuiScreenPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\AppScreenPrefabGenerator.cs" />
@@ -83,7 +84,6 @@
     <Compile Include="Assets\Scripts\UI\Farm\Editor\RoleGrowthPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\SlotMachineModalPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\HeroStatsRowPrefabGenerator.cs" />
-    <Compile Include="Assets\Scripts\UI\Battle\Editor\DetailAttributeModalPrefabGenerator.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">

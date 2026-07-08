@@ -101,6 +101,7 @@
     <Compile Include="Assets\Scripts\Core\TaskListConfigCatalog.cs" />
     <Compile Include="Assets\Scripts\UI\LevelSelectScreenPanelView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\PestControlScreenView.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\SlotAttrFlyFx.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\VirtualJoystickView.cs" />
     <Compile Include="Assets\Scripts\Save\GameSaveSnapshot.cs" />
     <Compile Include="Assets\Scripts\Save\GameSaveCoordinator.cs" />
@@ -139,6 +140,7 @@
     <Compile Include="Assets\Scripts\UI\FoodWarehouseModalView.cs" />
     <Compile Include="Assets\Scripts\Core\MainStoryLevelConfigCatalog.cs" />
     <Compile Include="Assets\Scripts\Save\GameBootContext.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\DetailAttributeModalView.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GuildObstacleArea.cs" />
     <Compile Include="Assets\Scripts\UI\LevelSelectLevelSlotView.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GuildPlayerController.cs" />
@@ -174,6 +176,7 @@
     <Compile Include="Assets\Scripts\UI\Guild\GuildNpcWork2InteractionController.cs" />
     <Compile Include="Assets\Scripts\Core\Models.cs" />
     <Compile Include="Assets\Scripts\UI\AirMainMenuRuntimeBuilder.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\HexRadarChartGraphic.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GuildSceneGeometry.cs" />
     <Compile Include="Assets\Scripts\UI\MainStoryLineScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\HarvestViewEntryView.cs" />
@@ -197,9 +200,8 @@
     <Compile Include="Assets\Scripts\UI\Farm\FruitWarehouseListView.cs" />
     <Compile Include="Assets\Scripts\UI\SkeletonGraphicUiMaterialFactory.cs" />
     <Compile Include="Assets\Scripts\Battle\IBattleCombatDriver.cs" />
-    <Compile Include="Assets\Scripts\UI\Battle\DetailAttributeModalView.cs" />
-    <Compile Include="Assets\Scripts\UI\Battle\HexRadarChartGraphic.cs" />
-    <Compile Include="Assets\Scripts\UI\Battle\SlotAttrFlyFx.cs" />
+    <Compile Include="Assets\Scripts\UI\Guild\GuildResponseAreaMarker.cs" />
+    <Compile Include="Assets\Scripts\UI\Guild\GuildPanoramaController.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />

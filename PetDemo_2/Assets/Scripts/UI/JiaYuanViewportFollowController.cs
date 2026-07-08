@@ -166,6 +166,27 @@ namespace PetDemo.UI
                 worldContentRt.anchoredPosition = pos;
         }
 
+        /// <summary>
+        /// 主角在 worldContent 局部空间位移后，同帧反向平移 content（v3.179 公会即时跟随）。
+        /// 与绝对 Snap 相比，按帧 delta 补偿可避免 scale/Canvas 换算误差累积。
+        /// </summary>
+        public void ApplyPlayerContentDelta(Vector2 playerDeltaInContentSpace)
+        {
+            if (worldContentRt == null || viewportRt == null)
+                return;
+            if (!followEnabled || releaseTransitionActive || sowAnchorLocked || freePanActive || followFrozen)
+                return;
+            if (playerDeltaInContentSpace.sqrMagnitude <= 0f)
+                return;
+
+            var scale = worldContentRt.localScale;
+            var viewportDelta = new Vector2(
+                playerDeltaInContentSpace.x * scale.x,
+                playerDeltaInContentSpace.y * scale.y);
+            worldContentRt.anchoredPosition = ClampContentPosition(
+                (Vector2)worldContentRt.anchoredPosition - viewportDelta);
+        }
+
         private void OnDisable()
         {
             CancelSowCameraTransition();
@@ -184,11 +205,7 @@ namespace PetDemo.UI
             if (!TryComputeContentPositionForTarget(target, out var desiredContentPos))
                 return;
 
-            var current = worldContentRt.anchoredPosition;
-            if ((current - desiredContentPos).sqrMagnitude > snapThreshold * snapThreshold)
-                worldContentRt.anchoredPosition = desiredContentPos;
-            else
-                worldContentRt.anchoredPosition = desiredContentPos;
+            worldContentRt.anchoredPosition = desiredContentPos;
         }
 
         private IEnumerator SowReleaseTransitionCoroutine(float holdSeconds, float returnSeconds)
@@ -252,10 +269,10 @@ namespace PetDemo.UI
             if (viewportRt == null || worldContentRt == null || target == null)
                 return false;
 
-            // 目标为 worldContent 子节点：用其在 content 局部空间的偏移求 content 位移。
-            // 勿用 viewport 局部坐标直接赋 anchoredPosition，否则会与当前 content 位移形成反馈并在钳位边界震荡。
-            var targetInContent = (Vector2)worldContentRt.InverseTransformPoint(target.position);
-            contentPos = ClampContentPosition(-targetInContent + followOffset);
+            // 在 viewport 局部空间测量目标相对中心的偏移，再平移 content 抵消（自动吸收 localScale / Canvas 缩放）。
+            var targetInViewport = (Vector2)viewportRt.InverseTransformPoint(target.position);
+            contentPos = ClampContentPosition(
+                (Vector2)worldContentRt.anchoredPosition + followOffset - targetInViewport);
             return true;
         }
 

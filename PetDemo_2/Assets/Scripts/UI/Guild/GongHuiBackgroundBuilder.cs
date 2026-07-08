@@ -1,5 +1,5 @@
-// SPEC §9.8.9 (v3.133)：公会世界背景分块拼图（方案 A）。
-// 扫描 Resources/AirUI/GongHui_0_1_r{row}_c{col} 矩形网格，在 Background 容器下生成 Tile 子 Image。
+// SPEC §9.8.9 (v3.133；3×3 切块 v3.176)：公会世界背景分块拼图（方案 A）。
+// 扫描 Resources/AirUI/GongHui_0_1_r{row}_c{col} 矩形网格（当前 3×3×1043×1500→3129×4500），在 Background 容器下生成 Tile 子 Image。
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;

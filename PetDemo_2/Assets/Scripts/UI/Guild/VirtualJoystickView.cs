@@ -20,11 +20,20 @@ namespace PetDemo.UI
 
         private bool pressed;
         private Vector2 pressLocalPos;
+        private bool inputEnabled = true;
 
         /// <summary>当前方向（模长 0..1）；未按下或死区内为 zero。</summary>
         public Vector2 Direction { get; private set; }
 
         public bool IsActive => pressed;
+
+        /// <summary>SPEC §9.8.9.12：全景模式等场景下禁用触控输入。</summary>
+        public void SetInputEnabled(bool enabled)
+        {
+            inputEnabled = enabled;
+            if (!inputEnabled)
+                ResetState();
+        }
 
         public void Configure(RectTransform visualLayer, RectTransform joyBase, RectTransform knob)
         {
@@ -67,7 +76,7 @@ namespace PetDemo.UI
 
         public void OnPointerDown(PointerEventData eventData)
         {
-            if (visualLayerRt == null)
+            if (!inputEnabled || visualLayerRt == null)
                 return;
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     visualLayerRt, eventData.position, eventData.pressEventCamera, out pressLocalPos))
@@ -85,7 +94,7 @@ namespace PetDemo.UI
 
         public void OnDrag(PointerEventData eventData)
         {
-            if (!pressed || visualLayerRt == null)
+            if (!inputEnabled || !pressed || visualLayerRt == null)
                 return;
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     visualLayerRt, eventData.position, eventData.pressEventCamera, out var localPos))

@@ -1766,8 +1766,8 @@ Each `ChapterPin` `RectTransform` uses `anchorMin = anchorMax = (0.5, 0.5)`, `pi
 
 ##### 9.8.9.1 系统设计说明 / System Design
 
-**中文：** 自 v3.123 起，§9.8.9 由「仅底图的全屏背景层」整体重写为「**预制体驱动的公会 2D 场景层**」。当 `OnOpenChanged` 的 `newKey == "GongHui"` 时，在主 Canvas 上显示全屏面板 **`GongHuiScreen`**（与 `BottomNavBar` 同级、全屏拉伸，`SetSiblingIndex` 置于 `BottomNavBar` 之下，保证底栏始终可点；HUD 分层沿用 §9.8.17 `HudScreen=1100`）。根节点默认 `active=false`；`newKey != "GongHui"` 时隐藏并停用摇杆/跟随。场景采用与 §9.8.14 家园世界一致的「大图世界 + 视口跟随」结构：`GongHuiViewport`（全屏 + `RectMask2D`）内放 `GongHuiWorldContent`（尺寸 = 背景拼图总尺寸与默认世界 `1620×2880` 取较大值；**`localScale = (1.7, 1.7, 1)`** 实现镜头拉近，常量 `GongHuiScreenView.WorldContentLocalScale`），`JiaYuanViewportFollowController` 挂在 Viewport 上平移 content 使主角保持视口中心（边界钳位按 `rect.size × localScale` 计算）。**（v3.133）** 背景采用**方案 A 分块拼图**：`Resources/AirUI/GongHui_0_1_r{row}_c{col}`（从 `r0_c0` 起按行扫描直至缺失，要求矩形网格）；每块 `Image` 像素 1:1 对应 UI 单位（`Scale=1`），世界中心为原点；当前素材为 2×2、单块 `1043×1500` → 世界 `2086×3000`；缺切块时回退单图 `AirUI/GongHui_0_1` 或 `AirUI/Gonghui_0`。  
-**English:** Since v3.123, §9.8.9 is a **prefab-driven guild 2D scene layer** with viewport follow. **(v3.133)** Background uses **tiled art (option A):** `Resources/AirUI/GongHui_0_1_r{row}_c{col}` scanned from `r0_c0` into a rectangular grid; each tile is 1:1 px→UI units at `Scale=1`, world origin at center; current art is 2×2 × `1043×1500` → `2086×3000` world; falls back to single `AirUI/GongHui_0_1` or `AirUI/Gonghui_0` when no tiles exist.
+**中文：** 自 v3.123 起，§9.8.9 由「仅底图的全屏背景层」整体重写为「**预制体驱动的公会 2D 场景层**」。当 `OnOpenChanged` 的 `newKey == "GongHui"` 时，在主 Canvas 上显示全屏面板 **`GongHuiScreen`**（与 `BottomNavBar` 同级、全屏拉伸，`SetSiblingIndex` 置于 `BottomNavBar` 之下，保证底栏始终可点；HUD 分层沿用 §9.8.17 `HudScreen=1100`）。根节点默认 `active=false`；`newKey != "GongHui"` 时隐藏并停用摇杆/跟随。场景采用与 §9.8.14 家园世界一致的「大图世界 + 视口跟随」结构：`GongHuiViewport`（全屏 + `RectMask2D`）内放 `GongHuiWorldContent`（尺寸 = 背景拼图总尺寸与默认世界 `1620×2880` 取较大值；**`localScale = (1.7, 1.7, 1)`** 实现镜头拉近，常量 `GongHuiScreenView.WorldContentLocalScale`），`JiaYuanViewportFollowController` 挂在 Viewport 上平移 content 使主角保持视口中心（边界钳位按 `rect.size × localScale` 计算；**（v3.178）** 跟随位移须将目标在 `worldContent` 局部偏移乘以 `localScale` 再写入 `anchoredPosition`，否则 `localScale≠1`（公会 `1.7`）时镜头滞后于角色移动速度）。**（v3.133）** 背景采用**方案 A 分块拼图**：`Resources/AirUI/GongHui_0_1_r{row}_c{col}`（从 `r0_c0` 起按行扫描直至缺失，要求矩形网格）；每块 `Image` 像素 1:1 对应 UI 单位（`Scale=1`），世界中心为原点；当前素材为 3×3、单块 `1043×1500` → 世界 `3129×4500`；缺切块时回退单图 `AirUI/GongHui_0_1` 或 `AirUI/Gonghui_0`。  
+**English:** Since v3.123, §9.8.9 is a **prefab-driven guild 2D scene layer** with viewport follow. **(v3.133)** Background uses **tiled art (option A):** `Resources/AirUI/GongHui_0_1_r{row}_c{col}` scanned from `r0_c0` into a rectangular grid; each tile is 1:1 px→UI units at `Scale=1`, world origin at center; current art is 3×3 × `1043×1500` → `3129×4500` world; falls back to single `AirUI/GongHui_0_1` or `AirUI/Gonghui_0` when no tiles exist.
 
 **中文（玩法要素）：**
 1. **主角移动**：主角复用家园村民 Spine（`Resources/Prefabs/Air/Hero_Role_cunmin`，`SkeletonGraphic` 构建方式同 §9.5 `MainRoleCunminPresenter`），`GuildPlayer` 节点 `localScale = (0.27, 0.27, 1)`（`GuildSpineCharacterBuilder.GuildPlayerLocalScale`；NPC 仍用默认 `0.53`），由**透明虚拟摇杆**控制：平时不可见，玩家按下场景任意处时在按下点显示半透明底盘 + 手柄，拖动输出方向向量，松手归零并隐藏。移动中播放 `move_1`（回退 `move`/`animation`），停止播放 `exclusive_2`（回退 `standby_1`/`animation`）；按水平方向翻转 `localScale.x` 朝向。
@@ -1793,6 +1793,7 @@ GongHuiScreenPanel (GongHuiScreenView)
 │       ├─ Obstacles/Obstacle_N   (GuildObstacleArea，矩形=自身 RectTransform)
 │       ├─ Buildings/Building_N   (GuildBuildingMarker：占位图；NamePlate 运行时懒创建)
 │       ├─ Npcs/Npc_N             (GuildNpcMarker：出生点；NamePlate 与 Spine 均运行时挂入)
+│       ├─ ResponseAreas/ResponseArea_N (GuildResponseAreaMarker：地图响应区域；v3.182)
 │       └─ PlayerSpawn            (主角出生点；Spine 运行时挂入 worldContent)
 └─ JoystickVisualLayer (末子节点、不拦截射线；JoystickBase/JoystickKnob 默认隐藏)
 ```
@@ -1856,8 +1857,8 @@ class GuildNpcFollowController : MonoBehaviour {
 
 ##### 9.8.9.6 技术实现建议 / Implementation Notes
 
-**中文：** ① 碰撞采用 UGUI 局部坐标 AABB（主角脚底小矩形 vs 障碍矩形），分轴移动天然支持贴墙滑动，避免引入 Physics2D；② Spine 构建复用 §9.5 的 `SkeletonGraphic.AddSkeletonGraphicComponent` + `SkeletonGraphicUiMaterialFactory` 路径，缺预制体/Shader 时回退占位色块；③ 摇杆死区 `0.12`，最大半径约 `170px`；④ 名牌（建筑/NPC）挂在对应标记节点下，`raycastTarget` 仅按钮开启，避免拦截摇杆触控——`JoystickLayer` 置于场景层之上、名牌按钮经各自 `Graphic` 射线穿透处理（名牌实际放在 worldContent 内但 sibling 居后，摇杆层背景 `Image alpha=0` 且 `raycastTarget=true` 接收拖动，按钮节点 `transform.SetAsLastSibling` 不受影响：实现上将摇杆触控区放在名牌之下层级、按钮可点优先）；⑤ 接近检测用距离平方比较省开销；⑥ 旧 `BottomNavSimpleBackgroundScreenView` 的 GongHui 常量（`GongHuiNavKey`/`ResGongHuiBackground`）保留，类继续服务 §9.8.10 商店层；⑦ **（v3.133）分块背景**：`GongHuiBackgroundBuilder.TryBuild` 在 `Background` 容器下生成 `Tile_r{row}_c{col}` 子节点，`anchoredPosition` 按中心原点公式 `(col-(cols-1)/2)*tileW`、`((rows-1)/2-row)*tileH`；`GongHuiScreenView.Awake` 对已有预制体也会重拼切块（替换旧单图 `Image`）；⑧ **（v3.124）NPC 跟随**：移动速度与主角一致（`420px/s`）保证摇杆全速时不掉队；停步 40px / 起步 55px 的**滞回阈值**避免主角微动时 NPC 走/停动画抖动；单帧位移钳制到"距主角 40px"目标点防止过冲往返；位置统一经 `GuildSceneGeometry.PointInContentSpace` 换算（marker 父节点 `Npcs` 为拉伸容器，与主角的 `anchoredPosition` 不同空间，须用位置差驱动 marker 自身 `anchoredPosition`）；按需求**不做碰撞/边界检测**，NPC 可穿过障碍；复位逻辑放在 `OnDisable` 而非显式调用，与名牌隐藏的生命周期模式一致。  
-**English:** (1) AABB in UGUI local space with per-axis movement (no Physics2D); (2) Spine built via §9.5 `SkeletonGraphic` path with placeholder fallback; (3) joystick deadzone `0.12`, max radius ~`170px`; (4) plates live under their markers; only buttons enable `raycastTarget`, and the joystick layer is ordered so buttons stay clickable; (5) squared-distance proximity checks; (6) legacy GongHui constants remain on `BottomNavSimpleBackgroundScreenView`, which keeps serving §9.8.10; (7) **(v3.124) NPC follow:** speed matches the player (`420px/s`) so followers keep up; 40px stop / 55px resume **hysteresis** prevents anim flicker on tiny player moves; per-frame displacement clamped at the 40px target avoids overshoot oscillation; positions converted via `GuildSceneGeometry.PointInContentSpace` (the `Npcs` parent is a stretched container, so player/marker `anchoredPosition` spaces differ — drive the marker by position delta); **no collision/bounds checks** by requirement; reset lives in `OnDisable`, matching the plate-hiding lifecycle pattern.
+**中文：** ① 碰撞采用 UGUI 局部坐标 AABB（主角脚底小矩形 vs 障碍矩形），分轴移动天然支持贴墙滑动，避免引入 Physics2D；② Spine 构建复用 §9.5 的 `SkeletonGraphic.AddSkeletonGraphicComponent` + `SkeletonGraphicUiMaterialFactory` 路径，缺预制体/Shader 时回退占位色块；③ 摇杆死区 `0.12`，最大半径约 `170px`；④ 名牌（建筑/NPC）挂在对应标记节点下，`raycastTarget` 仅按钮开启，避免拦截摇杆触控——`JoystickLayer` 置于场景层之上、名牌按钮经各自 `Graphic` 射线穿透处理（名牌实际放在 worldContent 内但 sibling 居后，摇杆层背景 `Image alpha=0` 且 `raycastTarget=true` 接收拖动，按钮节点 `transform.SetAsLastSibling` 不受影响：实现上将摇杆触控区放在名牌之下层级、按钮可点优先）；⑤ 接近检测用距离平方比较省开销；⑥ 旧 `BottomNavSimpleBackgroundScreenView` 的 GongHui 常量（`GongHuiNavKey`/`ResGongHuiBackground`）保留，类继续服务 §9.8.10 商店层；⑦ **（v3.133）分块背景**：`GongHuiBackgroundBuilder.TryBuild` 在 `Background` 容器下生成 `Tile_r{row}_c{col}` 子节点，`anchoredPosition` 按中心原点公式 `(col-(cols-1)/2)*tileW`、`((rows-1)/2-row)*tileH`；`GongHuiScreenView.Awake` 对已有预制体也会重拼切块（替换旧单图 `Image`）；⑧ **（v3.124）NPC 跟随**：移动速度与主角一致（`420px/s`）保证摇杆全速时不掉队；停步 40px / 起步 55px 的**滞回阈值**避免主角微动时 NPC 走/停动画抖动；单帧位移钳制到"距主角 40px"目标点防止过冲往返；位置统一经 `GuildSceneGeometry.PointInContentSpace` 换算（marker 父节点 `Npcs` 为拉伸容器，与主角的 `anchoredPosition` 不同空间，须用位置差驱动 marker 自身 `anchoredPosition`）；按需求**不做碰撞/边界检测**，NPC 可穿过障碍；复位逻辑放在 `OnDisable` 而非显式调用，与名牌隐藏的生命周期模式一致；⑨ **（v3.178/v3.179）镜头即时跟随**：`TryComputeContentPositionForTarget` 在 viewport 局部空间增量校正；`ApplyPlayerContentDelta` 按主角每帧 content 局部 delta 同帧反向平移（修复 `WorldContentLocalScale=1.7` 时镜头滞后），`LateUpdate` 仍作兜底。  
+**English:** (1) AABB in UGUI local space with per-axis movement (no Physics2D); (2) Spine built via §9.5 `SkeletonGraphic` path with placeholder fallback; (3) joystick deadzone `0.12`, max radius ~`170px`; (4) plates live under their markers; only buttons enable `raycastTarget`, and the joystick layer is ordered so buttons stay clickable; (5) squared-distance proximity checks; (6) legacy GongHui constants remain on `BottomNavSimpleBackgroundScreenView`, which keeps serving §9.8.10; (7) **(v3.124) NPC follow:** speed matches the player (`420px/s`) so followers keep up; 40px stop / 55px resume **hysteresis** prevents anim flicker on tiny player moves; per-frame displacement clamped at the 40px target avoids overshoot oscillation; positions converted via `GuildSceneGeometry.PointInContentSpace` (the `Npcs` parent is a stretched container, so player/marker `anchoredPosition` spaces differ — drive the marker by position delta); **no collision/bounds checks** by requirement; reset lives in `OnDisable`, matching the plate-hiding lifecycle pattern; **(v3.178) instant camera follow:** scale-aware content offset in `TryComputeContentPositionForTarget` plus same-frame `SnapToTarget` after player move.
 
 ##### 9.8.9.7 公会跟随 NPC 进入家园来访 (v3.129)
 
@@ -1959,6 +1960,102 @@ class GongHuiCommunityOverlayView : MonoBehaviour {
     static void HideIfAny();
 }
 ```
+
+##### 9.8.9.11 地图响应区域 (v3.182)
+
+**中文：** 在 §9.8.9 公会 2D 场景层中新增 **`ResponseAreas/`** 分组，由人工摆放若干 **`GuildResponseAreaMarker`**（地图响应区域）。玩家走进 `interactRadius`（默认 `220px`，content 局部单位）时：
+
+1. **靠近提示**：在区域锚点上方显示 **NamePlate** 提示框（视觉对齐 NPC 名牌：深色底板 + 可选左侧图标 + 区域名称；**无** InteractButton，因采用自动进入）；
+2. **进入触发**：玩家从区域外**首次穿越**进入半径时（沿边检测 `outside→inside`），自动触发 `OnEntered` 回调；站在区域内不重复触发；`triggerOncePerVisit=true` 时同一次公会 Tab 会话内仅触发一次；
+3. **界面跳转（占位）**：本期 `GongHuiScreenView.HandleResponseAreaEntered` 仅 `Debug.Log`；Inspector 字段 `navTargetKey` 预留后续对接底栏 `SetOpenKey`（如 `ShangDian`/`ZhuXian`/`JiaYuan`）或自定义全屏面板 id（对齐 §9.14.10 `OnNavigateToBottomNav` 字符串约定）。
+
+**English:** Hand-placed **`GuildResponseAreaMarker`** nodes under **`ResponseAreas/`** show an NPC-style **NamePlate** when the player is within `interactRadius` (default `220px`). Crossing **into** the radius fires **`OnEntered`** once per edge (no repeat while standing inside; optional `triggerOncePerVisit` per session). Navigation is placeholder `Debug.Log` this release; `navTargetKey` reserves bottom-nav / overlay wiring.
+
+**预制体结构增补 / Prefab tree addition:**
+
+```text
+GongHuiWorldContent
+├─ ... (Background / Obstacles / Buildings / Npcs / PlayerSpawn)
+└─ ResponseAreas/ResponseArea_N   (GuildResponseAreaMarker；NamePlate 可预制体烘焙或运行时懒创建)
+```
+
+**数据结构 / Data Structures:**
+
+```csharp
+class GuildResponseAreaMarker : MonoBehaviour {
+    [SerializeField] string areaId;              // 唯一标识，如 "portal_shop"
+    [SerializeField] string displayName;         // 名牌文案
+    [SerializeField] float interactRadius = 220f;
+    [SerializeField] float plateOffsetY = 140f;
+    [SerializeField] string navTargetKey = "";    // 预留：底栏 OpenKey 或面板 id
+    [SerializeField] bool triggerOncePerVisit;   // 同 Tab 会话内仅触发一次
+    [SerializeField] Sprite iconOverride;        // 可选名牌图标
+
+    Action<GuildResponseAreaMarker> Entered;    // 进入沿边触发
+    void SetPlateVisible(bool visible);
+    bool TryConsumeEnter();                       // triggerOncePerVisit 消费逻辑
+    void ResetVisitState();                       // OnDisable 复位
+}
+```
+
+**API 与装配 / API & wiring:**
+
+- `GuildSceneUiFactory.BuildResponseAreaNamePlate(...)`：响应区名牌（无按钮，`raycastTarget=false`）。
+- `GuildProximityController.Initialize(..., responseAreas)`：扩展 0.1s 轮询；对响应区维护 `wasInside` 字典，沿边触发 `TryConsumeEnter` + `Entered`；`OnDisable` 隐藏名牌并重置 `wasInside` / `ResetVisitState`。
+- `GongHuiScreenView`：`responseAreasRootRt` + `EnsureSceneSpawned` 扫描子树并订阅 `Entered → HandleResponseAreaEntered`（占位跳转）。
+
+**实现优先级 / Priority:** **P1** — 名牌 + 沿边自动进入 + 占位跳转日志；真实 `navTargetKey` 跳转后续版本。
+
+##### 9.8.9.12 公会全景模式 (v3.183)
+
+**中文：** 自 v3.183 起，§9.8.9 公会场景层在界面**右下角**增加 **「全景」** Toggle 按钮（`PanoramaButtonLayer`，锚点右下 `(1,0)`、`pivot=(1,0)`、`anchoredPosition=(-24,184)`——`y` 需抬到底部导航栏（高 `160`）之上避免被遮挡，约 `160×160`）。按钮使用图片 **`Resources.Load<Sprite>("AirUI/ShouHuo_2")`**（`preserveAspect=true`），缺图时回退深色半透明底并告警。**注意：** 预制体 fileID 须落在 int64 合法范围内（`< 9.22e18`），否则 Unity 反序列化溢出为 `-1` 触发「Duplicate identifier -1」并导致按钮不可见。点击后进入**全景模式**；再次点击退出并恢复默认跟随视角。
+
+**全景模式行为：**
+
+1. **摇杆**：`VirtualJoystickView.SetInputEnabled(false)` + `GuildPlayerController.SetMovementEnabled(false)`，主角不可移动；
+2. **镜头**：保存当前 `GongHuiWorldContent.localScale` 与 `anchoredPosition`；计算 `fitScale = min(viewportW/contentW, viewportH/contentH) * 0.95` 使世界全览；设 `localScale=(fitScale,fitScale,1)`、`anchoredPosition=Vector2.zero`；`JiaYuanViewportFollowController.SetFollowFrozen(true)` 停止跟随与 `ApplyPlayerContentDelta`；
+3. **名牌**：`GuildProximityController.SetPanoramaMode(true)` 暂停 0.1s 接近轮询；强制显示全部 `GuildBuildingMarker` / `GuildResponseAreaMarker` 的 **NamePlate**（`SetPlateVisible(true, panoramaOverride:true)`）；**`GuildNpcMarker` 的 NamePlate 在全景模式下一律隐藏**（进入时强制 `SetPlateVisible(false)`）；对显示的 `NamePlate` 根节点施加**固定** `localScale = (2.5, 2.5, 1)`（常量 `PanoramaPlateScale`），并将其 `NameText` 字号统一覆盖为 **42**（常量 `PanoramaPlateFontSize`，缓存原值退出时还原），使名牌在全览视角下清晰可读；退出时恢复 `localScale = 1` 与原字号；
+4. **NPC 跟随**：全景模式下 NPC 名牌一律不显示（含跟随中的 NPC）；
+5. **响应区**：全景期间**不触发** `Entered` 沿边事件（避免误跳转）。
+
+6. **纯黑背景**：进入全景时在 `GongHuiScreen` 面板**最底层**（`SetAsFirstSibling`）铺满一张纯黑 `Image`（`PanoramaBlackBackdrop`，全屏拉伸、`raycastTarget=false`），填充全览拉远后世界地图四周的空白；退出全景即隐藏。
+
+**退出全景 / 生命周期：** `ExitPanorama()` 逆序恢复 scale/position、解冻跟随、启用摇杆、重置名牌 `localScale` 与字号、隐藏全部名牌并由接近检测重算、隐藏纯黑背景；切离 `GongHui` Tab（`OnBottomNavOpenChanged`）时自动 `ExitPanoramaIfActive()`。
+
+**English:** A bottom-right **Panorama** toggle on the guild screen zooms out to fit the full world map, disables the joystick, and force-shows all building/NPC/response-area NamePlates with inverse scale compensation so font sizes stay unchanged. Proximity polling and response-area enter events are suspended. Leaving the guild tab auto-exits panorama.
+
+**预制体结构增补 / Prefab tree addition:**
+
+```text
+GongHuiScreenPanel
+├─ JoystickTouchLayer
+├─ GongHuiViewport / ...
+├─ JoystickVisualLayer
+└─ PanoramaButtonLayer/PanoramaButton   (Button → GuildPanoramaController.TogglePanorama)
+```
+
+**数据结构 / Data Structures:**
+
+```csharp
+class GuildPanoramaController : MonoBehaviour {
+    Vector3 savedWorldScale;
+    Vector2 savedContentPos;
+    bool isPanoramaActive;
+    void Initialize(viewportRt, worldContentRt, followController, joystick, proximityController, playerController);
+    void TogglePanorama();
+    void EnterPanorama();
+    void ExitPanorama();
+    void ExitPanoramaIfActive();
+}
+```
+
+**API 与装配 / API & wiring:**
+
+- `GongHuiScreenView`：`[SerializeField] Button panoramaButton`；`EnsureSceneSpawned` 创建 `GuildPanoramaController` 并绑定按钮；`BuildSceneSkeleton` / `GongHuiScreenPrefabGenerator` 烘焙按钮。
+- `GuildProximityController.SetPanoramaMode(bool)`：`Update` 早退；进入时 `ShowAllPlates()`，退出时 `HideAllPlates()` 并清零 `wasInside`。
+- 各 Marker：`SetPlateVisible(bool, bool panoramaOverride)`、`ApplyPlateScaleCompensation(float)`、`ResetPlateScale()`。
+
+**实现优先级 / Priority:** **P1** — 全景切换 + 全览镜头 + 强制名牌；无平滑过渡动画。
 
 #### 9.8.10 商店全屏背景层（底部导航 ShangDian）(v3.34, 背景资源 v3.37)
 
@@ -3046,12 +3143,16 @@ function executeUnifiedAction():
 
 | 版本 / Ver | 日期 / Date | 说明 / Notes |
 |------------|-------------|--------------|
+| 3.182 | 2026-07-07 | **公会地图响应区域**：§9.8.9.11 新增 `ResponseAreas/` + `GuildResponseAreaMarker`；靠近显示 NamePlate、走进半径沿边自动触发占位跳转（`navTargetKey` 预留）；扩展 `GuildProximityController`。 / **Guild map response areas:** §9.8.9.11 `ResponseAreas/` + `GuildResponseAreaMarker`; proximity nameplate + edge-triggered enter placeholder; extends `GuildProximityController`. |
 | 3.181 | 2026-07-06 | **嵌入 BOSS 战胜利后返回关卡选择**：§12.11.10——`battle_boss` 嵌入战斗胜利、`EmbeddedResultOverlay/ResultDialog` 点「点击关闭」后：`Hide()` 关闭 `InvasionBattleModal_2` 并打开 §9.8.8.6 `LevelSelectScreenPanel`；`battle_small` 小怪胜利仍恢复常态「下一天」。`MainStoryLineScreenView.ShowLevelSelectPanel()` 懒加载关卡选择层。 / **Embedded BOSS victory returns to level select:** §12.11.10 — after `battle_boss` win and closing the embedded `ResultDialog`, hide `InvasionBattleModal_2` and show `LevelSelectScreenPanel`; small-battle win unchanged. `MainStoryLineScreenView.ShowLevelSelectPanel()` lazy-opens the panel. |
 | 3.180 | 2026-07-06 | **局外六宫属性初始值**：§5 `RoleStats` 新增 `criticalHit/combo/counterattack/stun/evasion/lifeSteal` 整数默认值（3/6/12/2/4/8）；§12.13 六宫 = 局外基线 + 本局老虎机累加；`RoleStatsSave` 同步。 / **Out-of-run hex defaults:** six int fields on `RoleStats` (3/6/12/2/4/8); §12.13 hex = baseline + slot gains; save updated. |
 | 3.179 | 2026-07-06 | **`SlotMachineModal` 依次定格与结果汇总条**：§12.12.2 补充——滚动阶段（`SpinDuration=1.0s`、`SpinTick=0.06s`）结束后按 `Reel0→Reel{n-1}` **依次定格**，相邻轴间隔 **`ReelStopStaggerSec=0.3s`**，未定格轴在间隔内继续滚动；新增 §12.12.7——全部轴定格后在 `IconLayer` 下方显示 `ResultSummary`（`AirUI/ShiJian_1` 九宫格 + 与 EventCard 一致文案，`SlotMachineResultText.FormatResultSummary` 共享格式化）。 / **`SlotMachineModal` sequential reel settle & result summary:** §12.12.2 — after spin phase, reels settle **sequentially** from `Reel0` with **0.3s** stagger, unsettled reels keep scrolling; new §12.12.7 — `ResultSummary` below `IconLayer` with EventCard-matching text via shared `FormatResultSummary`. |
 | 3.178 | 2026-07-06 | **`SlotMachineModal` 属性获得飞入特效**：新增 §12.12.6——`Settled` 态 `Finalize` 时于 `Hide()` 前按各 `Reel{n}` 复制图标至主 Canvas，`Hide()` 后延迟 0.3s、0.5s 飞向 `DetailAttrButton` 并缩至 0.25；`SlotAttrFlyFx` + `Show(..., flyTarget)`。 / **`SlotMachineModal` attribute gain fly-in FX:** new §12.12.6 — on `Settled` `Finalize`, clone reel icons to Canvas before `Hide()`, then after 0.3s delay fly 0.5s to `DetailAttrButton` scaling to 0.25; `SlotAttrFlyFx` + `Show(..., flyTarget)`. |
+| 3.179 | 2026-07-07 | **公会镜头跟随 v2（视口增量 + 帧 delta 反向平移）**：§9.8.9.6——`TryComputeContentPositionForTarget` 改为在 viewport 局部空间测量偏移并增量校正；新增 `ApplyPlayerContentDelta`，`GuildPlayerController` 每帧传入实际位移 delta 同帧反向平移 content，与 `LateUpdate` 双保险。 / **Guild camera follow v2:** viewport-space incremental correction + per-frame `ApplyPlayerContentDelta` from player move delta. |
+| 3.178 | 2026-07-07 | **公会镜头即时跟随（修复 scale 滞后）**：§9.8.9.6——`JiaYuanViewportFollowController` 计算跟随位移时将目标在 `worldContent` 局部偏移乘以 `localScale` 再写入 `anchoredPosition`（修复 `WorldContentLocalScale=1.7` 时镜头跟不上角色）；`GuildPlayerController` 位移后同帧 `SnapToTarget`。 / **Guild instant camera follow (scale fix):** §9.8.9.6 — viewport follow multiplies target local offset by `localScale` before setting `anchoredPosition`; same-frame snap after player move. |
 | 3.177 | 2026-07-06 | **`InvasionBattleModal_2` 详细属性弹窗（`DetailAttributeModal`）**：新增 §12.13——`MiddleArea` 最右侧 `DetailAttrButton`（`AirUI/JiNengLiebiao`）打开独立预制体 `DetailAttributeModal`；全屏纯黑半透明遮罩；上/中/下三区（角色待机、`LiuGong_1` 底 + 与主界面一致 HP/攻击/速度、六宫雷达图）；六宫 6 项局外初始 0、仅累加本局老虎机增益至 `runEnhanceBonuses`；动态比例绘制多边形。修订 §12.12.3 / §B.19 `attrId` 映射（`Life`/`Attack` + 六宫项）。 / **`InvasionBattleModal_2` detail-attribute modal:** new §12.13 — `DetailAttrButton` on `MiddleArea` opens `DetailAttributeModal` prefab; semi-transparent black dim; top/middle/bottom (idle character, `LiuGong_1` + same HP/atk/speed as main, hex radar); hex attrs start at 0 outside run, slot gains in `runEnhanceBonuses`; dynamic-scale polygon. §12.12.3 / §B.19 `attrId` mapping updated. |
 | 3.176 | 2026-07-06 | **嵌入结算 `ResultDialog` 文本排版**：§12.11.10.1——`EmbeddedResultOverlay/ResultDialog` 内 `ResultText` `PosY=175`、`fontSize=64`、`FontStyle=Bold`；`HintText` `PosY=-340`、`fontSize=40`、`FontStyle=Bold`；由 `InvasionBattleView.ApplyEmbeddedResultDialogTextLayout` 于嵌入实例化后运行时覆写，§12.3 全屏 prefab 默认不变。 / **Embedded result dialog text layout:** §12.11.10.1 — `ResultText` `PosY=175`, `fontSize=64`, bold; `HintText` `PosY=-340`, `fontSize=40`, bold; applied at runtime via `ApplyEmbeddedResultDialogTextLayout`; §12.3 fullscreen prefab defaults unchanged. |
+| 3.176 | 2026-07-07 | **公会背景切块扩为 3×3**：§9.8.9 背景拼图由 2×2（`2086×3000`）扩为 **3×3**（单块 `1043×1500` → 世界 **`3129×4500`**）；资源命名仍为 `Resources/AirUI/GongHui_0_1_r{row}_c{col}`（`row/col` 均 `0..2`），`GongHuiBackgroundBuilder` 自动扫描矩形网格，`GongHuiScreenView.Awake` 重拼切块并更新 `GongHuiWorldContent.sizeDelta`。 / **Guild background expanded to 3×3 tiles:** §9.8.9 tiled art grows from 2×2 (`2086×3000`) to **3×3** (`1043×1500` per tile → **`3129×4500`** world); same `GongHui_0_1_r{row}_c{col}` naming (`row/col` `0..2`); `GongHuiBackgroundBuilder` auto-scans the rectangular grid; `GongHuiScreenView.Awake` rebuilds tiles and updates world size. |
 | 3.175 | 2026-07-06 | **`SlotMachineModal` Reel 真实图标与 Label 布局**：§12.12.1——`IconLayer/Reel{n}` 根 `Image` 从 `attr_enhance.icon` 加载 `Resources` Sprite（`Color.white`、`preserveAspect=true`；裸文件名自动回退 `AirUI/{icon}`）；子 `Label` 展示 `attrName`，拉伸锚点 **Top=78、Bottom=-78**（`offsetMax.y=-78`、`offsetMin.y=-78`）。§12.12.4 属性项图标由占位改为 `Resources/AirUI/{icon}`；§B.19.1 `icon` 已填入图标名并记录加载回退规则。 / **`SlotMachineModal` reel real icons & label layout:** §12.12.1 — `IconLayer/Reel{n}` root `Image` loads `attr_enhance.icon` via `Resources` (`Color.white`, `preserveAspect=true`; bare filenames fall back to `AirUI/{icon}`); child `Label` shows `attrName` with stretch **Top=78, Bottom=-78** (`offsetMax.y=-78`, `offsetMin.y=-78`). §12.12.4 item icons no longer placeholder; §B.19.1 documents icon names and load fallback. |
 | 3.174 | 2026-07-06 | **`InvasionBattleModal_2` 嵌入战斗结算弹窗提层级与全屏遮罩**：§12.11.10 新增「嵌入结算弹窗层级（Embedded ResultDialog Overlay）」——嵌入战斗 `ShowResultDialog` 时于 `InvasionBattleModal_2` 根 `panelRt` 下创建 `EmbeddedResultOverlay`（显示时 `SetAsLastSibling` 置顶），其下全屏 `DimBackdrop` `RGBA(0,0,0,0.72)` + 居中 `ResultDialog`（`856×883`，`localScale=(1,1,1)`）；`BuildEmbedded` 增可选参数 `resultOverlayHost`；§12.3 全屏战斗结算弹窗规格不变。 / **`InvasionBattleModal_2` embedded battle result dialog layering:** §12.11.10 adds Embedded ResultDialog Overlay — on embedded `ShowResultDialog`, create `EmbeddedResultOverlay` under the modal root (`SetAsLastSibling` on show), with full-screen `DimBackdrop` `RGBA(0,0,0,0.72)` and centered `ResultDialog` (`856×883`, `localScale=(1,1,1)`); `BuildEmbedded` gains optional `resultOverlayHost`; §12.3 fullscreen result dialog unchanged. |
 | 3.173 | 2026-07-03 | **`InvasionBattleModal_2` PlayerSlot 镜像与「下一天」移动过场**：(1) §12.11.4——上部 `PlayerSlot` 内层 `Skeleton` 节点默认 `localScale.x` 取负（`(-1,1,1)`）实现**水平镜像 1 次**（同 §12.3 朝向路径），默认循环**待机**（候选链 `standby_1`→`standby`→`idle`→`exclusive_2`→`animation`→首条）；`TryBuildSkeletonGraphic` 构建成功后保存 `playerSkeleton` 引用。(2) §12.11.5——点「下一天」灰置按钮后、事件展示前新增**角色移动过场**：角色播放移动动画（候选链 `move_1`→`move`→`animation`）循环 **1 秒**，**这 1 秒内 `BottomArea` 事件日志暂停、不追加任何事件卡**，1 秒后角色恢复待机再逐条展示事件；过场对所有事件（含“今日无事发生”）一致生效，`playerSkeleton` 为空时跳过动画但仍等待 1 秒。`InvasionBattleModal2View` 新增 `PlayPlayerMoveLoop`/`PlayPlayerIdleLoop` 与 `MoveAnimCandidates`/`IdleAnimCandidates` 常量。 / **`InvasionBattleModal_2` PlayerSlot mirror & "Next Day" move interlude:** (1) §12.11.4 — the top `PlayerSlot` inner `Skeleton` node defaults `localScale.x` negative (`(-1,1,1)`) for a **single horizontal mirror** (same facing path as §12.3), loops **idle** (chain `standby_1`→`standby`→`idle`→`exclusive_2`→`animation`→first); `TryBuildSkeletonGraphic` keeps the `playerSkeleton` reference. (2) §12.11.5 — after greying the Next-Day button and before revealing events, a **move interlude**: the player loops the move animation (chain `move_1`→`move`→`animation`) for **1 second**, during which the `BottomArea` event log is **paused (no cards appended)**; after 1s the player returns to idle and events reveal card-by-card; applies to all events (incl. "今日无事发生"), skipped animation but still 1s wait when `playerSkeleton` is null. New `PlayPlayerMoveLoop`/`PlayPlayerIdleLoop` + `MoveAnimCandidates`/`IdleAnimCandidates`. |
