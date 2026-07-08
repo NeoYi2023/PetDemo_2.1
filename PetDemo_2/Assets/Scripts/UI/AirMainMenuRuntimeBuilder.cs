@@ -667,6 +667,9 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
             {
                 characterCreationScreen.OnNavigateToBottomNav += RestoreFromOverlay;
                 characterCreationScreen.OnCloseRequested += ReturnToAppFromCharacterCreation;
+                // SPEC §9.14.10 (v3.184)：「进入家园」页签内嵌公会场景。
+                if (builtGongHuiScreen != null)
+                    characterCreationScreen.BindEmbeddedGongHui(builtGongHuiScreen);
                 // SPEC §9.14.10 (v3.139)：亲密度页签「去Ta家」→ 恢复家园层后打开好友家园。
                 characterCreationScreen.OnVisitFriendHome += friend =>
                 {

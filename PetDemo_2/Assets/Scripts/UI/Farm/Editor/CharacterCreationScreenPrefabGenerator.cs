@@ -20,6 +20,17 @@ namespace PetDemo.EditorTools
         [MenuItem("Tools/PetDemo/Generate Character Creation Screen Prefab")]
         public static void Generate()
         {
+            GenerateInternal();
+        }
+
+        /// <summary>供 Unity 批处理调用：Unity.exe -batchmode -quit -executeMethod PetDemo.EditorTools.CharacterCreationScreenPrefabGenerator.GenerateFromCommandLine</summary>
+        public static void GenerateFromCommandLine()
+        {
+            GenerateInternal();
+        }
+
+        private static void GenerateInternal()
+        {
             EnsureDir(PrefabDir);
 
             var root = CharacterCreationScreenLayout.BuildRuntime(null);

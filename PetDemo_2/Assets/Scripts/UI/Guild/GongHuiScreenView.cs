@@ -38,6 +38,17 @@ namespace PetDemo.UI
         private RectTransform playerRt;
         private bool sceneSpawned;
 
+        // SPEC §9.14.10（v3.184）：创角界面内嵌公会（保留创角 BottomTabBar）。
+        private bool embeddedInCharacterCreation;
+        private RectTransform embedOriginalParent;
+        private int embedOriginalSiblingIndex;
+        private Vector2 embedOriginalAnchorMin;
+        private Vector2 embedOriginalAnchorMax;
+        private Vector2 embedOriginalOffsetMin;
+        private Vector2 embedOriginalOffsetMax;
+
+        public bool IsEmbeddedInCharacterCreation => embeddedInCharacterCreation;
+
         private void Awake()
         {
             EnsureTiledBackground();
@@ -145,23 +156,85 @@ namespace PetDemo.UI
 
         private void OnBottomNavOpenChanged(int index, string key)
         {
+            if (embeddedInCharacterCreation)
+                return;
+
             bool show = !string.IsNullOrEmpty(key) &&
                         string.Equals(key, GongHuiNavKey, StringComparison.Ordinal);
 
             if (show)
-            {
-                gameObject.SetActive(true);
-                EnsureSceneSpawned();
-                if (followController != null)
-                    followController.SetFollowEnabled(true);
-            }
+                ShowGuildScreen();
             else
+                HideGuildScreen();
+        }
+
+        /// <summary>SPEC §9.14.10（v3.184）：在创角界面内嵌展示公会场景，复用创角 BottomTabBar。</summary>
+        public void EnterCharacterCreationEmbed(RectTransform mount, float bottomInset)
+        {
+            if (mount == null)
+                return;
+
+            if (embeddedInCharacterCreation)
             {
-                panoramaController?.ExitPanoramaIfActive();
-                if (followController != null)
-                    followController.SetFollowEnabled(false);
-                gameObject.SetActive(false);
+                ShowGuildScreen();
+                return;
             }
+
+            var rt = (RectTransform)transform;
+            embedOriginalParent = rt.parent as RectTransform;
+            embedOriginalSiblingIndex = rt.GetSiblingIndex();
+            embedOriginalAnchorMin = rt.anchorMin;
+            embedOriginalAnchorMax = rt.anchorMax;
+            embedOriginalOffsetMin = rt.offsetMin;
+            embedOriginalOffsetMax = rt.offsetMax;
+
+            rt.SetParent(mount, false);
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+
+            embeddedInCharacterCreation = true;
+            ShowGuildScreen();
+        }
+
+        /// <summary>SPEC §9.14.10（v3.184）：退出创角内嵌并还原至主 HUD 层级。</summary>
+        public void ExitCharacterCreationEmbed()
+        {
+            if (!embeddedInCharacterCreation)
+                return;
+
+            HideGuildScreen();
+
+            var rt = (RectTransform)transform;
+            if (embedOriginalParent != null)
+            {
+                rt.SetParent(embedOriginalParent, false);
+                rt.SetSiblingIndex(embedOriginalSiblingIndex);
+                rt.anchorMin = embedOriginalAnchorMin;
+                rt.anchorMax = embedOriginalAnchorMax;
+                rt.offsetMin = embedOriginalOffsetMin;
+                rt.offsetMax = embedOriginalOffsetMax;
+            }
+
+            embeddedInCharacterCreation = false;
+        }
+
+        private void ShowGuildScreen()
+        {
+            gameObject.SetActive(true);
+            EnsureSceneSpawned();
+            if (followController != null)
+                followController.SetFollowEnabled(true);
+        }
+
+        private void HideGuildScreen()
+        {
+            panoramaController?.ExitPanoramaIfActive();
+            if (followController != null)
+                followController.SetFollowEnabled(false);
+            gameObject.SetActive(false);
         }
 
         // 首次显示时懒生成主角/NPC Spine 与各控制器（SPEC §9.8.9.4）。
@@ -405,6 +478,8 @@ namespace PetDemo.UI
 
         private void OnDestroy()
         {
+            if (embeddedInCharacterCreation)
+                embeddedInCharacterCreation = false;
             if (bottomNav != null)
                 bottomNav.OnOpenChanged -= OnBottomNavOpenChanged;
         }

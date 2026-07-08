@@ -19,9 +19,20 @@ namespace PetDemo.UI
         private static readonly Vector2 AddButtonSize = new Vector2(1080f, 1076f);
         private static readonly Vector2 AddButtonAnchoredPos = new Vector2(0f, 80f);
 
-        // SPEC §9.14.10（v3.139）：底部页签栏。
+        // SPEC §9.14.10（v3.139 / v3.184）：底部页签栏。
         private const float BottomTabBarHeight = 160f;
-        private const int BottomTabCount = 4;
+        private const int BottomTabCount = 5;
+        private const float BottomTabHorizontalInset = 5f;
+        public const string HomeTabIconClosedResource = "AirUI/bottom_bar_c_1";
+        public const string HomeTabIconOpenResource = "AirUI/bottom_bar_c_2";
+        public const string IntimacyTabIconClosedResource = "AirUI/bottom_bar_a_1";
+        public const string IntimacyTabIconOpenResource = "AirUI/bottom_bar_a_2";
+        public const string DressUpTabIconClosedResource = "AirUI/bottom_bar_b_1";
+        public const string DressUpTabIconOpenResource = "AirUI/bottom_bar_b_2";
+        public const string EnterHomeTabIconClosedResource = "AirUI/bottom_bar_e_1";
+        public const string EnterHomeTabIconOpenResource = "AirUI/bottom_bar_e_2";
+        public const string RoleAddFavorTabIconClosedResource = "AirUI/bottom_bar_d_1";
+        public const string RoleAddFavorTabIconOpenResource = "AirUI/bottom_bar_d_2";
 
         // SPEC §9.14.10（v3.142）：页签内容区为屏幕下方 60%（位于 BottomTabBar 之上），上方 40% 持续显示 DisplayArea。
         public const float ContentRegionTopAnchorY = 0.6f;
@@ -94,10 +105,13 @@ namespace PetDemo.UI
             // SPEC §9.14.8/§9.14.10（v3.139）：亲密度好友列表（默认隐藏，由「亲密度」页签切换）。
             BuildIntimacyTopPanel(rootRt);
 
-            // SPEC §9.14.10（v3.141）：进入家园跳转列表（默认隐藏，由「进入家园」页签切换）。
+            // SPEC §9.14.10（v3.141）：进入家园跳转列表（默认隐藏，供任务列表等入口）。
             BuildEnterHomeTopPanel(rootRt);
 
-            // SPEC §9.14.10（v3.139）：底部常驻页签栏（亲密度 / 装扮 / 进入家园 / 加好感）。
+            // SPEC §9.14.10（v3.184）：家园页签占位面板。
+            BuildHomeTabPlaceholderPanel(rootRt);
+
+            // SPEC §9.14.10（v3.184）：底部常驻页签栏（亲密度 / 装扮 / 家园 / 进入家园 / 加好感）。
             BuildBottomTabBar(rootRt);
 
             // 好友列表弹窗（默认隐藏）。
@@ -153,6 +167,43 @@ namespace PetDemo.UI
 
         // ---- SPEC §9.14.10（v3.139）底部页签栏 ----
 
+        /// <summary>旧 prefab 缺少 HomeTabButton 时重建 5 页签底栏（v3.184）。</summary>
+        public static void EnsureBottomTabBar(RectTransform rootRt)
+        {
+            if (rootRt == null)
+                return;
+            var bar = rootRt.Find("BottomTabBar") as RectTransform;
+            if (bar != null && bar.Find("HomeTabButton") != null)
+            {
+                RefreshBottomTabBarPresentation(bar);
+                return;
+            }
+
+            if (bar == null)
+            {
+                BuildBottomTabBar(rootRt);
+                return;
+            }
+
+            for (int i = bar.childCount - 1; i >= 0; i--)
+                UnityEngine.Object.Destroy(bar.GetChild(i).gameObject);
+            PopulateBottomTabButtons(bar);
+        }
+
+        /// <summary>SPEC §9.14.10（v3.185）：刷新底栏页签图标并隐藏废弃 Label。</summary>
+        public static void RefreshBottomTabBarPresentation(RectTransform bar)
+        {
+            if (bar == null)
+                return;
+
+            ApplyTabButtonIconsByName(bar, "IntimacyTab", IntimacyTabIconClosedResource, IntimacyTabIconOpenResource);
+            ApplyTabButtonIconsByName(bar, "DressUpButton", DressUpTabIconClosedResource, DressUpTabIconOpenResource);
+            ApplyTabButtonIconsByName(bar, "HomeTabButton", HomeTabIconClosedResource, HomeTabIconOpenResource);
+            ApplyTabButtonIconsByName(bar, "EnterHomeButton", EnterHomeTabIconClosedResource, EnterHomeTabIconOpenResource);
+            ApplyTabButtonIconsByName(bar, "RoleAddFavorButton", RoleAddFavorTabIconClosedResource, RoleAddFavorTabIconOpenResource);
+            HideTabButtonLabels(bar);
+        }
+
         private static void BuildBottomTabBar(RectTransform rootRt)
         {
             var bar = CreateChild(rootRt, "BottomTabBar", new Vector2(0f, 0f), new Vector2(1f, 0f),
@@ -161,16 +212,96 @@ namespace PetDemo.UI
             var barImg = bar.gameObject.AddComponent<Image>();
             barImg.color = TabBarColor;
             barImg.raycastTarget = true;
-
-            // 4 个等宽互斥页签（与 §9.10 RoleGrowthTabBar 等宽槽位范式一致）。
-            CreateTabButton(bar, "IntimacyTab", "亲密度", 0);
-            CreateTabButton(bar, "DressUpButton", "装扮", 1);
-            CreateTabButton(bar, "EnterHomeButton", "进入家园", 2);
-            CreateTabButton(bar, "RoleAddFavorButton", "加好感", 3);
+            PopulateBottomTabButtons(bar);
         }
 
-        /// <summary>在底部页签栏内创建一个按 1/4 等宽拉伸的页签按钮。</summary>
-        private static void CreateTabButton(RectTransform parent, string name, string label, int index)
+        private static void PopulateBottomTabButtons(RectTransform bar)
+        {
+            // 5 个等宽互斥页签（与 §9.10 RoleGrowthTabBar 等宽槽位范式一致）。
+            var intimacyTab = CreateTabButton(bar, "IntimacyTab", 0);
+            ApplyTabButtonIcons(intimacyTab, IntimacyTabIconClosedResource, IntimacyTabIconOpenResource);
+            var dressUpButton = CreateTabButton(bar, "DressUpButton", 1);
+            ApplyTabButtonIcons(dressUpButton, DressUpTabIconClosedResource, DressUpTabIconOpenResource);
+            var homeTab = CreateTabButton(bar, "HomeTabButton", 2);
+            ApplyTabButtonIcons(homeTab, HomeTabIconClosedResource, HomeTabIconOpenResource);
+            var enterHomeButton = CreateTabButton(bar, "EnterHomeButton", 3);
+            ApplyTabButtonIcons(enterHomeButton, EnterHomeTabIconClosedResource, EnterHomeTabIconOpenResource);
+            var roleAddFavorButton = CreateTabButton(bar, "RoleAddFavorButton", 4);
+            ApplyTabButtonIcons(roleAddFavorButton, RoleAddFavorTabIconClosedResource, RoleAddFavorTabIconOpenResource);
+            HideTabButtonLabels(bar);
+        }
+
+        /// <summary>旧 prefab 无 HomeTabPlaceholderPanel 时运行时补建。</summary>
+        public static void EnsureHomeTabPlaceholderPanel(RectTransform rootRt)
+        {
+            if (rootRt == null || rootRt.Find("HomeTabPlaceholderPanel") != null)
+                return;
+            BuildHomeTabPlaceholderPanel(rootRt);
+        }
+
+        private static void BuildHomeTabPlaceholderPanel(RectTransform rootRt)
+        {
+            var panel = CreateChild(rootRt, "HomeTabPlaceholderPanel", new Vector2(0f, 0f), new Vector2(1f, ContentRegionTopAnchorY),
+                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            panel.offsetMin = new Vector2(ContentRegionSideMargin, ContentRegionBottomOffset);
+            panel.offsetMax = new Vector2(-ContentRegionSideMargin, 0f);
+            panel.gameObject.SetActive(false);
+        }
+
+        private static void ApplyTabButtonIcons(Button tab, string closedResource, string openResource)
+        {
+            if (tab == null)
+                return;
+            ApplyTabButtonIconSprite(tab.transform, "IconClosed", closedResource);
+            ApplyTabButtonIconSprite(tab.transform, "IconOpen", openResource);
+        }
+
+        private static void ApplyTabButtonIconsByName(Transform bar, string buttonName, string closedResource, string openResource)
+        {
+            if (bar == null)
+                return;
+            var buttonT = bar.Find(buttonName);
+            if (buttonT == null)
+                return;
+            ApplyTabButtonIconSprite(buttonT, "IconClosed", closedResource);
+            ApplyTabButtonIconSprite(buttonT, "IconOpen", openResource);
+        }
+
+        private static void HideTabButtonLabels(Transform bar)
+        {
+            if (bar == null)
+                return;
+            for (int i = 0; i < bar.childCount; i++)
+            {
+                var label = bar.GetChild(i).Find("Label");
+                if (label != null)
+                    label.gameObject.SetActive(false);
+            }
+        }
+
+        private static void ApplyTabButtonIconSprite(Transform buttonRoot, string childName, string resourcePath)
+        {
+            if (buttonRoot == null)
+                return;
+            var iconT = buttonRoot.Find(childName);
+            if (iconT == null)
+                return;
+            if (iconT is RectTransform iconRt)
+                StretchFull(iconRt);
+            var img = iconT.GetComponent<Image>();
+            if (img == null)
+                return;
+            var sprite = Resources.Load<Sprite>(resourcePath);
+            if (sprite != null)
+            {
+                img.sprite = sprite;
+                img.color = Color.white;
+                img.preserveAspect = true;
+            }
+        }
+
+        /// <summary>在底部页签栏内创建一个按 1/5 等宽拉伸的页签按钮。</summary>
+        private static Button CreateTabButton(RectTransform parent, string name, int index)
         {
             float min = (float)index / BottomTabCount;
             float max = (float)(index + 1) / BottomTabCount;
@@ -181,8 +312,8 @@ namespace PetDemo.UI
             rt.anchorMin = new Vector2(min, 0f);
             rt.anchorMax = new Vector2(max, 1f);
             rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.offsetMin = new Vector2(8f, 16f);
-            rt.offsetMax = new Vector2(-8f, -16f);
+            rt.offsetMin = new Vector2(BottomTabHorizontalInset, 16f);
+            rt.offsetMax = new Vector2(-BottomTabHorizontalInset, -16f);
 
             var img = go.AddComponent<Image>();
             img.color = TabNormalColor;
@@ -191,26 +322,17 @@ namespace PetDemo.UI
             btn.transition = Selectable.Transition.None;
             btn.targetGraphic = img;
 
-            var labelRt = CreateChild(rt, "Label", Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            StretchFull(labelRt);
-            var txt = labelRt.gameObject.AddComponent<Text>();
-            txt.text = label;
-            txt.font = FarmGridView.LoadBuiltinFont();
-            txt.fontSize = 40;
-            txt.alignment = TextAnchor.MiddleCenter;
-            txt.color = TextColor;
-            txt.raycastTarget = false;
-
-            // SPEC §9.14.10（v3.159）：页签双态图标占位（sprite 由预制体作者挂载）。
+            // SPEC §9.14.10（v3.159 / v3.185）：页签双态图标，Label 已废弃。
             CreateTabIconPlaceholder(rt, "IconOpen", active: false);
             CreateTabIconPlaceholder(rt, "IconClosed", active: true);
+            return btn;
         }
 
-        /// <summary>页签按钮内 IconOpen / IconClosed 占位 Image（透明，不挡点击）。</summary>
+        /// <summary>页签按钮内 IconOpen / IconClosed 占位 Image（拉伸填满槽位，不挡点击）。</summary>
         private static void CreateTabIconPlaceholder(RectTransform parent, string name, bool active)
         {
-            var iconRt = CreateChild(parent, name, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(64f, 64f));
+            var iconRt = CreateChild(parent, name, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            StretchFull(iconRt);
             var iconImg = iconRt.gameObject.AddComponent<Image>();
             iconImg.color = new Color(1f, 1f, 1f, 0f);
             iconImg.raycastTarget = false;
