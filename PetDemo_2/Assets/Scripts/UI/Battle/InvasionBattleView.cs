@@ -21,7 +21,7 @@ using UnityEngine.UI;
 namespace PetDemo.UI.Battle
 {
     [DisallowMultipleComponent]
-    public class InvasionBattleView : MonoBehaviour
+    public partial class InvasionBattleView : MonoBehaviour
     {
         public const string ResBattleBackground = "AirUI/ZhanDou_1";
         public const string ResBattleOngoingEntry = "AirUI/ZhanDouZhong";
@@ -41,8 +41,8 @@ namespace PetDemo.UI.Battle
         private static readonly Vector2 ScreenCenterPos = new Vector2(0f, -120f);
         private static readonly Vector2 CharacterSize = new Vector2(720f, 1200f);
         private static readonly Vector2 PetCharacterSize = new Vector2(480f, 720f);
-        private const float CharacterScale = 0.53f;
-        private const float PetCharacterScale = 0.40f;
+        private const float CharacterScale = 0.53f * GridBattleConstants.BattleSpineDisplayScaleMultiplier;
+        private const float PetCharacterScale = 0.40f * GridBattleConstants.BattleSpineDisplayScaleMultiplier;
         // SPEC §12.11.10 (v3.172)：嵌入 TopArea 区域比全屏小，整体缩放使角色与血条收进该区域（可按实际显示微调）。
         private const float EmbeddedScale = 0.75f;
         // SPEC §12.11.10.1 (v3.174)：嵌入结算弹窗全屏居中尺寸与遮罩色。
@@ -1147,8 +1147,11 @@ namespace PetDemo.UI.Battle
 
         private void BuildHpBars(RectTransform parent)
         {
-            playerHpFill = BuildHpBar(parent, "PlayerHpBar", new Vector2(-280f, -460f), out playerHpText);
-            enemyHpFill = BuildHpBar(parent, "EnemyHpBar", new Vector2(280f, -460f), out enemyHpText);
+            float hpOffsetY = GridBattleConstants.GridHpBarOffsetBelowSpineCenterPx;
+            playerHpFill = BuildHpBar(parent, "PlayerHpBar",
+                new Vector2(PlayerHomePos.x, PlayerHomePos.y - hpOffsetY), out playerHpText);
+            enemyHpFill = BuildHpBar(parent, "EnemyHpBar",
+                new Vector2(EnemyHomePos.x, EnemyHomePos.y - hpOffsetY), out enemyHpText);
         }
 
         private static Image BuildHpBar(RectTransform parent, string name, Vector2 anchored, out Text labelOut)

@@ -38,6 +38,7 @@ namespace PetDemo.UI.Battle
         public const string DetailAttrButtonName = "DetailAttrButton";
         public const string BottomAreaName = "BottomArea";
         public const string PlayerSlotName = "PlayerSlot";
+        public const string PartyStandRootName = "PartyStandRoot";
         public const string EventScrollName = "EventScroll";
         public const string EventContentName = "EventContent";
 
@@ -55,9 +56,13 @@ namespace PetDemo.UI.Battle
         private static readonly string[] MoveAnimCandidates = { "move_1", "move", "animation" };
         private static readonly string[] IdleAnimCandidates = { "standby_1", "standby", "idle", "exclusive_2", "animation" };
 
+        // SPEC §12.14.15：探索期队友左右错开步进（像素）。
+        private const float PartyFollowerHorizontalStep = 120f;
+
         private static InvasionBattleModal2View instance;
 
         [SerializeField] private RectTransform playerSlot;
+        [SerializeField] private RectTransform partyStandRoot;
         [SerializeField] private Text hpText;
         [SerializeField] private Text atkText;
         [SerializeField] private Text speedText;
@@ -79,7 +84,11 @@ namespace PetDemo.UI.Battle
         private bool roleStatsSubscribed;
         private bool playerBuilt;
         private SkeletonGraphic playerSkeleton;
+        private readonly List<SkeletonGraphic> partyStandSkeletons = new List<SkeletonGraphic>();
 
+        // SPEC §12.14.1.1 (v3.212)：局内队伍名册；runStats 为 members[0].stats 别名。
+        private RunPartyRoster partyRoster;
+        /// <summary>Role 局内属性快捷别名（== partyRoster.members[0].stats）。</summary>
         private RoleStats runStats;
         private bool runStatsDirty;
         private readonly Dictionary<string, int> runEnhanceBonuses = new Dictionary<string, int>();
@@ -103,9 +112,16 @@ namespace PetDemo.UI.Battle
 
         // SPEC §12.11.10 (v3.172)：小战斗/BOSS 战——待触发类型、单位表缓存、嵌入战斗实例、TopArea 缓存。
         private InvasionEventRewardKind pendingBattleKind = InvasionEventRewardKind.BattleSmall;
+        /// <summary>SPEC §12.11.5 / §12.14 (v3.213)：当前待处理事件 id；RevealEventRoutine 写入；Show() 清空。</summary>
+        private string pendingEventId;
         private List<InvasionUnitConfig> battleUnits;
         private InvasionBattleView embeddedBattle;
+        /// <summary>SPEC §12.14.16 阶段 5：当前多单位战 session，供胜后 SyncRosterHpAfterBattle。</summary>
+        private GridBattleSession activeGridBattleSession;
         private RectTransform topArea;
+
+        // FriendCatalog 缓存（名册解析 displayName）
+        private List<FriendProfile> friendCatalogCache;
 
         // 左上角技能条布局（SPEC §12.11.9）
         private static readonly Vector2 SkillStripFirstPos = new Vector2(-480f, 765f);
@@ -120,11 +136,17 @@ namespace PetDemo.UI.Battle
         {
             Normal,     // 常态「下一天」，可点击推进
             Revealing,  // 灰置，事件展示中
-            Battle,     // 「战斗」态（本期点击无响应）
-            Lottery,    // 「打开」态（本期点击无响应）
+            Battle,     // 「战斗」态
+            Lottery,    // 「打开」态
         }
 
         public bool IsShown => gameObject != null && gameObject.activeSelf;
+
+        /// <summary>SPEC §12.14.1.1：本局名册（Show→Hide 内有效；未 Show 时为 null）。</summary>
+        public RunPartyRoster PartyRoster => partyRoster;
+
+        /// <summary>SPEC §12.11.5：当前待处理事件 id（抽事件后可查询；无事件时为 null）。</summary>
+        public string PendingEventId => pendingEventId;
 
         public static InvasionBattleModal2View GetOrCreate(RectTransform canvasRect)
         {
@@ -192,21 +214,23 @@ namespace PetDemo.UI.Battle
             EnsureEventLog();
             WireButtonsOnce();
             EnsureButtonRefs();
-            EnsurePlayerBuilt();
+
             ResetSkillState();
 
-            // SPEC §12.11.10：新一局清理残留的嵌入战斗并确保站立阿狼可见。
+            // SPEC §12.11.10：新一局清理残留的嵌入战斗并确保探索期站立队可见。
             if (embeddedBattle != null)
             {
                 Destroy(embeddedBattle.gameObject);
                 embeddedBattle = null;
             }
-            SetStandingPlayerVisible(true);
 
             currentDay = 0;
             RefreshDayLabel();
 
-            runStats = CloneRoleStats(service != null ? service.GetRoleStats() : null);
+            // SPEC §12.14.1.1：Show() 一次性初始化局内名册；runStats = members[0].stats 别名。
+            pendingEventId = null;
+            InitPartyRoster();
+            RebuildPartyStandVisuals();
             runStatsDirty = false;
             InitRunEnhanceBonusesFromStats();
             RefreshRoleStats();
@@ -218,6 +242,7 @@ namespace PetDemo.UI.Battle
             AppendEventCard("点击「下一天」开始探索。", InvasionEventConfigCatalog.MinBackgroundIndex);
             ScrollEventLogToBottom();
 
+            SetExplorationPartyVisible(true);
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
         }
@@ -234,11 +259,17 @@ namespace PetDemo.UI.Battle
             {
                 Destroy(embeddedBattle.gameObject);
                 embeddedBattle = null;
-                SetStandingPlayerVisible(true);
+                activeGridBattleSession = null;
+                SetExplorationPartyVisible(true);
             }
+            ClearPartyStandVisuals();
             SkillPickThreeModalView.HideIfAny();
             SlotMachineModalView.HideIfAny();
             DetailAttributeModalView.HideIfAny();
+            // SPEC §12.14.1.1：Hide 销毁局内名册。
+            partyRoster = null;
+            runStats = null;
+            pendingEventId = null;
             gameObject.SetActive(false);
         }
 
@@ -353,13 +384,14 @@ namespace PetDemo.UI.Battle
         {
             SetNextDayButtonMode(NextDayButtonMode.Revealing);
 
-            // SPEC §12.11.5（v3.173）：移动过场——角色播放移动动画 1 秒，期间 BottomArea 暂停不更新事件；随后恢复待机再展示。
-            PlayPlayerMoveLoop();
+            // SPEC §12.11.5（v3.173 / v3.222）：移动过场——全队播放移动动画 1 秒，期间 BottomArea 暂停不更新事件；随后恢复待机再展示。
+            PlayPartyMoveLoop();
             yield return new WaitForSeconds(PlayerMoveAnimDurationSec);
-            PlayPlayerIdleLoop();
+            PlayPartyIdleLoop();
 
             if (cfg == null)
             {
+                pendingEventId = null;
                 AppendEventCard("今日无事发生。", InvasionEventConfigCatalog.MinBackgroundIndex);
                 ScrollEventLogToBottom();
                 yield return null;
@@ -367,6 +399,9 @@ namespace PetDemo.UI.Battle
                 revealRoutine = null;
                 yield break;
             }
+
+            // SPEC §12.11.5 / §12.14 (v3.213)：写入待处理事件 id，供 LaunchEmbeddedBattle 分支。
+            pendingEventId = cfg.eventId;
 
             var segments = cfg.textSegments;
             if (segments == null || segments.Count == 0)
@@ -482,7 +517,7 @@ namespace PetDemo.UI.Battle
         // ============================================================
         private void ApplyRewards(List<InvasionEventReward> rewards)
         {
-            if (rewards == null || rewards.Count == 0 || runStats == null)
+            if (rewards == null || rewards.Count == 0 || partyRoster == null)
                 return;
 
             bool changed = false;
@@ -494,7 +529,8 @@ namespace PetDemo.UI.Battle
                 switch (r.kind)
                 {
                     case InvasionEventRewardKind.AttrPercent:
-                        ApplyAttrPercent(r.target, r.percent);
+                        RunPartyRewardApplier.ApplyPercentStatToAllPartyMembers(
+                            partyRoster, r.target, r.percent);
                         changed = true;
                         break;
                     case InvasionEventRewardKind.PickThree:
@@ -510,54 +546,137 @@ namespace PetDemo.UI.Battle
             if (changed)
             {
                 runStatsDirty = true;
+                SyncRoleEnhanceBonusesFromRoster();
                 RefreshRoleStats();
             }
         }
 
-        private void ApplyAttrPercent(string target, int percent)
+        private void SyncRoleEnhanceBonusesFromRoster()
         {
-            if (runStats == null || string.IsNullOrEmpty(target))
+            runEnhanceBonuses.Clear();
+            if (partyRoster == null || partyRoster.members.Count == 0)
                 return;
-            float factor = 1f + percent / 100f;
-            switch (target)
-            {
-                case "hp":
-                    runStats.maxHp = Mathf.Max(1, Mathf.RoundToInt(runStats.maxHp * factor));
-                    runStats.currentHp = Mathf.Clamp(Mathf.RoundToInt(runStats.currentHp * factor), 0, runStats.maxHp);
-                    break;
-                case "atk":
-                    runStats.atk = Mathf.Max(0, Mathf.RoundToInt(runStats.atk * factor));
-                    break;
-                case "speed":
-                    runStats.agility = Mathf.Max(0, Mathf.RoundToInt(runStats.agility * factor));
-                    break;
-            }
+            var roleBonuses = partyRoster.members[0].runEnhanceBonuses;
+            if (roleBonuses == null)
+                return;
+            foreach (var kv in roleBonuses)
+                runEnhanceBonuses[kv.Key] = kv.Value;
         }
 
         private static RoleStats CloneRoleStats(RoleStats src)
         {
-            if (src == null)
-                return null;
-            return new RoleStats
-            {
-                displayName = src.displayName,
-                atk = src.atk,
-                def = src.def,
-                maxHp = src.maxHp,
-                currentHp = src.currentHp,
-                agility = src.agility,
-                criticalHit = src.criticalHit,
-                combo = src.combo,
-                counterattack = src.counterattack,
-                stun = src.stun,
-                evasion = src.evasion,
-                lifeSteal = src.lifeSteal,
-            };
+            return RunPartyRosterFactory.CloneRoleStats(src);
         }
 
         private void InitRunEnhanceBonusesFromStats()
         {
-            AttrEnhanceConfigCatalog.SeedHexBonusesFromRole(runStats, runEnhanceBonuses);
+            if (partyRoster == null)
+                return;
+            for (int i = 0; i < partyRoster.members.Count; i++)
+            {
+                var entry = partyRoster.members[i];
+                if (entry?.stats == null)
+                    continue;
+                AttrEnhanceConfigCatalog.SeedHexBonusesFromRole(entry.stats, entry.runEnhanceBonuses);
+            }
+            SyncRoleEnhanceBonusesFromRoster();
+        }
+
+        // ============================================================
+        // 局内名册（SPEC §12.14.1.1）
+        // ============================================================
+        private void InitPartyRoster()
+        {
+            var followerIds = CollectFollowerNpcIdsForRoster();
+            RoleStats global = service != null ? service.GetRoleStats() : null;
+            partyRoster = RunPartyRosterFactory.Build(
+                global,
+                followerIds,
+                ResolveFollowerPresentation,
+                msg => UnityEngine.Debug.LogWarning(msg));
+
+            // runStats 别名：与 members[0].stats 同一引用。
+            runStats = partyRoster.members.Count > 0 ? partyRoster.members[0].stats : null;
+
+            UnityEngine.Debug.Log(
+                "[InvasionBattleModal2View] 局内名册初始化：成员数=" +
+                (partyRoster != null ? partyRoster.members.Count : 0));
+        }
+
+        /// <summary>
+        /// SPEC §12.14.1.1 / §9.8.9.7 (v3.220) 读队优先级：
+        /// 1) GongHui 激活且 live 跟随非空 → GuildNpcFollowController.entries；
+        /// 2) 否则 → GuildHomeVisitState.PeekFollowers()（非消费；公会→主线保留快照）。
+        /// </summary>
+        private static List<string> CollectFollowerNpcIdsForRoster()
+        {
+            var gongHui = UnityEngine.Object.FindObjectOfType<GongHuiScreenView>();
+            if (gongHui != null &&
+                gongHui.gameObject.activeInHierarchy &&
+                gongHui.NpcFollowController != null)
+            {
+                var live = gongHui.NpcFollowController.GetFollowerNpcIds();
+                if (live != null && live.Count > 0)
+                    return live;
+            }
+
+            var peeked = GuildHomeVisitState.PeekFollowers();
+            return peeked != null ? new List<string>(peeked) : new List<string>();
+        }
+
+        private void ResolveFollowerPresentation(
+            string npcId, out string displayName, out string skeletonPrefab, out bool found)
+        {
+            displayName = npcId;
+            skeletonPrefab = RunPartyRosterFactory.DefaultRoleSkeletonPrefab;
+            found = false;
+
+            // SPEC §9.8.9.7 (v3.222)：优先读跨 Tab 快照中的骨骼路径（公会 inactive 时仍有效）。
+            if (GuildHomeVisitState.TryGetSkeletonPrefab(npcId, out string snapshotPrefab))
+            {
+                skeletonPrefab = snapshotPrefab;
+                found = true;
+            }
+
+            if (friendCatalogCache == null)
+                friendCatalogCache = FriendCatalog.BuildDefault();
+            if (friendCatalogCache != null)
+            {
+                for (int i = 0; i < friendCatalogCache.Count; i++)
+                {
+                    var f = friendCatalogCache[i];
+                    if (f == null || !string.Equals(f.id, npcId, StringComparison.Ordinal))
+                        continue;
+                    displayName = string.IsNullOrEmpty(f.displayName) ? npcId : f.displayName;
+                    if (!found && !string.IsNullOrEmpty(f.spinePrefabPath))
+                    {
+                        skeletonPrefab = f.spinePrefabPath;
+                        found = true;
+                    }
+                    else if (!found)
+                    {
+                        found = true;
+                    }
+                    break;
+                }
+            }
+
+            // 场景内 GuildNpcMarker（含 inactive，公会 Tab 已切走时仍可解析骨骼类型）。
+            var markers = UnityEngine.Object.FindObjectsOfType<GuildNpcMarker>(true);
+            if (markers != null)
+            {
+                for (int i = 0; i < markers.Length; i++)
+                {
+                    var m = markers[i];
+                    if (m == null || !string.Equals(m.NpcId, npcId, StringComparison.Ordinal))
+                        continue;
+                    skeletonPrefab = m.SkeletonKind == GuildNpcSkeletonKind.LangMeiRen
+                        ? GuildSpineCharacterBuilder.LangMeiRenResourcesPrefabPath
+                        : GuildSpineCharacterBuilder.LangRenResourcesPrefabPath;
+                    found = true;
+                    return;
+                }
+            }
         }
 
         // ============================================================
@@ -594,6 +713,94 @@ namespace PetDemo.UI.Battle
                 return;
             }
 
+            SetExplorationPartyVisible(false);
+            // 战斗期间灰置底部按钮，避免重复触发。
+            SetNextDayButtonMode(NextDayButtonMode.Revealing);
+
+            EnsureFieldsFromHierarchy();
+            if (panelRt == null)
+                panelRt = transform as RectTransform;
+
+            activeGridBattleSession = null;
+
+            // SPEC §12.11.10 / §12.14 (v3.220)：Modal_2 战斗事件一律九宫格全队战。
+            if (GridEncounterBuilder.IsGridPartyBattleEvent(pendingEventId)
+                || pendingBattleKind == InvasionEventRewardKind.BattleSmall
+                || pendingBattleKind == InvasionEventRewardKind.BattleBoss)
+            {
+                LaunchEmbeddedGridBattle();
+                return;
+            }
+
+            LaunchEmbeddedLegacy1v1Battle();
+        }
+
+        /// <summary>SPEC §12.14.9：多单位阵型战嵌入 TopArea。</summary>
+        private void LaunchEmbeddedGridBattle()
+        {
+            if (partyRoster == null || partyRoster.members.Count == 0)
+            {
+                UnityEngine.Debug.LogWarning("[InvasionBattleModal2View] 名册为空，无法启动多单位战，恢复常态。");
+                SetExplorationPartyVisible(true);
+                SetNextDayButtonMode(NextDayButtonMode.Normal);
+                return;
+            }
+
+            if (battleUnits == null || battleUnits.Count == 0)
+                battleUnits = InvasionConfigCatalog.LoadInvasionUnitsFromCsv();
+
+            string encounterEventId = ResolveGridEncounterEventId();
+            int battleSeed = GridBattleSeedUtil.MixSeed(
+                GridBattleSeedUtil.HashString(encounterEventId),
+                currentDay,
+                partyRoster.members.Count);
+
+            InvasionUnitConfig ResolveUnit(string unitId) =>
+                InvasionConfigCatalog.FindById(battleUnits, unitId);
+
+            var session = GridBattleSessionFactory.Create(
+                partyRoster,
+                encounterEventId,
+                battleSeed,
+                ResolveUnit);
+
+            if (session.allies.Count == 0 || session.enemies.Count == 0)
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[InvasionBattleModal2View] 多单位战组装失败 allies="
+                    + session.allies.Count + " enemies=" + session.enemies.Count + "，恢复常态。");
+                SetExplorationPartyVisible(true);
+                SetNextDayButtonMode(NextDayButtonMode.Normal);
+                return;
+            }
+
+            activeGridBattleSession = session;
+            embeddedBattle = InvasionBattleView.BuildEmbeddedGrid(
+                topArea, session, OnEmbeddedBattleEnded, panelRt);
+            if (embeddedBattle == null)
+            {
+                activeGridBattleSession = null;
+                UnityEngine.Debug.LogWarning("[InvasionBattleModal2View] 多单位嵌入战斗构建失败，恢复常态。");
+                SetExplorationPartyVisible(true);
+                SetNextDayButtonMode(NextDayButtonMode.Normal);
+            }
+        }
+
+        /// <summary>
+        /// SPEC §12.14.7 (v3.220)：将 pendingEventId / pendingBattleKind 映射为遭遇 id。
+        /// </summary>
+        private string ResolveGridEncounterEventId()
+        {
+            if (GridEncounterBuilder.IsGridPartyBattleEvent(pendingEventId))
+                return pendingEventId;
+            if (pendingBattleKind == InvasionEventRewardKind.BattleBoss)
+                return GridEncounterBuilder.EventFightBoss;
+            return GridEncounterBuilder.EventFightSmall1;
+        }
+
+        /// <summary>SPEC §12.11.10：legacy 1v1 回退（仅未知战斗事件；Modal_2 常规路径已不用）。</summary>
+        private void LaunchEmbeddedLegacy1v1Battle()
+        {
             if (battleUnits == null || battleUnits.Count == 0)
                 battleUnits = InvasionConfigCatalog.LoadInvasionUnitsFromCsv();
 
@@ -621,20 +828,12 @@ namespace PetDemo.UI.Battle
                 playerWon = false,
             };
 
-            SetStandingPlayerVisible(false);
-            // 战斗期间灰置底部按钮，避免重复触发。
-            SetNextDayButtonMode(NextDayButtonMode.Revealing);
-
-            EnsureFieldsFromHierarchy();
-            if (panelRt == null)
-                panelRt = transform as RectTransform;
-
             embeddedBattle = InvasionBattleView.BuildEmbedded(
                 topArea, session, enemyPrefab, OnEmbeddedBattleEnded, panelRt);
             if (embeddedBattle == null)
             {
                 UnityEngine.Debug.LogWarning("[InvasionBattleModal2View] 嵌入战斗构建失败，恢复常态。");
-                SetStandingPlayerVisible(true);
+                SetExplorationPartyVisible(true);
                 SetNextDayButtonMode(NextDayButtonMode.Normal);
             }
         }
@@ -646,29 +845,50 @@ namespace PetDemo.UI.Battle
                 Destroy(embeddedBattle.gameObject);
                 embeddedBattle = null;
             }
-            SetStandingPlayerVisible(true);
 
-            if (playerWon)
+            var gridSession = activeGridBattleSession;
+            activeGridBattleSession = null;
+
+            if (!playerWon)
             {
-                // SPEC §12.11.10 (v3.181)：BOSS 胜 → 关闭探索界面并返回关卡选择；小怪胜 → 继续「下一天」。
-                if (pendingBattleKind == InvasionEventRewardKind.BattleBoss)
-                {
-                    Hide();
-                    MainStoryLineScreenView.ShowLevelSelectPanel();
-                }
-                else
-                {
-                    SetNextDayButtonMode(NextDayButtonMode.Normal);
-                }
+                // SPEC §12.14.6.2：负 → 关闭 InvasionBattleModal_2（本局结束）。
+                Hide();
+                return;
+            }
+
+            // SPEC §12.14.6.2 / §12.14.13：多单位胜后回写名册 HP 与 30% 复活。
+            if (gridSession != null && partyRoster != null)
+            {
+                RosterBattleSync.SyncRosterHpAfterBattle(partyRoster, gridSession, true);
+                runStatsDirty = true;
+                RefreshRoleStats();
+            }
+
+            // SPEC §12.14.15：胜后恢复探索期 PartyStandRoot。
+            SetExplorationPartyVisible(true);
+            RebuildPartyStandVisuals();
+
+            // SPEC §12.11.10 (v3.181)：BOSS 胜 → 关闭探索界面并返回关卡选择；小怪胜 → 继续「下一天」。
+            if (pendingBattleKind == InvasionEventRewardKind.BattleBoss)
+            {
+                Hide();
+                MainStoryLineScreenView.ShowLevelSelectPanel();
             }
             else
             {
-                // 负：本局结束，关闭 InvasionBattleModal_2。
-                Hide();
+                SetNextDayButtonMode(NextDayButtonMode.Normal);
             }
         }
 
-        /// <summary>显隐 TopArea/PlayerSlot 下运行时构建的站立阿狼（含骨骼或占位块）。</summary>
+        /// <summary>显隐探索期站立队（PartyStandRoot + PlayerSlot）。</summary>
+        private void SetExplorationPartyVisible(bool visible)
+        {
+            if (partyStandRoot != null)
+                partyStandRoot.gameObject.SetActive(visible);
+            SetStandingPlayerVisible(visible);
+        }
+
+        /// <summary>显隐 TopArea/PlayerSlot 下 Role 站立 Spine（含骨骼或占位块）。</summary>
         private void SetStandingPlayerVisible(bool visible)
         {
             if (playerSlot == null)
@@ -688,6 +908,14 @@ namespace PetDemo.UI.Battle
         {
             acquiredSkillIds.Clear();
             skillIconCount = 0;
+            if (partyRoster != null)
+            {
+                for (int i = 0; i < partyRoster.members.Count; i++)
+                {
+                    if (partyRoster.members[i] != null)
+                        partyRoster.members[i].acquiredSkillIds.Clear();
+                }
+            }
             EnsureSkillStrip();
             if (skillStrip != null)
             {
@@ -743,6 +971,7 @@ namespace PetDemo.UI.Battle
         {
             if (skill != null && !string.IsNullOrEmpty(skill.skillId))
             {
+                RunPartyRewardApplier.AcquireSkillForAllPartyMembers(partyRoster, skill.skillId);
                 if (acquiredSkillIds.Add(skill.skillId))
                     AddSkillIconToStrip(skill);
             }
@@ -799,13 +1028,22 @@ namespace PetDemo.UI.Battle
                     var item = results[i];
                     if (item == null || item.cfg == null || item.gain == 0)
                         continue;
-                    if (ApplyFlatStat(item.cfg.attrId, item.gain))
+                    if (!AttrEnhanceConfigCatalog.TryNormalizeAttrId(item.cfg.attrId, out _))
+                    {
+                        UnityEngine.Debug.LogWarning(
+                            "[InvasionBattleModal2View] 属性增强项 attrId 未映射，仅展示不加值："
+                            + item.cfg.attrId);
+                        continue;
+                    }
+                    if (RunPartyRewardApplier.ApplyFlatStatToAllPartyMembers(
+                            partyRoster, item.cfg.attrId, item.gain))
                         anyApplied = true;
                 }
 
                 if (anyApplied)
                 {
                     runStatsDirty = true;
+                    SyncRoleEnhanceBonusesFromRoster();
                     RefreshRoleStats();
                     AppendEventCard(summary, InvasionEventConfigCatalog.MinBackgroundIndex);
                 }
@@ -820,50 +1058,182 @@ namespace PetDemo.UI.Battle
             SetNextDayButtonMode(NextDayButtonMode.Normal);
         }
 
-        /// <summary>SPEC §12.12.3 / §12.13：把老虎机固定增加值累加到局内属性副本（Life/Attack→runStats，六宫项→runEnhanceBonuses）。</summary>
-        private bool ApplyFlatStat(string attrId, int delta)
+        // ============================================================
+        // 探索期全队站立（SPEC §12.14.15）
+        // ============================================================
+        private void RebuildPartyStandVisuals()
         {
-            if (string.IsNullOrEmpty(attrId) || delta == 0)
-                return false;
+            if (partyRoster == null)
+                return;
 
-            if (!AttrEnhanceConfigCatalog.TryNormalizeAttrId(attrId, out string canonical))
+            EnsureFieldsFromHierarchy();
+            EnsurePartyStandRoot();
+            ClearPartyStandVisuals();
+            playerSkeleton = null;
+            playerBuilt = false;
+            partyStandSkeletons.Clear();
+
+            int followerIndex = 0;
+            for (int i = 0; i < partyRoster.members.Count; i++)
+            {
+                var member = partyRoster.members[i];
+                if (member == null)
+                    continue;
+
+                if (member.kind == BattleUnitKind.Role)
+                {
+                    if (playerSlot == null)
+                        continue;
+                    playerSkeleton = BuildMemberStandGraphic(
+                        member, playerSlot, Vector2.zero, "RoleStand");
+                    playerBuilt = playerSkeleton != null;
+                    if (playerSkeleton != null)
+                        partyStandSkeletons.Add(playerSkeleton);
+                }
+                else
+                {
+                    if (partyStandRoot == null)
+                        continue;
+                    float xOffset = ComputeFollowerHorizontalOffset(followerIndex);
+                    followerIndex++;
+                    var followerSkel = BuildMemberStandGraphic(
+                        member, partyStandRoot,
+                        new Vector2(xOffset, 0f),
+                        "FollowerStand_" + member.rosterId);
+                    if (followerSkel != null)
+                        partyStandSkeletons.Add(followerSkel);
+                }
+            }
+
+            SetExplorationPartyVisible(embeddedBattle == null);
+        }
+
+        private void ClearPartyStandVisuals()
+        {
+            ClearRectChildren(playerSlot);
+            ClearRectChildren(partyStandRoot);
+            playerSkeleton = null;
+            partyStandSkeletons.Clear();
+        }
+
+        private static void ClearRectChildren(RectTransform parent)
+        {
+            if (parent == null)
+                return;
+            for (int i = parent.childCount - 1; i >= 0; i--)
+            {
+                var child = parent.GetChild(i);
+                if (child != null)
+                    Destroy(child.gameObject);
+            }
+        }
+
+        private void EnsurePartyStandRoot()
+        {
+            if (partyStandRoot != null)
+                return;
+            if (topArea == null)
+                topArea = FindDescendantRect(TopAreaName);
+            if (topArea == null)
+                return;
+
+            partyStandRoot = FindDescendantRect(PartyStandRootName);
+            if (partyStandRoot == null)
+            {
+                partyStandRoot = BottomNavAttachedScreenLayout.CreateChildRect(
+                    topArea, PartyStandRootName,
+                    new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                    Vector2.zero, CharacterSize);
+                partyStandRoot.localScale = new Vector3(CharacterScale, CharacterScale, 1f);
+            }
+        }
+
+        private static float ComputeFollowerHorizontalOffset(int followerIndex)
+        {
+            int side = followerIndex % 2 == 0 ? -1 : 1;
+            int step = followerIndex / 2 + 1;
+            return side * step * PartyFollowerHorizontalStep;
+        }
+
+        private SkeletonGraphic BuildMemberStandGraphic(
+            RunAllyEntry member, RectTransform parent, Vector2 anchoredPosition, string nodeName)
+        {
+            if (parent == null || member == null)
+                return null;
+
+            string prefabPath = string.IsNullOrEmpty(member.skeletonPrefab)
+                ? RunPartyRosterFactory.DefaultRoleSkeletonPrefab
+                : member.skeletonPrefab;
+
+            var prefab = Resources.Load<GameObject>(prefabPath);
+            if (prefab == null)
             {
                 UnityEngine.Debug.LogWarning(
-                    "[InvasionBattleModal2View] 属性增强项 attrId 未映射，仅展示不加值：" + attrId);
-                return false;
+                    "[InvasionBattleModal2View] 缺少队员骨骼预制体：Resources/" + prefabPath
+                    + "（" + member.displayName + "），回退占位。");
+                BuildNamedFallbackBlock(parent, nodeName, anchoredPosition);
+                return null;
             }
 
-            switch (canonical)
+            var probe = Instantiate(prefab);
+            probe.SetActive(false);
+            var srcAnim = probe.GetComponent<SkeletonAnimation>()
+                ?? probe.GetComponentInChildren<SkeletonAnimation>(true);
+            var dataAsset = srcAnim != null ? srcAnim.skeletonDataAsset : null;
+            Destroy(probe);
+
+            if (dataAsset == null)
             {
-                case AttrEnhanceConfigCatalog.AttrLife:
-                    if (runStats == null)
-                        return false;
-                    runStats.maxHp = Mathf.Max(1, runStats.maxHp + delta);
-                    runStats.currentHp = Mathf.Clamp(runStats.currentHp + delta, 0, runStats.maxHp);
-                    return true;
-                case AttrEnhanceConfigCatalog.AttrAttack:
-                    if (runStats == null)
-                        return false;
-                    runStats.atk = Mathf.Max(0, runStats.atk + delta);
-                    return true;
-                case "def":
-                    if (runStats == null)
-                        return false;
-                    runStats.def = Mathf.Max(0, runStats.def + delta);
-                    return true;
-                case "speed":
-                    if (runStats == null)
-                        return false;
-                    runStats.agility = Mathf.Max(0, runStats.agility + delta);
-                    return true;
-                default:
-                    if (!AttrEnhanceConfigCatalog.IsHexRadarAttr(canonical))
-                        return false;
-                    if (!runEnhanceBonuses.TryGetValue(canonical, out int cur))
-                        cur = 0;
-                    runEnhanceBonuses[canonical] = Mathf.Max(0, cur + delta);
-                    return true;
+                UnityEngine.Debug.LogWarning(
+                    "[InvasionBattleModal2View] 预制体 " + prefabPath + " 无 SkeletonDataAsset（"
+                    + member.displayName + "），回退占位。");
+                BuildNamedFallbackBlock(parent, nodeName, anchoredPosition);
+                return null;
             }
+
+            var shader = Shader.Find(SkeletonGraphicShaderName);
+            if (shader == null)
+            {
+                UnityEngine.Debug.LogError("[InvasionBattleModal2View] 未找到 Shader：" + SkeletonGraphicShaderName);
+                BuildNamedFallbackBlock(parent, nodeName, anchoredPosition);
+                return null;
+            }
+
+            var uiMaterial = SkeletonGraphicUiMaterialFactory.CreateForPmaVertexColors(shader);
+            var roleGo = new GameObject(nodeName);
+            var rt = roleGo.AddComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = anchoredPosition;
+            rt.sizeDelta = CharacterSize;
+            rt.localRotation = Quaternion.identity;
+            rt.localScale = new Vector3(-1f, 1f, 1f);
+
+            var skel = SkeletonGraphic.AddSkeletonGraphicComponent(roleGo, dataAsset, uiMaterial);
+            if (skel == null || !skel.IsValid)
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[InvasionBattleModal2View] SkeletonGraphic 构建失败（" + member.displayName + "），回退占位。");
+                Destroy(roleGo);
+                BuildNamedFallbackBlock(parent, nodeName, anchoredPosition);
+                return null;
+            }
+            skel.raycastTarget = false;
+            TryPlayFirstLoopAnimation(skel);
+            return skel;
+        }
+
+        private static void BuildNamedFallbackBlock(
+            RectTransform parent, string nodeName, Vector2 anchoredPosition)
+        {
+            var blockRt = BottomNavAttachedScreenLayout.CreateChildRect(
+                parent, nodeName,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                anchoredPosition, new Vector2(240f, 480f));
+            var img = blockRt.gameObject.AddComponent<Image>();
+            img.color = new Color(0.35f, 0.45f, 0.6f, 0.9f);
+            img.raycastTarget = false;
         }
 
         /// <summary>SPEC §12.13：读取六宫属性局内累加值（局外初始 0）。</summary>
@@ -1175,6 +1545,9 @@ namespace PetDemo.UI.Battle
 
         private void OnServiceRoleStatsChanged()
         {
+            // SPEC §12.11.3 / §12.14.1.1：局内名册锁定后不覆盖局内数值。
+            if (partyRoster != null)
+                return;
             // 未发生玩法内奖励改动时，跟随全局基线刷新；否则保留局内改动不被覆盖。
             if (runStatsDirty)
                 return;
@@ -1200,75 +1573,8 @@ namespace PetDemo.UI.Battle
         }
 
         // ============================================================
-        // 上部玩家角色（SkeletonGraphic 运行时构建）
+        // 玩家动画（移动过场全队，§12.14.15 v3.222）
         // ============================================================
-        private void EnsurePlayerBuilt()
-        {
-            if (playerBuilt || playerSlot == null)
-                return;
-            TryBuildSkeletonGraphic(ResPlayerPrefab, playerSlot);
-            playerBuilt = true;
-        }
-
-        private void TryBuildSkeletonGraphic(string resourcesPath, RectTransform parent)
-        {
-            var prefab = Resources.Load<GameObject>(resourcesPath);
-            if (prefab == null)
-            {
-                UnityEngine.Debug.LogWarning("[InvasionBattleModal2View] 缺少角色预制体：Resources/" + resourcesPath
-                    + "。回退为占位色块。");
-                BuildFallbackBlock(parent);
-                return;
-            }
-
-            var probe = Instantiate(prefab);
-            probe.SetActive(false);
-            var srcAnim = probe.GetComponent<SkeletonAnimation>()
-                ?? probe.GetComponentInChildren<SkeletonAnimation>(true);
-            var dataAsset = srcAnim != null ? srcAnim.skeletonDataAsset : null;
-            Destroy(probe);
-
-            if (dataAsset == null)
-            {
-                UnityEngine.Debug.LogWarning("[InvasionBattleModal2View] 预制体 " + resourcesPath
-                    + " 未找到 SkeletonDataAsset，回退为占位色块。");
-                BuildFallbackBlock(parent);
-                return;
-            }
-
-            var shader = Shader.Find(SkeletonGraphicShaderName);
-            if (shader == null)
-            {
-                UnityEngine.Debug.LogError("[InvasionBattleModal2View] 未找到 Shader：" + SkeletonGraphicShaderName);
-                BuildFallbackBlock(parent);
-                return;
-            }
-
-            var uiMaterial = SkeletonGraphicUiMaterialFactory.CreateForPmaVertexColors(shader);
-            var roleGo = new GameObject("Skeleton");
-            var rt = roleGo.AddComponent<RectTransform>();
-            rt.SetParent(parent, false);
-            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = Vector2.zero;
-            rt.sizeDelta = CharacterSize;
-            rt.localRotation = Quaternion.identity;
-            // SPEC §12.11.4（v3.173）：默认水平镜像 1 次（同 §12.3 朝向路径）。
-            rt.localScale = new Vector3(-1f, 1f, 1f);
-
-            var skel = SkeletonGraphic.AddSkeletonGraphicComponent(roleGo, dataAsset, uiMaterial);
-            if (skel == null || !skel.IsValid)
-            {
-                UnityEngine.Debug.LogWarning("[InvasionBattleModal2View] SkeletonGraphic 构建失败，回退为占位色块。");
-                Destroy(roleGo);
-                BuildFallbackBlock(parent);
-                return;
-            }
-            skel.raycastTarget = false;
-            playerSkeleton = skel;
-            TryPlayFirstLoopAnimation(skel);
-        }
-
         private static void TryPlayFirstLoopAnimation(SkeletonGraphic skel)
         {
             if (skel == null || skel.Skeleton == null || skel.Skeleton.Data == null)
@@ -1294,7 +1600,23 @@ namespace PetDemo.UI.Battle
                 skel.AnimationState.SetAnimation(0, chosen, true);
         }
 
-        // SPEC §12.11.5（v3.173）：切换玩家角色动画（移动/待机），按候选链解析，找不到回退首条。
+        // SPEC §12.11.5（v3.173 / v3.222）：切换全队动画（移动/待机），按候选链解析，找不到回退首条。
+        private void PlayPartyMoveLoop()
+        {
+            PlayPartyLoopByCandidates(MoveAnimCandidates);
+        }
+
+        private void PlayPartyIdleLoop()
+        {
+            PlayPartyLoopByCandidates(IdleAnimCandidates);
+        }
+
+        private void PlayPartyLoopByCandidates(string[] candidates)
+        {
+            for (int i = 0; i < partyStandSkeletons.Count; i++)
+                PlaySkeletonLoopByCandidates(partyStandSkeletons[i], candidates);
+        }
+
         private void PlayPlayerMoveLoop()
         {
             PlayPlayerLoopByCandidates(MoveAnimCandidates);
@@ -1307,7 +1629,11 @@ namespace PetDemo.UI.Battle
 
         private void PlayPlayerLoopByCandidates(string[] candidates)
         {
-            var skel = playerSkeleton;
+            PlaySkeletonLoopByCandidates(playerSkeleton, candidates);
+        }
+
+        private static void PlaySkeletonLoopByCandidates(SkeletonGraphic skel, string[] candidates)
+        {
             if (skel == null || !skel.IsValid || skel.AnimationState == null
                 || skel.Skeleton == null || skel.Skeleton.Data == null)
                 return;
@@ -1370,6 +1696,8 @@ namespace PetDemo.UI.Battle
                 topArea = FindDescendantRect(TopAreaName);
             if (playerSlot == null)
                 playerSlot = FindDescendantRect(PlayerSlotName);
+            if (partyStandRoot == null)
+                partyStandRoot = FindDescendantRect(PartyStandRootName);
             if (hpText == null)
                 hpText = FindDescendantText("HpText");
             if (atkText == null)
@@ -1448,6 +1776,11 @@ namespace PetDemo.UI.Battle
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 Vector2.zero, CharacterSize);
             view.playerSlot.localScale = new Vector3(CharacterScale, CharacterScale, 1f);
+            view.partyStandRoot = BottomNavAttachedScreenLayout.CreateChildRect(
+                topArea, PartyStandRootName,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, CharacterSize);
+            view.partyStandRoot.localScale = new Vector3(CharacterScale, CharacterScale, 1f);
 
             // 中部：属性区
             var midArea = CreateArea(rootRt, MiddleAreaName, new Vector2(0f, 0.30f), new Vector2(1f, 0.55f));

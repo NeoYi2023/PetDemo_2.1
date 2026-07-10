@@ -78,6 +78,9 @@ namespace PetDemo.UI
 
         public bool IsEmbeddedInCharacterCreation => embeddedInCharacterCreation;
 
+        /// <summary>SPEC §12.14.1.1：公会 NPC 跟随控制器（Show 读队用；可能尚未生成场景时为 null）。</summary>
+        public GuildNpcFollowController NpcFollowController => npcFollowController;
+
         private void Awake()
         {
             EnsureTiledBackground();

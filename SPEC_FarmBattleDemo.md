@@ -361,6 +361,9 @@ stateDiagram-v2
 **中文：** **可砍需求**：技能树、元素克制、Buff/Debuff 复杂栈、多目标与位置——首版 SPEC 不纳入 P0。  
 **English:** **Cuttable for later:** skill trees, elemental counters, complex buff/debuff stacks, multi-target positioning — not in P0.
 
+**中文（v3.211 增补，v3.212 / v3.220 修订）：** **多单位阵型战斗**（主角 Role + 公会跟随 NPC 对战怪物，九宫格站位、速度排序出手、列/行优先级选目标）见 **§12.14**。`InvasionBattleModal_2` 内 `evt_fight_small_1` / `evt_fight_small_2` / `evt_fight_boss` **一律**走该模式（全队入场）。该模式下每大回合内所有存活单位按 `agility` **降序**行动（同速随机）；伤害结算采用本节 `damage = max(1, attacker.atk - defender.def)`。每名队员独立 HP；胜后死亡者 30% HP 复活（§12.14.6.2）。§12.3 全屏入侵战仍可沿用 legacy 固定「我方先→敌方」交替与固定 `attack` 伤害。  
+**English (v3.220):** Modal_2 fight events all use **§12.14** grid party battle; §12.3 fullscreen invasion may keep legacy 1v1.
+
 ### 4.3 串联 / Linking Farm and Battle
 
 **中文：** 进入战斗的条件示例：收获达到指定次数、或点击「试炼」按钮消耗 `CropToken`；实现任选其一即可满足 Demo。  
@@ -1793,7 +1796,7 @@ Each `ChapterPin` `RectTransform` uses `anchorMin = anchorMax = (0.5, 0.5)`, `pi
 3. **建筑**：`Buildings/` 下由人工摆放 **`GuildBuildingMarker`**（占位 `Image` + 建筑名 + 交互半径）；主角进入半径时在建筑上方显示「建筑名 + 功能按钮（占位）」名牌，离开隐藏。
 4. **NPC**：`Npcs/` 下由人工摆放 **`GuildNpcMarker`**（固定出生点）；运行时为每个 NPC 实例化同款村民 Spine 待机；主角进入半径时在 NPC 头顶显示「头像 + 名字 + 互动按钮（占位）」名牌（头像/名字默认取 §9.14.2 `FriendCatalog`，可被 Inspector 覆盖），离开隐藏。
 5. **按钮占位**：建筑功能按钮本期点击仅 `Debug.Log`，具体功能后续版本扩展；NPC 互动按钮自 v3.124 起触发「NPC 跟随」（见第 6 点）。
-6. **NPC 跟随（v3.124；TopDingBar 头像 v3.159）**：点击任意 NPC 名牌上的 `InteractButton` 后，该 NPC 进入**跟随主角**状态：与主角（content 局部空间）距离 **> 40px** 时朝主角直线移动（速度与主角一致 `420px/s`，自然形成"跟在身后"的效果），**≤ 40px** 时停下待机；跟随移动**不做障碍碰撞与边界钳位**。移动中播放 `move_1`（回退 `move`/`animation`），停止播放 `exclusive_2`（回退 `standby_1`/`animation`/`idle`），按水平方向翻转朝向。支持**多个 NPC 同时跟随**；重复点击同一 NPC 无额外效果。跟随状态持续到**离开公会界面**（底栏切到其它 Tab）：此时所有跟随 NPC 复位回各自出生点 `anchoredPosition` 并恢复待机，跟随列表清空；再次进入界面后 NPC 回到初始静止状态。跟随移动的是 `GuildNpcMarker` 节点本身，名牌随 NPC 一起移动；因跟随距离 40px 小于交互半径 220px，跟随期间名牌保持显示，属预期表现。**（v3.159）** 拉手成功后同步在 §9.8.15.1 `TopDingBar` 左下角登记该 NPC 头像（84×84 单列向下）；离开公会 Tab 时清空头像列。
+6. **NPC 跟随（v3.124；TopDingBar 头像 v3.159；战斗读队 v3.211；名册 v3.212）**：点击任意 NPC 名牌上的 `InteractButton` 后，该 NPC 进入**跟随主角**状态：与主角（content 局部空间）距离 **> 40px** 时朝主角直线移动（速度与主角一致 `420px/s`，自然形成"跟在身后"的效果），**≤ 40px** 时停下待机；跟随移动**不做障碍碰撞与边界钳位**。移动中播放 `move_1`（回退 `move`/`animation`），停止播放 `exclusive_2`（回退 `standby_1`/`animation`/`idle`），按水平方向翻转朝向。支持**多个 NPC 同时跟随**；重复点击同一 NPC 无额外效果。跟随状态持续到**离开公会界面**（底栏切到其它 Tab）：此时所有跟随 NPC 复位回各自出生点 `anchoredPosition` 并恢复待机，跟随列表清空；再次进入界面后 NPC 回到初始静止状态。跟随移动的是 `GuildNpcMarker` 节点本身，名牌随 NPC 一起移动；因跟随距离 40px 小于交互半径 220px，跟随期间名牌保持显示，属预期表现。**（v3.159）** 拉手成功后同步在 §9.8.15.1 `TopDingBar` 左下角登记该 NPC 头像（84×84 单列向下）；离开公会 Tab 时清空头像列。**（v3.212）** 跟随列表在 `InvasionBattleModal2View.Show()` 时一次性写入 `RunPartyRoster`（见 §12.14.1.1），本局内不再变更。
 
 **English (gameplay):** (1) player uses the home villager Spine (`Prefabs/Air/Hero_Role_cunmin`, built as `SkeletonGraphic` like §9.5) driven by a **transparent virtual joystick** (invisible until press; semi-transparent base+knob appear at press point; outputs a direction vector; hidden on release), with `move_1` / `exclusive_2` animations and horizontal flip; (2) hand-placed **`GuildObstacleArea`** rectangles block movement via per-axis AABB tests (wall sliding, no clipping), plus world-bounds clamping; (3) hand-placed **`GuildBuildingMarker`** shows a "name + placeholder action button" plate when the player enters its radius; (4) hand-placed **`GuildNpcMarker`** spawns an idle villager Spine and shows "avatar + name + interact button" overhead within radius (defaults from §9.14.2 `FriendCatalog`, Inspector-overridable); (5) the building button only `Debug.Log`s this release, while the NPC interact button triggers **NPC follow** since v3.124; (6) **NPC follow (v3.124):** tapping a plate's `InteractButton` puts that NPC into follow mode — it walks straight toward the player at `420px/s` while farther than **40px** (content-local space) and idles within 40px, with **no obstacle/bounds checks**, `move_1`/`exclusive_2` animations and horizontal flip; multiple NPCs may follow at once and re-tapping is a no-op; leaving the GongHui screen resets every following NPC to its spawn `anchoredPosition`, restores idle, and clears the follow list. The marker node itself moves, so the plate travels with the NPC and stays visible (40px < 220px radius) by design.
 
@@ -1882,9 +1885,18 @@ class GuildNpcFollowController : MonoBehaviour {
 
 **中文：** 当玩家在 §9.8.9 公会界面让一个或多个 NPC 进入跟随状态后，**直接**点击 `BottomNavSlot_JiaYuan` 切到家园 Tab 时，这些跟随中的 NPC 会"跟随进入"家园（§9.8.14），在主角左侧短暂来访后离开消失。
 
-**触发条件（严格"直接切换"）：** 仅当底栏 `OnOpenChanged` 的 `newKey == "JiaYuan"` 且**上一次** `OpenKey == "GongHui"`，且离开公会时存在跟随快照（至少 1 个 NPC 在跟随）。若玩家公会→其它 Tab（角色/主线/商店）→家园，则**不触发**，且挂起的跟随快照被清空。
+**触发条件（严格"直接切换"）：** 仅当底栏 `OnOpenChanged` 的 `newKey == "JiaYuan"` 且**上一次** `OpenKey == "GongHui"`，且离开公会时存在跟随快照（至少 1 个 NPC 在跟随）。若玩家公会→其它 Tab（角色/主线/商店）→家园，则**不触发**家园来访。
 
-**跨 Tab 数据传递：** 公会跟随状态由 `GuildNpcFollowController`（§9.8.9.6）维护，但其 `OnDisable` 在切 Tab 时会复位并清空 `entries`。为把"谁在跟随"传给家园，新增静态快照 `GuildHomeVisitState`：`GuildNpcFollowController.StartFollow` 成功加入跟随后，把当前所有跟随 NPC 的 `NpcId` 写入快照；`OnDisable` 复位公会内 NPC 时**不**清空快照（留给家园消费）。家园侧 `JiaYuanGuildVisitorPresenter` 订阅底栏，按上面的"直接切换"规则消费（`Consume()`，返回并清空）快照；任何不满足触发的切换都会 `Clear()` 取消挂起，避免残留。
+**跨 Tab 数据传递（v3.220 修订；v3.222 增补骨骼）：** 公会跟随状态由 `GuildNpcFollowController`（§9.8.9.6）维护，但其 `OnDisable` 在切 Tab 时会复位并清空 `entries`。为把"谁在跟随"传给家园**与冒险读队**，静态快照 `GuildHomeVisitState`：`StartFollow` 成功后写入当前跟随 `NpcId` **及** `skeletonPrefab`（由 `GuildNpcMarker.SkeletonKind` 映射：`LangMeiRen`→`Hero_Role_langmeiren`，`LangRen`→`Hero_Role_cunmin`）；`OnDisable` **不**清空快照。冒险 `ResolveFollowerPresentation` **优先**读快照中的 `skeletonPrefab`，避免公会场景 inactive 时 `FindObjectsOfType<GuildNpcMarker>` 失败而回退狼人骨骼。家园侧 `JiaYuanGuildVisitorPresenter` 规则：
+1. **公会→家园**且快照非空 → `Consume()` 触发来访；
+2. **非公会→家园** → `Clear()`（取消家园来访挂起）；
+3. **公会→主线/角色/商店等非家园 Tab** → **保留快照**（供 §12.14.1.1 `PeekFollowers` 读队），仅销毁家园来访者视觉。
+
+**中文（v3.212 / v3.220）：** §12.14 多单位战在 **`InvasionBattleModal2View.Show()` 时一次性**初始化局内队伍名册 `RunPartyRoster`（见 §12.14.1.1），读取参战 NPC 列表，与拉手顺序一致；**本局内不再增减队员**。开战时从名册组装，**不再**重新读跟随列表。读取优先级：
+1. 若 `GongHuiScreenView` 处于激活态 → 读取 `GuildNpcFollowController` 当前 `entries` 的 `NpcId`（实时列表）；
+2. 否则 → 调用 `GuildHomeVisitState.PeekFollowers()` **非消费式**返回快照副本（`Consume()` 仍仅家园来访使用）。
+玩家需先在公会通过 `InteractButton`（拉手）带上 NPC，再切到主线打开 `InvasionBattleModal_2`（`Show()` 时锁定名册）；**公会→主线不得清空快照**（v3.220），否则名册仅剩 Role。中途新拉手不影响本局。详见 §12.14.1.1。  
+**English (v3.212 / v3.220, battle party read):** `RunPartyRoster` init on `Show()`; GongHui→non-home tabs **keep** `GuildHomeVisitState` for `PeekFollowers`; only non-GongHui→JiaYuan `Clear`s; GongHui→JiaYuan `Consume`s for home visit.
 
 **家园来访表现：** 对快照中的**每个** NPC（多个全部来访，依次向左错开 `150px` 避免重叠）：
 1. 在主角左侧 **250px** 处生成同款村民 Spine（`GuildSpineCharacterBuilder.BuildVillager`，挂在 `JiaYuanWorldContent` 下），位置 = `GuildSceneGeometry.PointInContentSpace(主角RoleRt, worldContent) + (-250 - i*150, 0)`；
@@ -1893,18 +1905,26 @@ class GuildNpcFollowController : MonoBehaviour {
 
 **清理：** 来访进行中若玩家离开家园 Tab（`newKey != "JiaYuan"`），立即销毁所有在场来访者并清空挂起，返回家园不残留、不重复。来访者本期不参与 §9.8.14 `JiaYuanWorldDepthSorter` 严格 Y 轴遮挡（绘制顺序在主角之后），如需可后续接入。
 
-**English:** After the player makes one or more guild NPCs follow (§9.8.9.6) and then taps `BottomNavSlot_JiaYuan` **directly**, those followers "follow into" the home (§9.8.14): they briefly visit at the player's left, then leave. **Trigger (strict direct switch):** only when `OnOpenChanged` `newKey == "JiaYuan"` AND the previous `OpenKey == "GongHui"` AND a non-empty follow snapshot exists; going Guild→other tab→Home does NOT trigger and clears the snapshot. **Cross-tab data:** since `GuildNpcFollowController.OnDisable` resets/clears `entries` on tab switch, a static `GuildHomeVisitState` snapshot carries the following NPC ids — `StartFollow` publishes them, `OnDisable` keeps the snapshot, and `JiaYuanGuildVisitorPresenter` consumes (`Consume()`) it under the direct-switch rule (any non-qualifying switch `Clear()`s it). **Home visit:** for EACH snapshot NPC (all visit, staggered `150px` left), spawn a villager Spine under `JiaYuanWorldContent` at `PointInContentSpace(playerRoleRt) + (-250 - i*150, 0)`, play idle (`exclusive_2` fallbacks) facing the player, wait **5s**, then walk left at `420px/s` for **1000px** (`move_1`, facing left) and `Destroy`. Leaving the home tab mid-visit destroys all active visitors and clears the snapshot. New: `GuildHomeVisitState`, `JiaYuanGuildVisitorPresenter`; modified `GuildNpcFollowController`, `AirMainMenuRuntimeBuilder` wiring.
+**English (v3.220):** Direct GongHui→JiaYuan consumes the snapshot for home visit. GongHui→other tabs **keep** the snapshot for adventure `PeekFollowers`. Non-GongHui→JiaYuan `Clear`s (cancel home-visit pending). Home visit visuals unchanged.
 
 **数据结构 / Data Structures:**
 
 ```csharp
-// 跨 Tab 跟随快照（公会写入 / 家园消费）
+// 跨 Tab 跟随快照（公会写入 / 家园消费 / 战斗非消费读取）
+struct GuildFollowerSnapshot {
+    string npcId;
+    string skeletonPrefab;   // v3.222：Resources 预制体路径
+}
 static class GuildHomeVisitState {
-    static List<string> followers;            // 跟随中的 NPC id 快照
-    static bool HasPending { get; }           // 快照是否非空
-    static void SetFollowers(IEnumerable<string> ids); // 覆盖快照（公会 StartFollow 调用）
-    static List<string> Consume();            // 返回并清空（家园触发时调用）
-    static void Clear();                      // 取消挂起
+    static List<GuildFollowerSnapshot> followers;
+    static bool HasPending { get; }
+    static void SetFollowers(IEnumerable<GuildFollowerSnapshot> entries); // v3.222
+    static void SetFollowers(IEnumerable<string> ids); // 兼容：仅 id，骨骼回退 LangRen
+    static IReadOnlyList<string> PeekFollowers();
+    static IReadOnlyList<GuildFollowerSnapshot> PeekFollowerSnapshots();
+    static bool TryGetSkeletonPrefab(string npcId, out string skeletonPrefab);
+    static List<string> Consume();
+    static void Clear();
 }
 
 // 家园来访表现（挂在 AirMainMenuRuntimeBuilder 宿主上）
@@ -3382,6 +3402,20 @@ function executeUnifiedAction():
 
 | 版本 / Ver | 日期 / Date | 说明 / Notes |
 |------------|-------------|--------------|
+| 3.224 | 2026-07-10 | **九宫格战场 Top 边距**：§12.14.9——嵌入 `TopArea` 的 `GridBattleField` 拉伸后 **Top=200**（`offsetMax.y=-200`），整体下移避开顶部留白/关闭钮。 / **Grid field top inset:** embedded `GridBattleField` Top=200 (`offsetMax.y=-200`). |
+| 3.223 | 2026-07-10 | **修复九宫格战角色不可见**：§12.14.9——`UnitAnchor` 嵌套 `Canvas.overrideSorting` 的 `sortingOrder` 改为 **`parentCanvas.sortingOrder + row×10 + col`**（禁止写绝对小值落入世界带 `0..499` 被 HUD `1000+` 盖住）；新建 Canvas 须写入 Spine 所需 `additionalShaderChannels`（`TexCoord1|Normal|Tangent`），并在构建 `SkeletonGraphic` **之前**挂好该 Canvas；补齐 `GraphicRaycaster`。 / **Fix invisible grid-battle Spines:** parent-relative sortingOrder; Spine shader channels on nested canvas; create canvas before SkeletonGraphic. |
+| 3.222 | 2026-07-10 | **冒险 Spine 层级/移动/队友骨骼修复**：(1) §12.14.9——九宫格战单位 `SkeletonGraphic` 按槽位行 `Slot_r3 > Slot_r2 > Slot_r1` 设置 `Canvas.overrideSorting`（`sortingOrder = row×10 + col`），下方行遮挡上方行；(2) §12.14.15 / §12.11.5——「下一天」移动过场**全队**（Role + FollowerNpc）同步播 `move_1` 后恢复待机；(3) §9.8.9.7 / §12.14.1.1——`GuildHomeVisitState` 快照除 `npcId` 外同步 `skeletonPrefab`（`GuildNpcMarker.SkeletonKind`→`Hero_Role_langmeiren`/`Hero_Role_cunmin`），冒险读队不再因公会场景 inactive 而回退狼人骨骼。 / **Adventure Spine fixes:** grid row depth sort r3>r2>r1; next-day move anim for full party; visit snapshot stores skeleton prefab per follower. |
+| 3.221 | 2026-07-10 | **战斗 Spine 与血条视觉微调**：§12.3 / §12.14.9——战斗中所有 `SkeletonGraphic` 在既有基底缩放上再统一 × **`BattleSpineDisplayScaleMultiplier = 1.15`**（+15%）；角色/NPC 血条锚定于 **Spine 中心点正下方 20px**（全屏 1v1：`PlayerHomePos`/`EnemyHomePos` 的 Y − 20；九宫格：HP 条挂 `slotRt` 中心 `(0, -20)`）。 / **Battle Spine & HP bar layout:** all battle Spines +15% via `BattleSpineDisplayScaleMultiplier`; HP bars 20px below Spine center. |
+| 3.220 | 2026-07-10 | **冒险全队入战与探索展示修复**：(1) §9.8.9.7——公会→主线/其它非家园 Tab **保留** `GuildHomeVisitState` 快照供 `PeekFollowers` 读队（修复拉手 NPC 未进 `RunPartyRoster`）；仅「非公会→家园」`Clear`、公会→家园仍 `Consume`。(2) §12.11.10 / §12.14.7——`evt_fight_small_1`（1 只小怪）、`evt_fight_small_2`（2~3 只）、`evt_fight_boss`（1 只 BOSS）**一律**走 §12.14 九宫格全队战；Modal_2 嵌入不再用 legacy 1v1。(3) 探索期 `PartyStandRoot` 全程展示名册全员（开战隐藏、胜后重建）。 / **Full-party adventure fix:** keep follow snapshot when leaving GongHui for non-home tabs; all Modal_2 fight events use grid party battle; exploration PartyStand shows full roster. |
+| 3.219 | 2026-07-10 | **§12.14.16 阶段 5 落地**：`RosterBattleSync.SyncRosterHpAfterBattle`（胜：死亡者 `max(1,floor(maxHp×0.3))` 复活、存活者保留战后 HP；负：不写回）；`InvasionBattleModal2View.OnEmbeddedBattleEnded` 多单位胜后回写 + `RebuildPartyStandVisuals`；Editor 自测 `Tools/PetDemo/Self-Test RunPartyRoster Phase5`（§12.14.14 全 9 条）；§12.14.16 阶段 5 状态→`已完成`，P0 五阶段全部完成。 / **Phase 5 shipped:** post-battle roster HP sync + 30% revive; win rebuilds PartyStandRoot; Phase5 Editor self-test covers §12.14.14; Phase 5 status → done; P0 complete. |
+| 3.218 | 2026-07-10 | **§12.14.16 阶段 4 落地**：`InvasionBattleView.BuildEmbeddedGrid`（`embedded=true`，`useGridBattle=true`）+ 每槽 Spine/小型 HP 条 + 按 `turnQueue` 依次播放行动动画；`LaunchEmbeddedBattle` 按 `pendingEventId` 分支（`evt_fight_small_2`→多单位战，其余 legacy 1v1）；复用 `EmbeddedResultOverlay/ResultDialog`；Editor 自测 `Tools/PetDemo/Self-Test RunPartyRoster Phase4`；§12.14.16 阶段 4 状态→`已完成`。 / **Phase 4 shipped:** `BuildEmbeddedGrid` + animated grid battle UI embed; `pendingEventId` branch in `LaunchEmbeddedBattle`; Editor self-test; Phase 4 status → done. |
+| 3.217 | 2026-07-10 | **§12.14.16 阶段 3 落地**：`GridBattleField.prefab` + `BattleGridSlotMarker` + `GridBattleFieldLayout`（编辑器菜单 `Tools/PetDemo/Generate Grid Battle Field Prefab`）；`BattlePartyAssembler` / `GridEncounterBuilder` / `GridBattleTargetSelector` / `GridBattleResolver` / `GridBattleDriver`（`kGridBattlePetsEnabled=false`）；`GridBattleHeadlessRunner`；Editor 自测 `Tools/PetDemo/Self-Test RunPartyRoster Phase3`（3 人 vs 2~3 怪 headless、即时胜负 §12.14.6.1.1）；§12.14.16 阶段 3 状态→`已完成`。 / **Phase 3 shipped:** grid field prefab + headless battle rules engine; Editor self-test; Phase 3 status → done. |
+| 3.216 | 2026-07-10 | **§12.14.16 阶段 2 落地**：`RunPartyRewardApplier`（`ApplyPercentStatToAllPartyMembers` / `ApplyFlatStatToAllPartyMembers` / `AcquireSkillForAllPartyMembers` / `ApplyRewardToAllPartyMembers`）；`InvasionBattleModal2View` 事件路径 `attr:*`/`slot3`/`slot5`/`pick3` 全员收益；`TopArea/PartyStandRoot` + `RebuildPartyStandVisuals`（探索期全队 Spine、战斗隐藏/胜后重建）；Editor 自测 `Tools/PetDemo/Self-Test RunPartyRoster Phase2`；§12.14.16 阶段 2 状态→`已完成`。 / **Phase 2 shipped:** reward fan-out helpers; event paths apply to all roster members; exploration party stand visuals; Editor self-test; Phase 2 status → done. |
+| 3.215 | 2026-07-10 | **§12.14.16 阶段 1 落地**：`RunPartyRoster`/`RunAllyEntry`/`BattleGridPos`/`BattleUnitRuntime`/`GridBattleSession` 等（`GridBattleModels` + `RunPartyRosterFactory`）；`GuildHomeVisitState.PeekFollowers()`；`GuildNpcFollowController.GetFollowerNpcIds`；`InvasionBattleModal2View.Show()` 初始化名册（读队/去重/截断 9/`runStats`=`members[0].stats` 别名）；`pendingEventId` 写入与清空；Editor 自测菜单 `Tools/PetDemo/Self-Test RunPartyRoster Phase1`；§12.14.16 阶段 1 状态→`已完成`。 / **Phase 1 shipped:** roster data types + factory; PeekFollowers; Show() roster init + runStats alias + pendingEventId; Editor self-test; Phase 1 status → done. |
+| 3.214 | 2026-07-10 | **多单位战分阶段实施计划**：新增 §12.14.16——将 §12.14 P0 拆为 5 个可独立验收的开发阶段（名册底座 → 事件全员收益 → 战斗纯逻辑 → 战斗 UI 嵌入 → 结算回写与端到端验收）；含依赖关系、交付物、阶段验收与工期估算；§12.14.10 交叉引用。本期仅 SPEC，不写代码。 / **Multi-unit battle phased rollout:** new §12.14.16 — five independently verifiable P0 phases with dependencies, deliverables, acceptance, and estimates; §12.14.10 cross-ref; SPEC only, no code. |
+| 3.213 | 2026-07-10 | **多单位战规则补充**：§12.14.15 探索期全队 Spine（`PartyStandRoot`）；§12.14.12.1 属性增减边界；§12.14.6.1.1 行动顺序即时胜负；§12.14.1.1 读队降级；`pendingEventId` 战斗分支；结算 UI 沿用简单 `ResultDialog`；修订 §12.11.2/§12.11.3/§12.11.4/§12.11.5/§12.11.10/§12.14.9/§9.8.9.7/§B.17.2。本期仅 SPEC，不写代码。 / **Multi-unit battle rules supplement:** exploration party stand visuals; attr bounds; immediate win/loss on hit; roster fallbacks; `pendingEventId`; simple result dialog; doc consistency; SPEC only, no code. |
+| 3.212 | 2026-07-10 | **多单位战规则完善**：§12.14 增补 `RunPartyRoster` 局内名册（`Show()` 一次性读队）；主角站位改 `r2c2`、队友 col2→col1→col3 列内随机；事件 `attr:*`/`pick3`/`slot3/5` 玩家操作、**全员各得一份**（§12.14.12）；独立 HP 与胜后回写（§12.14.13）；暂死 + 胜后死亡者 **30% HP 复活**、存活者 HP 不变（§12.14.6.2）；回写 §12.11.5/§12.11.9/§12.12.3/§12.11.10/§12.4/§9.8.9.7。本期仅 SPEC，不写代码。 / **Multi-unit battle rules refined:** `RunPartyRoster` at `Show()`; Role at `r2c2`, followers random col2→col1→col3; event rewards fan-out to all allies; per-member HP; battle-death + 30% revive on win; cross-refs; SPEC only, no code. |
+| 3.211 | 2026-07-10 | **多单位阵型战斗 SPEC**：新增 §12.14——主角 Role + 公会拉手跟随 NPC 对战多怪；3×3 预制体站位；`agility` 降序混排出手；普攻列/行优先级选目标；`evt_fight_small_2` 随机 2~3 只 `enemy_small` 占随机敌方槽；精灵关闭；开战读 `GuildNpcFollowController` / `GuildHomeVisitState.PeekFollowers()`；§4.2/§12.4/§12.5/§12.11.10/§9.8.9.7 交叉引用与 legacy 标注。本期仅 SPEC，不写代码。 / **Multi-unit formation battle SPEC:** new §12.14 — Role + guild followers vs multiple enemies; 3×3 prefab grid; agility-sorted mixed turns; column/row target priority; `evt_fight_small_2` spawns 2–3 small enemies; pets disabled; party read at battle start; cross-refs; SPEC only, no code. |
 | 3.210 | 2026-07-10 | **RoleLevelUpPanel OK 点击修复**：§9.14.13——`OkButton` 禁止用带透明像素的 Sprite 作 `targetGraphic`（穿透到 `DimOverlay` 导致点了无响应）；根级 OK + 不透明 `HitArea`；打开时 `EnsureClickableLayout` / 重新 `WireOkButton`。 / **RoleLevelUp OK click fix:** opaque HitArea as Button targetGraphic; no transparent sprite hit-test fallthrough. |
 | 3.209 | 2026-07-10 | **经验条填充宽度修正**：§9.14.11 / §9.14.13——`ExpFill` 轨道满宽每次刷新以 `ExpBarRoot.rect.width`（>0）为准，禁止布局未完成时永久缓存回退 `800` 导致进度条超出轨道；`HomeTabPanelView` / `RoleLevelUpPanelView` 对齐 `StaminaBarView.EnsureFillRect`。 / **Exp bar fill width fix:** re-read `ExpBarRoot.rect.width` each refresh; do not permanently cache fallback 800 before layout. |
 | 3.208 | 2026-07-10 | **主角升级全屏展示**：§5/§6 加经验与升级（`TryAddRoleExp`，升级不扣 `currentExp`）；§9.14.11 体力条右侧「增加经验」按钮（本级单级需求×40%，最小 1）；新 §9.14.13 `RoleLevelUpPanel`（Level UP! / 等级 / LevelExpRow / 解锁列表 / OK）；§B.23 `role_exp.csv`、§B.24 `role_level_unlocks.csv`；`ApplyToRole` 的 `expToNextLevel` 优先读 §B.23；需生成 `RoleLevelUpPanel.prefab` 并重生成 `HomeTabPanel.prefab`。 / **Role level-up fullscreen:** add-exp + level-up panel; HomeTab debug grant; exp/unlock CSVs; regen prefabs. |
@@ -3694,19 +3728,25 @@ stateDiagram-v2
 | 元素 / Element | 资源 / Asset | RectTransform | 说明 / Notes |
 |---|---|---|---|
 | `BattleBackground` | `Resources/AirUI/ZhanDou_1` | StretchFull | 全屏背景 / full-screen bg |
-| `PlayerSlot` | `Resources/Prefabs/Air/Hero_Role_cunmin.prefab`（**v3.48+** 预制体内骨骼为 `LangRen/Role_cslangren`，路径名历史兼容） | anchor `(0.5, 0.5) / (0.5, 0.5)`，pos `(-280, -120)`，scale `(-0.53, 0.53, 1)` | 居中左 + 左右翻转 / center-left + flipped X |
-| `EnemySlot` | `Resources/Pets/Monster_1_Salamander.prefab` | anchor `(0.5, 0.5) / (0.5, 0.5)`，pos `(280, -120)`，scale **`(-0.636, 0.636, 1)`**（基底 `CharacterScale=0.53` × **`PackVisualScaleMultiplier=1.2`** 后水平镜像，见 §9.5.1.3 / B.11.1） | 居中右 / center-right |
-| `PlayerHpBar` | filled Image | anchor `(0.5, 0.5) / (0.5, 0.5)`，size `240×24`，pos `(-280, -460)` | 角色锚点正下方 / below the player anchor |
-| `EnemyHpBar` | filled Image | anchor `(0.5, 0.5) / (0.5, 0.5)`，size `240×24`，pos `(280, -460)` | 角色锚点正下方 / below the enemy anchor |
+| `PlayerSlot` | `Resources/Prefabs/Air/Hero_Role_cunmin.prefab`（**v3.48+** 预制体内骨骼为 `LangRen/Role_cslangren`，路径名历史兼容） | anchor `(0.5, 0.5) / (0.5, 0.5)`，pos `(-280, -120)`，scale **`(-0.6095, 0.6095, 1)`**（`CharacterScaleBase=0.53` × **`BattleSpineDisplayScaleMultiplier=1.15`**） | 居中左 + 左右翻转 / center-left + flipped X |
+| `EnemySlot` | `Resources/Pets/Monster_1_Salamander.prefab` | anchor `(0.5, 0.5) / (0.5, 0.5)`，pos `(280, -120)`，scale **`(-0.7314, 0.7314, 1)`**（`CharacterScaleBase×1.15` × **`PackVisualScaleMultiplier=1.2`** 后水平镜像，见 §9.5.1.3 / B.11.1） | 居中右 / center-right |
+| `PlayerHpBar` | filled Image | anchor `(0.5, 0.5) / (0.5, 0.5)`，size `240×24`，pos **`(-280, -140)`** | **Spine 中心正下方 20px**（`PlayerHomePos.y - 20`） |
+| `EnemyHpBar` | filled Image | anchor `(0.5, 0.5) / (0.5, 0.5)`，size `240×24`，pos **`(280, -140)`** | **Spine 中心正下方 20px**（`EnemyHomePos.y - 20`） |
 | `ResultDialog` | **`Resources/Prefabs/Battle/InvasionBattleResultDialog.prefab`**（根挂 `InvasionBattleResultDialogView`） | anchor `(0.5, 0.5) / (0.5, 0.5)`，size `880×750`，pos `(0, 0)`，**scale `(1.4, 1.4, 1)`**；`HintText` pos `(0, -420)`；子节点 `ResultText` / `RewardList`（含 `VerticalLayoutGroup` + 行模板 `RewardRow`）/ `AutoAdvanceWinRow` / `HintText` | 胜负结果弹窗；`RewardList/RewardRow` 为行模板（`Icon` 120×120 + `Count`），运行时克隆并绑定掉落数据；菜单 **Tools/PetDemo/Generate Invasion Battle Result Dialog Prefab** 生成 / victory/defeat dialog; `RewardRow` prefab template with VLG |
 
-**中文：** 玩家主角通过设置 `localScale.x = -|baseScale|` 实现左右翻转；**敌方（Fantazia）**在战斗常量基底 `CharacterScale`（默认 `0.53`）上先乘以 **`PackVisualScaleMultiplier`（默认 `1.2`，即放大 20%）**，再取 **`localScale.x = -|CharacterScale × PackVisualScaleMultiplier|`** 做水平镜像（与 §9.5.1 / B.11 同约定），使左右站位、体量与美术默认朝向一致。血条采用 `Image (filled, Horizontal)` 表达：背景灰条（`#3F3F3F`，alpha 200）+ 前景红条（`#E04848`，alpha 255）+ 居中数字文本（`{currentHp}/{maxHp}`，fontSize 22）。前景 Fill 以左端为固定端（`fillOrigin=Left`），`fillAmount = clamp(currentHp / maxHp)`，即血量下降时从右向左缩短。  
+**中文（v3.221）：** 战斗中所有 Spine（含主角、敌方、上场精灵、九宫格单位）在各自既有基底缩放上再统一乘以 **`BattleSpineDisplayScaleMultiplier = 1.15`**（在 `GridBattleConstants` 声明，全屏战 `CharacterScaleBase=0.53`、精灵 `PetCharacterScaleBase=0.40`、九宫格 `GridCharacterScaleBase=0.30` 均先乘该系数后再应用镜像/Fantazia 规则）。  
+**English (v3.221):** All in-battle Spines get an extra **`BattleSpineDisplayScaleMultiplier = 1.15`** on top of their baseline scales before mirroring / Fantazia rules.
+
+**中文：** 玩家主角通过设置 `localScale.x = -|baseScale|` 实现左右翻转；**敌方（Fantazia）**在战斗常量基底 `CharacterScaleBase`（默认 `0.53`）× **`BattleSpineDisplayScaleMultiplier`** 后，再乘以 **`PackVisualScaleMultiplier`（默认 `1.2`，即放大 20%）**，并取 **`localScale.x = -|…|`** 做水平镜像（与 §9.5.1 / B.11 同约定），使左右站位、体量与美术默认朝向一致。血条采用 `Image (filled, Horizontal)` 表达：背景灰条（`#3F3F3F`，alpha 200）+ 前景红条（`#E04848`，alpha 255）+ 居中数字文本（`{currentHp}/{maxHp}`，fontSize 22）。前景 Fill 以左端为固定端（`fillOrigin=Left`），`fillAmount = clamp(currentHp / maxHp)`，即血量下降时从右向左缩短。  
 **English:** The player flips by setting `localScale.x = -|baseScale|`; **the Fantazia enemy** first multiplies the battle baseline `CharacterScale` (default `0.53`) by **`PackVisualScaleMultiplier` (default `1.2`, i.e. +20% scale)**, then applies **`localScale.x = -|CharacterScale × PackVisualScaleMultiplier|`** for horizontal mirroring (same convention as §9.5.1 / B.11) so placement, size, and facing match product rules. HP bars use `Image (filled, Horizontal)` with a gray background (`#3F3F3F`, alpha 200), a red foreground (`#E04848`, alpha 255), and a centered numeric label (`{currentHp}/{maxHp}`, fontSize 22). The foreground Fill keeps the left edge fixed (`fillOrigin=Left`) with `fillAmount = clamp(currentHp / maxHp)`, so HP loss shrinks from right to left.
 
 **中文：** 兼容性要求：用于血条背景与 Fill 的 `Image` 必须绑定有效 `sprite`。入侵战斗 P0 实现固定采用运行时 `Texture2D.whiteTexture` 生成的 `Sprite` 作为稳定兜底，禁止在该路径中调用 `GetBuiltinResource<Sprite>("UI/Skin/*.psd")` 进行探测，以避免不同 Unity 版本在资源缺失时刷出 `Failed to find UI/Skin/...` 错误。`HpText` 必须绑定可用字体（`Arial.ttf` 或 `LegacyRuntime.ttf` fallback），避免不同 Unity 版本出现不可见文本。  
 **English:** Compatibility requirement: both HP background and Fill `Image` must have a valid `sprite`. For invasion battle P0, implementation shall consistently use a runtime sprite created from `Texture2D.whiteTexture` as the stable fallback, and must not probe `GetBuiltinResource<Sprite>("UI/Skin/*.psd")` in this path, to avoid repeated `Failed to find UI/Skin/...` errors across Unity versions when built-in assets are absent. `HpText` must use an available font (`Arial.ttf` with `LegacyRuntime.ttf` fallback) to avoid invisible text across Unity versions.
 
 ### 12.4 回合制规则 / Turn-Based Rules
+
+**中文（适用范围，v3.220）：** 本节规则**仅适用于** §12.3 **全屏入侵战**（单主角 vs 单敌人、`BattleSession` 简化模型）。**`InvasionBattleModal_2` 嵌入战斗**（含原 `evt_fight_small_1` / `evt_fight_boss`）一律以 **§12.14** 九宫格全队战为准。  
+**English (scope, v3.220):** This section applies **only** to §12.3 **fullscreen invasion**. Modal_2 embedded fights (including former 1v1 events) use **§12.14**.
 
 **中文：** 出手顺序固定为「我方先 → 敌方 → 我方 → ...」；每回合执行流程升级为：  
 1. 攻击者用 0.25 秒线性插值移动到画面中心 `(0, -120)`；  
@@ -3791,6 +3831,71 @@ struct BattleAnimationSpec {
 
 **中文：** `BattleAnimationSpec` 默认值：`moveToCenterSeconds=0.25`，`moveBackSeconds=0.25`，`attackAnimName=attack_1`，`playerWinAnimName=exclusive_2`，`enemyDeathAnimName=death`，`animationWaitTimeout=2.5`。  
 **English:** `BattleAnimationSpec` defaults: `moveToCenterSeconds=0.25`, `moveBackSeconds=0.25`, `attackAnimName=attack_1`, `playerWinAnimName=exclusive_2`, `enemyDeathAnimName=death`, `animationWaitTimeout=2.5`.
+
+**中文（v3.211 增补，v3.212 修订，§12.14 多单位战）：** 在 `BattleSession` 之外新增以下纯数据类型（不引入 Unity 依赖）；完整规则见 §12.14。  
+**English (v3.211 addendum, v3.212 revised, §12.14 multi-unit battle):** The following pure data types are added alongside `BattleSession` (no Unity dependencies); full rules in §12.14.
+
+```text
+// RunPartyRoster — 局内队伍名册（InvasionBattleModal_2 一局 Show→Hide 内持久，§12.14.1.1）
+// RunPartyRoster — in-run party roster (persists for one modal session, §12.14.1.1)
+class RunPartyRoster {
+  List<RunAllyEntry> members;   // 顺序：Role 首位，其余按拉手顺序 / Role first, then handshake order
+}
+
+// RunAllyEntry — 局内一名我方成员
+// RunAllyEntry — one ally member for the run
+class RunAllyEntry {
+  string       rosterId;        // 局内唯一 id / unique id this run
+  BattleUnitKind kind;          // Role | FollowerNpc
+  string       sourceNpcId;     // FollowerNpc 时 = GuildNpcMarker.NpcId；Role 为空
+  RoleStats    stats;           // 独立属性副本（含 currentHp / maxHp）/ independent stat clone
+  Dictionary<string,int> runEnhanceBonuses;  // 六宫本局累加（每名独立）/ per-member hex bonuses
+  List<string> acquiredSkillIds;             // 每名独立技能列表（奇遇 pick3）/ per-member skills
+  string       displayName;
+  string       skeletonPrefab;
+}
+
+// BattleSide — 阵营 / side
+enum BattleSide { Ally, Enemy }
+
+// BattleGridPos — 九宫格坐标（row/col 均 ∈ {1,2,3}）/ grid coordinates
+struct BattleGridPos {
+  int row;   // 1=上 / top, 2=中 / middle, 3=下 / bottom
+  int col;   // 1=靠战场中线前排 / front (nearest center line), 3=最外侧 / back
+}
+
+// BattleUnitKind — 我方单位种类 / ally unit kind
+enum BattleUnitKind { Role, FollowerNpc }
+
+// BattleUnitRuntime — 单场战斗中的一个参战单位运行时快照
+// BattleUnitRuntime — runtime snapshot of one combatant in a battle
+class BattleUnitRuntime {
+  string       instanceId;       // 本场唯一 id / unique id this battle
+  string       rosterId;         // 对应 RunAllyEntry.rosterId（敌方为空）/ links to roster entry
+  BattleSide   side;
+  BattleUnitKind kind;           // 仅 Ally 侧有意义 / meaningful on Ally side only
+  string       sourceNpcId;      // kind=FollowerNpc 时填 GuildNpcMarker.NpcId；Role 为空
+  BattleGridPos gridPos;
+  RoleStats    stats;            // 开战快照，来自 RunAllyEntry.stats / snapshot from roster entry
+  bool         isBattleDead;     // 本场是否暂死（currentHp<=0 后 true）/ battle-death flag
+  string       displayName;
+  string       skeletonPrefab;   // 外观 Resources 路径；Role 用主角骨骼 / appearance prefab path
+}
+
+// GridBattleSession — 多单位阵型战运行时状态（§12.14）
+// GridBattleSession — multi-unit formation battle runtime state (§12.14)
+class GridBattleSession {
+  int roundIndex;                          // 当前大回合（从 1 起）/ current major round
+  List<BattleUnitRuntime> allies;
+  List<BattleUnitRuntime> enemies;
+  List<BattleUnitRuntime> turnQueue;       // 本大回合已排序的行动队列（仅存活单位）/ living units only
+  int turnCursor;                          // turnQueue 游标 / cursor into turnQueue
+  int battleSeed;                          // 随机种子（同速乱序、同优先级目标、站位）/ RNG seed
+  bool playerWon;
+  bool finished;
+  string pendingEventId;                   // 触发本场的事件 id（如 evt_fight_small_2）
+}
+```
 
 ### 12.6 接口与事件 / APIs and Events
 
@@ -3945,7 +4050,7 @@ interface IInvasionService {
 
 | 区域 / Part | 节点 / Node | RectTransform（1080×1920 基准） | 内容 / Content |
 |---|---|---|---|
-| 上部 / Top | `TopArea` | 顶部拉伸，占上约 45% 高度 | **角色展示与战斗显示区域**：运行时以 `SkeletonGraphic` 构建玩家角色（阿狼 `Role_cslangren`，见 §12.11.4）；挂载点 `PlayerSlot`。敌人/战斗表现随事件后续补充。 |
+| 上部 / Top | `TopArea` | 顶部拉伸，占上约 45% 高度 | **角色展示与战斗显示区域（v3.213 修订）**：**探索态**——`PartyStandRoot` 展示主角 + 全队队友 Spine 站立（§12.14.15）；**战斗态**——`GridBattleField` 九宫格多单位战（§12.14.9）或 legacy 1v1 嵌入战。`PlayerSlot` 仍作 Role 锚点。 |
 | 中部 / Middle | `MiddleArea` | 居中，占中约 25% 高度 | **角色属性显示区域**：`当前生命值/总血量`（`HpText`）、`攻击`（`AtkText`）、`速度`（`SpeedText`）。 |
 | 下部 / Bottom | `BottomArea` | 底部拉伸，占下约 30% 高度 | **事件区域**：`EventLabel`（展示发生的事件）+ `DayLabel`（当前天数）+ 「下一天」按钮 `NextDayButton`。 |
 
@@ -3954,8 +4059,8 @@ interface IInvasionService {
 
 #### 12.11.3 中部属性区数据来源 / Middle Attribute Data Source
 
-**中文：** 中部属性区**直接读取玩家实时 `RoleStats`**（经 `IPlantingService.GetRoleStats()`）：`当前HP/总HP = currentHp/maxHp`、`攻击 = atk`、`速度 = agility`。`Show()` 时刷新一次，并订阅 `IPlantingService.OnRoleStatsChanged` 在数值变化时刷新；`Hide()`/`OnDestroy` 时退订。`IPlantingService` 为空时属性显示占位 `--` 且不报错。**（v3.168）文本仅显示数值、不显示属性名**：`HpText = "{currentHp} / {maxHp}"`、`AtkText = "{atk}"`、`SpeedText = "{agility}"`（占位分别为 `-- / --`、`--`、`--`），与 §9.8.7 主界面英雄属性行「仅显示数值」的表现保持一致。  
-**English:** The middle area **reads the player's live `RoleStats`** (via `IPlantingService.GetRoleStats()`): `current/total HP = currentHp/maxHp`, `attack = atk`, `speed = agility`. It refreshes once on `Show()`, subscribes to `IPlantingService.OnRoleStatsChanged` for live updates, and unsubscribes on `Hide()`/`OnDestroy`. When `IPlantingService` is null, attributes show placeholder `--` without error. **(v3.168) Texts show numeric values only, without field labels**: `HpText = "{currentHp} / {maxHp}"`, `AtkText = "{atk}"`, `SpeedText = "{agility}"` (placeholders `-- / --`, `--`, `--`), consistent with the §9.8.7 hero-stats row "numeric value only" behavior.
+**中文（v3.213 修订）：** 中部属性区展示 **Role 局内副本 `runStats`**（= `RunPartyRoster.members[0].stats` 别名，见 §12.14.1.1）：`当前HP/总HP = currentHp/maxHp`、`攻击 = atk`、`速度 = agility`。`Show()` 克隆全局 `RoleStats` 初始化名册后刷新；事件奖励与战斗只修改局内副本，**不**读局外实时 `RoleStats`（实现层**不应**订阅 `OnRoleStatsChanged` 覆盖局内数值）。`Hide()`/`OnDestroy` 时销毁局内状态。`IPlantingService` 为空时属性显示占位 `--` 且不报错。**（v3.168）文本仅显示数值、不显示属性名**：`HpText = "{currentHp} / {maxHp}"`、`AtkText = "{atk}"`、`SpeedText = "{agility}"`。**v3.213**：队友局内数值 **不在 P0 提供独立面板**；`DetailAttributeModal`（§12.13）仍只展示 Role；队友 HP 在战斗中通过槽位 HP 条感知。  
+**English (v3.213):** Middle area shows **Role in-run `runStats`** (`members[0].stats` alias), not live outside-run `RoleStats`; no `OnRoleStatsChanged` overwrite; teammates have no separate stat panel in P0.
 
 #### 12.11.4 玩家角色展示 / Player Character Display
 
@@ -3964,33 +4069,36 @@ interface IInvasionService {
 **English:** The top player is built as a **`SkeletonGraphic`** at runtime (same as §9.5 `MainRoleCunminPresenter` / §12.7 `InvasionBattleView.TryBuildSkeletonGraphic`): instantiate the prefab probe `Resources/Prefabs/Air/Hero_Role_cunmin` (v3.48+ embeds `Role_cslangren`), read its `SkeletonDataAsset`, create a `SkeletonGraphic` under `PlayerSlot`, and loop the first `standby/idle` animation. Missing skeleton/shader falls back to a color block + `LogWarning` without blocking.  
 **English (v3.173):** The inner `Skeleton` node defaults its `localScale.x` to negative (`new Vector3(-1, 1, 1)`) for a **single horizontal mirror** (same facing path as §12.3 `InvasionBattleView.BuildPlayerSlot`, no extra vertex-mirror component needed), and loops the **idle** animation (candidate chain `standby_1`→`standby`→`idle`→`exclusive_2`→`animation`→first). On success the `View` keeps the `SkeletonGraphic` reference (`playerSkeleton`) to swap move/idle animations for §12.11.5.
 
+**中文（v3.213 增补，探索期全队站立）：** `Show()` 初始化 `RunPartyRoster` 后调用 **`RebuildPartyStandVisuals(RunPartyRoster roster)`**（建议实现于 `InvasionBattleModal2View`）：在 `TopArea/PartyStandRoot` 下为名册**每名**成员创建 `SkeletonGraphic`（Role 仍可使用 `PlayerSlot` 作中心锚点，队友按 §12.14.15 左右错开）；战斗嵌入时隐藏 `PartyStandRoot`，战斗结束销毁嵌入层后**重建**。详见 §12.14.15。  
+**English (v3.213):** After roster init, `RebuildPartyStandVisuals` builds all party stand Spines under `PartyStandRoot`; hidden during grid battle; rebuilt after battle ends. See §12.14.15.
+
 #### 12.11.5 「下一天」玩法机制 / "Next Day" Gameplay Mechanic (v3.169)
 
 **中文：** 下部 **「下一天」按钮 `NextDayButton`**（默认素材 **`AirUI/InvasionBattleModal_2_Button_1`**）在按钮图上**叠加一个文字标签 `Label`**（默认「下一天」，`MiddleCenter`、`raycastTarget=false`）；`View` 在 `Show()` 时通过 `EnsureNextDayLabel()` 兼容缺该子节点的旧预制体（缺则运行时补建）。点击流程：  
 1. 当前天数 `day += 1`（界面初始 `day = 0`，`Show()` 时重置），`DayLabel` 刷新；  
 2. **立即将按钮灰置**（`interactable = false` + 灰色 `tint`），直到本次事件**展示完成**；  
 3. **（v3.173）角色移动过场**：玩家角色切换为**移动动画**（动画名候选链 `move_1`→`move`→`animation`）循环播放 **1 秒**，**这 1 秒内 `BottomArea` 事件日志暂停、不追加/更新任何事件卡**；1 秒结束后角色恢复**待机**循环，随后才进入第 4 步事件展示。该过场对**所有事件**（含“今日无事发生”占位）一致生效；`playerSkeleton` 为空（回退占位）时跳过动画切换但仍等待 1 秒，不阻断流程。仅“事件更新”被暂停，天数 `day+1` 与 `DayLabel` 刷新已在点击即时发生；  
-4. 从**天数表**（§B.16，`InvasionEventDayEntry`）筛出 `entry.day == day` 的可触发事件集合，按各条 `weight` **加权随机**抽取 **1 个 `eventId`**（`PickWeightedByDay(day)`），再从**事件表**（§B.17）解析出该事件配置 `InvasionEventConfig`；  
+4. 从**天数表**（§B.16，`InvasionEventDayEntry`）筛出 `entry.day == day` 的可触发事件集合，按各条 `weight` **加权随机**抽取 **1 个 `eventId`**（`PickWeightedByDay(day)`），再从**事件表**（§B.17）解析出该事件配置 `InvasionEventConfig`；**（v3.213）**写入 **`pendingEventId = cfg.eventId`**（与 `pendingBattleKind` 并存；`Show()` 时清空）；  
 5. 事件展示：将该事件的 `eventText` 按字面 **`/n`** 拆成**多条**，每条生成**一张事件卡**（**九宫格背景框** `AirUI/ShiJian_{background}` + 富文本 `Text`，支持 `<color=#RRGGBB>…</color>` 局部变色），逐条追加到**事件日志 `ScrollRect`**（老在上、新在下），追加后自动滚到底；  
 6. 展示完成后**结算奖励**并切换按钮态（见下）。  
 
 **事件日志（滚动）/ Event log：** 下部 `BottomArea` 为一个 `ScrollRect`（`Viewport/Content` + `VerticalLayoutGroup` + `ContentSizeFitter`），事件卡由**上到下由老到新**排列，玩家可上下滑动查看旧事件。  
 
 **按钮状态机 / Button state machine：** 依据被抽中事件的 `eventType`：  
-- `调整属性 AdjustAttr` / `奇遇 Adventure`：展示完成后按钮**恢复常态**（`Button_1` + 「下一天」+ `interactable=true`），可继续推进天数；  
+- `调整属性 AdjustAttr` / `奇遇 Adventure`（不含 `pick3`）：展示完成后按钮**恢复常态**（`Button_1` + 「下一天」+ `interactable=true`），可继续推进天数；**v3.212**：`attr:*` 百分比奖励经 `ApplyPercentStatToAllPartyMembers` 写入**名册每名成员**（§12.14.12），中部仍刷新 Role 的 `runStats`；  
 - `战斗 Battle`：按钮素材换 **`InvasionBattleModal_2_Button_2`**、文字改 **「战斗」**；  
 - `抽奖 Lottery`：按钮素材换 **`InvasionBattleModal_2_Button_3`**、文字改 **「打开」**。  
 
 **中文（v3.170 补充）：** 若被抽中的 `奇遇 Adventure` 事件的奖励为 **`pick3:normal` / `pick3:legendary`**（即「领悟 / 顿悟」），事件卡展示完成后按钮**不立即恢复常态**，而是**保持灰置**并打开 §12.11.9 **三选一技能界面**；玩家点选一项技能并点「确定」获取后，按钮才恢复常态「下一天」。若该品质下无可选技能（已全部获得），追加一条提示卡、按钮直接恢复常态。  
 **English (v3.170):** If the drawn `Adventure` event's reward is **`pick3:normal` / `pick3:legendary`** ("领悟 / 顿悟"), after the card reveal the button **stays greyed** and opens the §12.11.9 **skill pick-three screen**; only after the player picks one skill and taps "确定" does the button return to normal. If no skill of that quality remains (all acquired), append a hint card and return to normal directly.  
 
-**中文（v3.171 补充）：** 若被抽中的 `抽奖 Lottery` 事件的奖励为 **`slot3` / `slot5`**，事件卡展示完成后按钮进入 **`Lottery` 态「打开」**；玩家点「打开」→ 打开 §12.12 **老虎机抽奖界面**（`slot3`→三轴 `SlotMachineModal_3`、`slot5`→五轴 `SlotMachineModal_5`）；玩家点「摇奖」定格后，界面回调把各属性项的**固定增加值累加到局内属性副本 `runStats`**（映射 `RoleStats` 字段）、追加一条结果事件卡、刷新中部属性，随后「打开」按钮**恢复常态「下一天」**、关闭老虎机界面。同一局内多次抽奖以**总值相加**方式叠加。  
-**English (v3.171):** If the drawn `Lottery` event's reward is **`slot3` / `slot5`**, after the reveal the button enters the `Lottery` "打开" state; tapping "打开" opens the §12.12 **slot-machine screen** (`slot3`→3-reel `SlotMachineModal_3`, `slot5`→5-reel `SlotMachineModal_5`); after the player taps "摇奖" and reels settle, the screen callback applies each item's **fixed gain to the in-run `runStats` clone** (mapped to `RoleStats` fields), appends a result card, refreshes the middle stats, then the button returns to normal "下一天" and the slot screen closes. Multiple draws within a run **stack by total sum**.  
+**中文（v3.171 补充，v3.212 修订）：** 若被抽中的 `抽奖 Lottery` 事件的奖励为 **`slot3` / `slot5`**，事件卡展示完成后按钮进入 **`Lottery` 态「打开」**；玩家点「打开」→ 打开 §12.12 **老虎机抽奖界面**（`slot3`→三轴 `SlotMachineModal_3`、`slot5`→五轴 `SlotMachineModal_5`）；玩家点「摇奖」定格后，界面回调把各属性项的**固定增加值累加到局内属性**——**v3.212**：对 `RunPartyRoster` **每名成员**执行 `ApplyFlatStatToAllPartyMembers`（映射 `RoleStats` 字段，见 §12.14.12）；**v3.171 及以前**仅写 `runStats`。追加一条结果事件卡、刷新中部属性（Role），随后「打开」按钮**恢复常态「下一天」**、关闭老虎机界面。同一局内多次抽奖以**总值相加**方式叠加。  
+**English (v3.171, v3.212):** Lottery `slot3`/`slot5`: after spin, apply fixed gains to **every `RunPartyRoster` member** via `ApplyFlatStatToAllPartyMembers` (§12.14.12); middle UI still shows Role stats; button returns to normal.  
 
-**中文（v3.172 补充，v3.181 修订 BOSS 胜后流转）：** 若被抽中的 `战斗 Battle` 事件的奖励为 **`battle_small` / `battle_boss`**，事件卡展示完成后按钮进入 **`Battle` 态「战斗」**；玩家点「战斗」→ **嵌入式沿用 §12.3 `InvasionBattleView` 关卡战斗模拟**（详见 §12.11.10）：战斗渲染在 `TopArea/PlayerSlot` 区域、**关闭战斗背景图**、隐藏站立阿狼；**小怪胜利**→恢复站立阿狼、按钮恢复常态「下一天」；**BOSS 胜利**→`ResultDialog` 点「点击关闭」后关闭 `InvasionBattleModal_2` 并返回 §9.8.8.6 关卡选择界面；失败→关闭 `InvasionBattleModal_2`（本局结束）。
-**English (v3.172, v3.181 BOSS win flow):** If the drawn `Battle` event's reward is **`battle_small` / `battle_boss`**, after the reveal the button enters the `Battle` "战斗" state; tapping "战斗" **embeds and reuses the §12.3 `InvasionBattleView` level battle simulation** (see §12.11.10): the fight renders in the `TopArea/PlayerSlot` region with the **battle background disabled** and the standing 阿狼 hidden; **small-battle win** → restore standing 阿狼, button back to "下一天"; **BOSS win** → after closing `ResultDialog`, hide `InvasionBattleModal_2` and return to the §9.8.8.6 level-select screen; lose → close `InvasionBattleModal_2` (run over).
+**中文（v3.172 / v3.181 / v3.220）：** 若被抽中的 `战斗 Battle` 事件的奖励为 **`battle_small` / `battle_boss`**，事件卡展示完成后按钮进入 **`Battle` 态「战斗」**；玩家点「战斗」→ **`LaunchEmbeddedBattle()` 一律走 §12.14 九宫格全队战**（`pendingEventId` 决定敌方遭遇，见 §12.14.7）：战斗渲染在 `TopArea`、隐藏探索期 `PartyStandRoot`；**小怪胜利**→`SyncRosterHpAfterBattle`、恢复 `PartyStandRoot`、`SetNextDayButtonMode(Normal)`；**BOSS 胜利**→关闭 `InvasionBattleModal_2` 并返回关卡选择；失败→关闭本局。§12.3 全屏入侵战仍可走 legacy 1v1，与 Modal_2 无关。
+**English (v3.220):** All Modal_2 `Battle` events use §12.14 grid party battle; `pendingEventId` selects encounter; hide/restore `PartyStandRoot`; §12.3 fullscreen invasion may still use legacy 1v1.
 
-**中文（本期范围，v3.172 修订）：** `战斗 Battle` 态「战斗」按钮**本期已接入**嵌入式关卡战斗模拟（见 §12.11.10）；`抽奖 Lottery` 态「打开」按钮**已接入**老虎机抽奖（见 §12.12）。**事件奖励**中 **`attr:hp|atk|speed:±%`（增减属性百分比）**、**`slot3/slot5`（三轴/五轴老虎机）**、**`battle_small/battle_boss`（小战斗/BOSS 战）**、**`pick3:normal|legendary`（领悟/顿悟三选一）** 本期均已落地；`attr:*` 与 `slot3/5` 作用于**玩法局内的属性副本 `runStats`**（`Show()` 时克隆全局 `RoleStats`，仅改副本并刷新中部显示，关闭/重开重置、不写回存档），小战斗/BOSS 战亦以 `runStats` 作为玩家侧数值来源。若当天无可用事件，追加一条「今日无事发生」占位卡，天数仍 +1、按钮恢复常态。  
+**中文（本期范围，v3.172 修订，v3.212 增补）：** `战斗 Battle` 态「战斗」按钮**本期已接入**嵌入式关卡战斗模拟（见 §12.11.10）；`抽奖 Lottery` 态「打开」按钮**已接入**老虎机抽奖（见 §12.12）。**事件奖励**中 **`attr:hp|atk|speed:±%`（增减属性百分比）**、**`slot3/slot5`（三轴/五轴老虎机）**、**`battle_small/battle_boss`（小战斗/BOSS 战）**、**`pick3:normal|legendary`（领悟/顿悟三选一）** 本期均已落地；**v3.212**：`attr:*` 与 `slot3/5` 及 `pick3` 技能获取对 `RunPartyRoster` **每名成员各得一份**（§12.14.12），`runStats` 为 Role 条目别名；玩法局内副本在 `Show()` 时克隆全局 `RoleStats` 初始化名册，关闭/重开重置、不写回存档。小战斗/BOSS 战亦以名册成员属性为来源（多单位战见 §12.14）。若当天无可用事件，追加一条「今日无事发生」占位卡，天数仍 +1、按钮恢复常态。  
 **English:** The bottom **`NextDayButton`** (default asset **`AirUI/InvasionBattleModal_2_Button_1`**) overlays a `Label` (default "下一天"). Click flow: (1) `day += 1`, refresh `DayLabel`; (2) **grey the button immediately** (`interactable=false` + grey tint) until the event reveal completes; (3) from the **day table** (§B.16, `InvasionEventDayEntry`) filter entries with `entry.day == day` and **weighted-random** pick **1 `eventId`** (`PickWeightedByDay(day)`), then resolve its `InvasionEventConfig` from the **event table** (§B.17); (4) split `eventText` by literal **`/n`** into **multiple cards**, each a **nine-slice frame** `AirUI/ShiJian_{background}` + rich-text `Text` (`<color>` supported), appended to the **event-log `ScrollRect`** (old-top / new-bottom, auto-scroll to bottom); (5) settle rewards and switch the button mode. Button state machine by `eventType`: `AdjustAttr`/`Adventure` → back to normal (`Button_1` + "下一天" + interactable); `Battle` → `Button_2` + "战斗"; `Lottery` → `Button_3` + "打开". This release: `Battle/Lottery` button taps are **inert** (effects TBD, gameplay pauses there); only **`attr:hp|atk|speed:±%`** rewards are applied, to an **in-run clone** of `RoleStats` (no save writeback); `battle_small/battle_boss/slot3/slot5/pick3` are parsed as `LogWarning` placeholders. When no event is available, append a "今日无事发生" placeholder card, still `day += 1`, button back to normal.
 
 #### 12.11.6 数据结构 / Data Structures (v3.169)
@@ -4049,6 +4157,11 @@ struct InvasionEventConfig {
   List<InvasionEventReward> rewards; // 事件奖励（可空）/ rewards (may be empty)
   int backgroundIndex;               // 背景框序号 1~5 → AirUI/ShiJian_{n} / frame index
 }
+
+// InvasionBattleModal2View — 局内待处理状态（v3.213）
+// InvasionBattleModal2View — in-run pending state (v3.213)
+string pendingEventId;   // 当前待处理事件 id；RevealEventRoutine 写入；Show() 时清空；LaunchEmbeddedBattle 分支用
+InvasionEventRewardKind pendingBattleKind;  // Battle 事件奖励种类（已有）
 ```
 
 #### 12.11.9 三选一技能事件与技能条 / Skill Pick-Three Event and Skill Strip (v3.170)
@@ -4057,12 +4170,12 @@ struct InvasionEventConfig {
 1. 「下一天」抽中领悟/顿悟事件，事件卡照常按 `/n` 逐条展示；  
 2. 展示完成后**不恢复常态**，按事件奖励的 `skillQuality` 从**技能表**（§B.18）筛选：先按品质过滤，**排除本局已获得的技能**，再按各技能 `weight` **无重复加权随机**抽取**最多 3 项**（同一 skillId 不重复出现）；  
 3. 打开独立预制体界面 **`SkillPickThreeModal`**（`SkillPickThreeModalView.GetOrCreate(canvasRect).Show(quality, options, onConfirm)`）：顶部**标题横幅**用素材 **`AirUI/pet_bg_3`**（整图 `preserveAspect` 展示，美术已含「选择技能」字样与吉祥物，不叠加文字）；三个**条目框**用九宫格素材（`Image.Type.Sliced`）——领悟 **`AirUI/pet_bg_1`**、顿悟 **`AirUI/pet_bg_2`**（美术头部已烘焙「普通」/「传说」品质标签，故不叠加品质文字），**三条目纵向排列（每项独占一行、共三行、从上到下 Option0/1/2）**，条目内**横向排版**（左侧**技能图标** `AirUI/SkillIcon/{iconName}`，右侧上为**技能名称**、下为**富文本描述**）；界面按 `Show()` 传入的 `quality` 统一切换三条目框素材（普通=`pet_bg_1`、传说=`pet_bg_2`），故单一预制体可复用于两种品质；  
-4. 玩家点选一项（高亮），三条目**下方出现「确定」按钮**；点「确定」→回调获取该技能、关闭界面；  
+4. 玩家点选一项（高亮），三条目**下方出现「确定」按钮**；点「确定」→回调获取该技能、关闭界面；**v3.212**：`AcquireSkillForAllPartyMembers(roster, skillId)` 写入全队（§12.14.12）；  
 5. 获取后主界面 `InvasionBattleModal_2` **左上角技能条**追加该技能图标，随后「下一天」恢复常态。  
 
 **技能条布局 / Skill strip layout：** 图标容器锚点/轴心居中（`(0.5,0.5)`），挂在根节点、层级高于三段区域。第 1 个图标 `anchoredPosition = (-480, 765)`；此后**向右**步进 `+106px`（图标 96 + 间隔 10），**每行 5 个**（首个 + 右侧 4 个）；满行后**换行**，Y 相对上一行 `-50px`、X 回到最左（`-480`）。新图标以协程**从较大尺寸持续缩小到 96×96**。  
 
-**本局状态 / Per-run state：** 已获得技能仅**本局有效**——`Show()` 时清空 `acquiredSkillIds` 与技能条（与 §12.11.3 属性副本 `runStats` 一致），关闭/重开重置、不写回存档；技能**效果本期不设计**（`effect` 仅占位）。  
+**本局状态 / Per-run state：** 已获得技能仅**本局有效**——`Show()` 时清空 `RunPartyRoster` 全体 `acquiredSkillIds` 与技能条（与 §12.14.1.1 名册一致），关闭/重开重置、不写回存档；技能**效果本期不设计**（`effect` 仅占位）。**v3.212**：领悟/顿悟三选一由玩家操作一次，所选技能写入**每名**队员的 `acquiredSkillIds`（`AcquireSkillForAllPartyMembers`，§12.14.12）；技能条 UI 仍只展示 Role。  
 
 **English:** Under `Adventure`, two reward-encoded **pick-three skill events** are added: **领悟** (`pick3:normal`, Normal quality) and **顿悟** (`pick3:legendary`, Legendary quality). Flow: (1) the "Next Day" draw hits 领悟/顿悟, event cards reveal per `/n`; (2) instead of returning to normal, filter the **skill table** (§B.18) by the reward's `skillQuality`, **exclude skills already acquired this run**, and **weighted-random pick up to 3 distinct** skills by `weight`; (3) open the standalone prefab **`SkillPickThreeModal`** — title box uses nine-slice `AirUI/pet_bg_3`; the three option boxes use nine-slice `AirUI/pet_bg_1` (领悟) / `AirUI/pet_bg_2` (顿悟), each showing the skill icon (`AirUI/SkillIcon/{iconName}`), name and rich-text description; (4) picking one shows a **"确定" button below**; tapping it acquires the skill and closes; (5) the acquired skill icon is appended to the **top-left skill strip** and the Next-Day button returns to normal. Skill strip: first icon at `anchoredPosition (-480, 765)`, step `+106px` right, **5 per row**, wrap with `Y -= 50px` back to `X = -480`; each new icon **shrinks continuously to 96×96**. Acquired skills are **per-run only** (cleared on `Show()`), effects are placeholders this release.
 
@@ -4093,29 +4206,33 @@ struct InvasionEventConfig {
 3. P0（v3.170）：技能表 §B.18 + 领悟/顿悟三选一事件（`pick3:normal|legendary`）+ 独立三选一预制体 `SkillPickThreeModal`（九宫格标题/条目框）+ 确定获取 + 左上角技能条缩放堆叠展示（本局有效）。
 4. P0（v3.171）：属性增强表 §B.19 + 三轴/五轴老虎机事件（`slot3/slot5`）+ 独立全屏预制体 `SlotMachineModal_3/5`（黑底 + `Zhou_x_2` 轴背景 + 各轴中心属性图标 + `Zhou_x_1` 样式图 + 「摇奖」）+ 等概率抽取 + 固定增加值按出现次数累加 `runStats`（本局叠加）。
 5. P0（v3.172）：小战斗/BOSS 战（`battle_small/battle_boss`）嵌入复用 §12.3 `InvasionBattleView` 关卡战斗模拟（`BuildEmbedded`，父挂 `TopArea`、关闭背景、本地 `IBattleCombatDriver` 驱动）+ `invasion_units.csv` 新增 `skeletonPrefab` 列与 `enemy_small` 行 + 胜负流转（详见 §12.11.10）。
-6. P1（后续）：技能具体效果、失败惩罚细化、天数上限与结算、存档等。
+6. P0（v3.212，v3.214 分阶段）：`RunPartyRoster` 局内名册 + 多单位战站位/独立 HP/暂死复活/事件全员收益（§12.14）；**按 §12.14.16 五阶段交付，勿一次性合入**。
+7. P1（后续）：技能具体效果、失败惩罚细化、天数上限与结算、存档等。
 
 ---
 
 #### 12.11.10 小战斗/BOSS 战：嵌入复用关卡战斗模拟 / Embedded Reuse of the Level Battle Simulation (v3.172)
 
-**中文：** `战斗 Battle` 事件（`battle_small` 小战斗 / `battle_boss` 最终 BOSS 战）本期**沿用 §12.3 `InvasionBattleView` 关卡战斗模拟**（左侧阿狼 `Role_cslangren`、我方先手回合循环、双血条、结果弹窗、命中红字飘伤），而非另写一套战斗。触发与呈现：
+**中文（v3.220 分支）：** `InvasionBattleModal_2` 内所有嵌入战斗均走 §12.14 九宫格全队战（我方 = `RunPartyRoster` 全员）：
+- **`evt_fight_small_1`** → 1 只 `enemy_small`；
+- **`evt_fight_small_2`** → 2~3 只 `enemy_small`；
+- **`evt_fight_boss`**（`eventReward=battle_boss`）→ 1 只 `boss_langren`。
 
-1. **触发时机：** 「下一天」抽中 `战斗` 事件、事件卡展示完成后，`NextDayButton` 进入 `Battle` 态「战斗」；`RevealEventRoutine` 依据事件奖励记录 `pendingBattleKind`（`BattleSmall`/`BattleBoss`）。
-2. **点击「战斗」：** `OnNextDayClicked` 的 `Battle` 分支调用 `LaunchEmbeddedBattle()`：
-   - **玩家侧**取**玩法局内属性副本 `runStats`**：`playerAttack = runStats.atk`、`playerMaxHp = playerHp = runStats.maxHp`；
-   - **敌人侧**按 `pendingBattleKind` 从 §B.9 `invasion_units.csv` 取单位（`battle_small→enemy_small`、`battle_boss→boss_langren`）读取 `attack/maxHp`，骨骼取该行新增列 `skeletonPrefab`（小怪 `Pets/Monster_1_Salamander`、BOSS `Prefabs/Air/Hero_Role_cunmin` 右侧镜像）；
-   - 隐藏 `TopArea/PlayerSlot` 下运行时的站立阿狼 `Skeleton`，调用嵌入工厂。
-3. **嵌入工厂 `InvasionBattleView.BuildEmbedded(RectTransform hostRect, BattleSession session, string enemyPrefab, Action<bool> onEnded)`：**
-   - 战斗根节点父挂 `hostRect`（即 `TopArea`）并全屏拉伸到该区域；`embedded=true`；
-   - **不创建战斗背景 `BattleBackground`（关闭 `AirUI/ZhanDou_1` 背景图）**，直接透出 `InvasionBattleModal_2` 自身背景；
-   - 用传入 `enemyPrefab` 覆盖默认敌人骨骼；**跳过农场附件**（自动连战行、返回家园按钮、战斗中入口、倒计时宿主、上场精灵槽）；
-   - 战斗数值/伤害/回合/结算经新增抽象 **`IBattleCombatDriver`** 由轻量 **`LocalBattleCombatDriver`** 本地驱动（内联伤害与结束判定），**不经 `InvasionService`**，因此**不扣体力、不触发 180s 倒计时、不弹主角升级弹窗、不做主线推进**。
-4. **结算（`onEnded(bool playerWon)`，玩家于 `ResultDialog` 点「点击关闭」后触发）：** 销毁嵌入战斗、恢复站立阿狼；**胜且 `pendingBattleKind==BattleBoss`**→`Hide()` 关闭 `InvasionBattleModal_2`，并调用 `MainStoryLineScreenView.ShowLevelSelectPanel()` 打开 §9.8.8.6 关卡选择全屏层（本局探索结束、回到主线选关）；**胜且小怪 `BattleSmall`**→`SetNextDayButtonMode(Normal)`，玩家可继续「下一天」；**负**→`Hide()` 关闭 `InvasionBattleModal_2`（本局结束）。
+§12.3 全屏入侵战仍可走本节历史路径的 legacy 1v1（与 Modal_2 无关）。
 
-**解耦要点 / Decoupling：** `InvasionBattleView` 既有的 `service.GetBattleSession/ApplyDamageToEnemy/ApplyDamageToPlayer/SetTurn` 改经 `combatDriver`（`InvasionService` 实现同名接口作适配器、嵌入态用 `LocalBattleCombatDriver`）；所有 `EnteredBattleViaFriendHome/GetPhase/CloseBattle/自动连战/返回家园/战斗中入口/主角升级` 等农场路径以 `if (!embedded && service != null)` 守卫，保证既有主线/好友家园/自动连战全屏战斗（§12.3/§12.9/§13.4）行为不变。
+**English (v3.220):** All Modal_2 embedded fights use §12.14 grid party battle; encounter by `pendingEventId` (1 / 2–3 small / 1 boss). §12.3 fullscreen invasion may remain legacy 1v1.
 
-**English:** The `Battle` event (`battle_small` / `battle_boss`) **reuses the §12.3 `InvasionBattleView` level battle simulation** (left-side 阿狼, player-first turn loop, dual HP bars, result dialog, red damage floats) rather than a new system. After the reveal the `NextDayButton` enters the `Battle` "战斗" state and `RevealEventRoutine` records `pendingBattleKind`. Tapping "战斗" calls `LaunchEmbeddedBattle()`: player stats come from the in-run `runStats` clone (`atk`/`maxHp`); the enemy is looked up from §B.9 `invasion_units.csv` by kind (`enemy_small`/`boss_langren`) with its skeleton from the new `skeletonPrefab` column (small `Pets/Monster_1_Salamander`, boss `Prefabs/Air/Hero_Role_cunmin` mirrored); the standing 阿狼 is hidden and `InvasionBattleView.BuildEmbedded(hostRect, session, enemyPrefab, onEnded, resultOverlayHost)` is invoked. The embedded factory parents the battle root into `TopArea` (stretched), **omits `BattleBackground` (disables `AirUI/ZhanDou_1`)**, overrides the enemy prefab, skips farm extras, and drives combat locally via the new `IBattleCombatDriver` / `LocalBattleCombatDriver` (no `InvasionService`, so no stamina/countdown/level-up/main-story advance). On `onEnded(playerWon)` after the player closes `ResultDialog`: destroy embedded battle, restore standing 阿狼; **BOSS win** → `Hide()` modal + `MainStoryLineScreenView.ShowLevelSelectPanel()`; **small-battle win** → button back to "下一天"; **lose** → `Hide()` the modal (run over). Existing fullscreen battles (§12.3/§12.9/§13.4) are unaffected because all service-only paths are guarded by `if (!embedded && service != null)`.
+**中文：** `战斗 Battle` 事件触发与呈现：
+
+1. **触发时机：** 「下一天」抽中 `战斗` 事件、事件卡展示完成后，`NextDayButton` 进入 `Battle` 态「战斗」；`RevealEventRoutine` 记录 `pendingBattleKind` 与 **`pendingEventId = cfg.eventId`**（`Show()` 时清空）。
+2. **点击「战斗」：** `LaunchEmbeddedBattle()` → `LaunchEmbeddedGridBattle()`：
+   - 从 **`RunPartyRoster`** 经 `BattlePartyAssembler` 组装我方；
+   - `GridEncounterBuilder.BuildEnemies(pendingEventId, battleSeed)` 按上表刷怪；
+   - `InvasionBattleView.BuildEmbeddedGrid(...)`；胜后 `SyncRosterHpAfterBattle`（§12.14.6.2）；
+   - 隐藏探索期 `PartyStandRoot`。
+3. **结算：** 同既有规则——小怪胜继续「下一天」；BOSS 胜回关卡选择；负关闭本局。
+
+**解耦要点 / Decoupling：** §12.3 全屏 `InvasionBattleView`（非 embedded grid）行为不变。
 
 ##### 12.11.10.1 嵌入结算弹窗层级（Embedded ResultDialog Overlay，v3.174）
 
@@ -4132,6 +4249,9 @@ struct InvasionEventConfig {
 `InvasionBattleView.ApplyEmbeddedResultDialogTextLayout` 在 `InstantiateEmbeddedResultOverlay` 末尾调用。
 
 `LaunchEmbeddedBattle()` 传入 `panelRt` 作为 `resultOverlayHost`；嵌入战斗销毁时 `InvasionBattleView.OnDestroy` 清理 overlay，避免残留在 Modal 根节点。
+
+**中文（v3.213 增补，多单位战结算 UI）：** 多单位战（`evt_fight_small_2`）**复用**本节 `EmbeddedResultOverlay/ResultDialog`（§12.11.10.1），**不扩展**队员 HP 列表或阵亡摘要；与 legacy 1v1 相同：**胜/负标题** + **「点击关闭」**提示。胜后：`SyncRosterHpAfterBattle` → 恢复探索期 `PartyStandRoot`（§12.14.15）→ 小怪继续「下一天」。  
+**English (v3.213):** Multi-unit battle reuses the simple win/lose `ResultDialog`; no per-member HP list; after win, sync roster HP and rebuild `PartyStandRoot`.
 
 **English:** On embedded battle settlement, `ResultDialog` is **not** parented under `EmbeddedBattle` (which would inherit `EmbeddedScale=0.75` and fail to cover `MiddleArea`/`BottomArea`/`SkillStrip`/`CloseButton`). Instead `InvasionBattleView.InstantiateEmbeddedResultOverlay(resultOverlayHost)` creates **`EmbeddedResultOverlay`** under the `InvasionBattleModal_2` root `panelRt` (full-screen stretch, hidden by default), brought to front via `SetAsLastSibling()` on show. Layering bottom→top: (1) **`DimBackdrop`** — full-screen black `Image` **`RGBA(0,0,0,0.72)`**, `raycastTarget=true`; (2) **`ResultDialog`** — reuses the existing prefab, **centered fullscreen** with runtime layout override `856×883`, scale `(1,1,1)` (prefab defaults unchanged for §12.3 fullscreen). Child text nodes are also overridden at embedded instantiation time (**v3.176**): `ResultText` `PosY=175`, `fontSize=64`, bold; `HintText` `PosY=-340`, `fontSize=40`, bold — via `ApplyEmbeddedResultDialogTextLayout` at the end of `InstantiateEmbeddedResultOverlay`. `LaunchEmbeddedBattle()` passes `panelRt` as `resultOverlayHost`; `OnDestroy` cleans up the overlay.
 
@@ -4166,8 +4286,8 @@ struct InvasionEventConfig {
 
 #### 12.12.3 产出应用与叠加 / Applying and Stacking Gains
 
-**中文（v3.177 修订，v3.178 补充局外基线）：** `InvasionBattleModal2View` 的 `onComplete` 回调把每个 `(attrId, gain)` 通过 `ApplyFlatStat(attrId, gain)` 累加：`Life`/`hp`→`runStats.maxHp`+同步 `currentHp`；`Attack`/`atk`→`runStats.atk`；`def`→`runStats.def`；`speed`→`runStats.agility`；六宫 6 项→本局 `runEnhanceBonuses[attrId]`（`Show()` 时从局外 `RoleStats` 六宫字段克隆基线，见 §5 / §12.13）；比较时 `Trim` + 大小写不敏感。  
-**English (v3.177):** `onComplete` applies each `(attrId, gain)` via `ApplyFlatStat`: `Life`/`hp`→`maxHp`(+sync `currentHp`), `Attack`/`atk`→`atk`, `def`→`def`, `speed`→`agility`; the six hex attrs → `runEnhanceBonuses[attrId]` (outside-run baseline **0**, §12.13); trim + case-insensitive match. Unknown keys → `LogWarning`. Refreshes middle stats + result card; gains stack per run; reset on close, no save writeback.
+**中文（v3.177 修订，v3.178 补充局外基线，v3.212 全员收益）：** `InvasionBattleModal2View` 的 `onComplete` 回调把每个 `(attrId, gain)` 通过 `ApplyFlatStatToAllPartyMembers(roster, attrId, gain)` 累加到**名册每名成员**（`Life`/`hp`→`maxHp`+同步 `currentHp`；`Attack`/`atk`→`atk`；`def`→`def`；`speed`→`agility`；六宫 6 项→各成员 `runEnhanceBonuses[attrId]`）；中部属性区仍刷新 Role 的 `runStats`。比较时 `Trim` + 大小写不敏感。仅 Role 时等价于写 `runStats`。  
+**English (v3.177, v3.212):** `onComplete` applies each `(attrId, gain)` to **every roster member** via `ApplyFlatStatToAllPartyMembers`; middle UI refreshes Role; single-member roster equals legacy `runStats` behavior.
 
 #### 12.12.4 资源清单 / Asset Manifest
 
@@ -4251,6 +4371,518 @@ struct SlotResult { AttrEnhanceConfig cfg; int count; int gain; }
 
 **中文：** 菜单 `Tools/PetDemo/Generate Detail Attribute Modal Prefab` → `Assets/Resources/Prefabs/Battle/DetailAttributeModal.prefab`；`InitializeOnLoad` 缺 prefab 时自动生成。主界面预制体生成器同步在 `MiddleArea` 烘焙 `DetailAttrButton`。  
 **English:** Menu `Tools/PetDemo/Generate Detail Attribute Modal Prefab`; auto-generate when missing; `InvasionBattleModal2PrefabGenerator` bakes `DetailAttrButton` on `MiddleArea`.
+
+---
+
+### 12.14 多单位阵型战斗 / Multi-Unit Formation Battle (v3.211, v3.212)
+
+**中文：** 自 v3.211 起，在 `InvasionBattleModal_2` 嵌入战斗框架（§12.11.10）之上新增 **多单位阵型战斗** 子系统：我方由 **主角 Role + 公会 `InteractButton`（拉手）跟随的 NPC** 组成，对战 **多只怪物**；双方各持 **3 行 × 3 列（共 9 格）** 站位点（预制体驱动）；每大回合内所有存活单位按 **`agility`（速度）降序** 行动（同速随机）；普攻按 **列优先、同行优先** 规则自动选目标；**精灵系统在本模式关闭**（不创建上场精灵槽、不执行偶数轮宠物协攻）。每名队员**独立生命值**；战斗中暂死、胜后按 §12.14.6.2 复活。局内事件收益**全员各得一份**（§12.14.12）。首期验收场景：**`evt_fight_small_2`**（随机 2~3 只小怪）。  
+**English:** Since v3.211, a **multi-unit formation battle** subsystem is added on the `InvasionBattleModal_2` embedded framework (§12.11.10): allies are **Role + guild handshake followers** vs **multiple monsters**; 3×3 grid; agility-sorted turns; column/row target priority; pets disabled; **per-member HP**; battle-death with §12.14.6.2 revival on win; event rewards fan out to all allies (§12.14.12). First acceptance: **`evt_fight_small_2`** (2–3 small enemies).
+
+**中文（与 legacy 关系，v3.220）：** §12.3 全屏入侵战**仍可**走 §12.4 legacy 1v1；`InvasionBattleModal_2` 内 `evt_fight_small_1` / `evt_fight_small_2` / `evt_fight_boss` **一律**走本节九宫格全队战。  
+**English (vs legacy, v3.220):** §12.3 fullscreen invasion may remain legacy 1v1; all Modal_2 fight events use this section's grid party battle.
+
+**中文（v3.214 实施）：** P0 落地顺序与 5 阶段拆分见 **§12.14.16**；规则细节见下文各小节。  
+**English (v3.214 delivery):** P0 rollout order and five-phase breakdown are in **§12.14.16**; rule details in subsections below.
+
+#### 12.14.1 参战队伍组装 / Party Assembly
+
+**中文（v3.212 修订）：** 开战瞬间（`LaunchEmbeddedBattle` 内、`GridBattleSession` 创建前）由 `BattlePartyAssembler` 从局内名册 **`RunPartyRoster`**（§12.14.1.1）组装我方 `BattleUnitRuntime` 列表；**不再**于开战时重新读取公会跟随列表。
+
+1. **数据来源**：`RunPartyRoster.members` 中每名 `RunAllyEntry` 生成一个 `BattleUnitRuntime`；`stats` = 该条目**当前** `RunAllyEntry.stats` 深拷贝（含独立 `currentHp`/`maxHp` 与事件累积）。
+2. **主角 Role**（`BattleUnitKind.Role`）= 名册首位；`rosterId` 回链名册条目。
+3. **NPC 成员**（`BattleUnitKind.FollowerNpc`）= 名册其余条目；`displayName` / `skeletonPrefab` 取自名册（源于 `FriendCatalog` / `GuildNpcMarker`）。
+4. **人数上限**：名册总数上限 **9**（`1 + 8` NPC）；超出时按拉手顺序保留前 **8** 名 NPC（在 `Show()` 初始化时截断）。
+5. **零跟随**：允许仅主角 1 人在名册（不阻断 `evt_fight_small_2`）。
+6. **站位**：调用 `AssignAllyGridPositions(roster, battleSeed)`（§12.14.2）写入各 `BattleUnitRuntime.gridPos`。
+
+**English (v3.212):** At battle start, `BattlePartyAssembler` builds `BattleUnitRuntime` from **`RunPartyRoster`** (§12.14.1.1), not from a fresh guild follow read. Each `RunAllyEntry` → one runtime unit with a deep copy of its current stats; cap 9; placement via §12.14.2.
+
+```mermaid
+flowchart LR
+  subgraph battleStart [BattleStart]
+    Roster[RunPartyRoster]
+    Assembler[BattlePartyAssembler]
+    GridSession[GridBattleSession]
+  end
+  ShowInit["Show() 初始化名册"]
+  ShowInit --> Roster
+  Roster --> Assembler
+  Assembler --> GridSession
+```
+
+##### 12.14.1.1 局内队伍名册 `RunPartyRoster` / In-Run Party Roster (v3.212)
+
+**中文：** `InvasionBattleModal2View.Show()` 时创建并初始化 **`RunPartyRoster`**，在一局 `Show()`→`Hide()` 内持久；`Hide()` / 重开时销毁重建。
+
+**初始化流程：**
+
+1. 读取公会跟随列表（与 v3.211 相同优先级，**v3.220** 修订）：
+   - 若 `GongHuiScreenView` 处于激活态且 live `entries` **非空** → 取 `NpcId`（拉手顺序）；
+   - 否则（含公会已切走、或 live 为空）→ `GuildHomeVisitState.PeekFollowers()` 返回快照副本（**不清空**；公会→主线须**保留**快照，见 §9.8.9.7）。
+2. **Role 条目**（`members[0]`）：从全局 `RoleStats`（`IPlantingService.GetRoleStats()`）**深拷贝**全部字段至 `stats`；`kind=Role`；`runEnhanceBonuses` 从局外 `RoleStats` 六宫字段克隆基线（同 §12.13）；`acquiredSkillIds` 清空。
+3. **FollowerNpc 条目**（按拉手顺序追加）：对每名 NPC **深拷贝同一份**开局 `RoleStats` 基线（与 Role 条目相同起点）至 `stats`；`displayName` / `skeletonPrefab` 取自 `FriendCatalog` / `GuildNpcMarker.skeletonKind`；各自独立 `runEnhanceBonuses` 基线与 `acquiredSkillIds`。
+4. **人数截断**：`1 + followerCount` 上限 **9**；超出保留前 **8** 名 NPC。
+5. **本局锁定**：初始化后**不再增减**队员；中途公会新拉手不影响本局名册。
+6. **探索展示**：`Show()` 后立即 `RebuildPartyStandVisuals`，冒险全程（非战斗嵌入时）展示全队 Spine（§12.14.15）。
+
+**初始化降级规则（v3.213）：**
+
+| 情况 | 行为 |
+|------|------|
+| 跟随列表为空 | 名册仅含 Role（`members.Count==1`），允许继续探索/战斗 |
+| `PeekFollowers()` 与公会 live 列表均为空 | 同上；**不**弹阻断提示（P0） |
+| 重复 `NpcId` | 按拉手顺序**去重**，保留首次，后续跳过 + `LogWarning` |
+| `FriendCatalog` / `GuildNpcMarker` 找不到 NPC | 仍创建 `FollowerNpc` 条目：`displayName=NpcId`，`skeletonPrefab` 回退主角默认骨骼 + `LogWarning` |
+| 超过 9 人 | 截断至 `1+8` NPC（已有规则） |
+
+**P1 可选（P0 不写 UI）：** 未带队友时可在事件日志追加提示卡——本期 SPEC **不强制**。
+
+**与 `runStats` 的关系：**
+
+- 保留字段 **`runStats`** 作为 **Role 条目** `members[0].stats` 的**快捷别名**（`runStats == members[0].stats`），兼容 §12.11 既有引用。
+- §12.11.3 中部属性区继续展示 **Role** 的 `runStats`（玩家视角）。
+- 事件奖励（§12.14.12）须对 `RunPartyRoster` **每名成员**执行同等写入，而非仅写 `runStats`。
+
+**English:** `RunPartyRoster` is created on `Show()`, fixed for the run. Role clones global `RoleStats`; each follower clones the same baseline at open; `runStats` aliases `members[0].stats`; rewards fan out to all members (§12.14.12).
+
+#### 12.14.2 战场站位（预制体驱动）/ Battle Grid (Prefab-Driven)
+
+**中文：** 战场预制体：**`Resources/Prefabs/Battle/GridBattleField.prefab`**（编辑器菜单 **`Tools/PetDemo/Generate Grid Battle Field Prefab`** 生成；根挂 `GridBattleFieldLayout`）。
+
+| 节点 / Node | 说明 / Notes |
+|---|---|
+| `AllyGrid/Slot_r{row}c{col}` | 我方左侧 3×3，共 9 个 `RectTransform` 锚点（`row,col ∈ {1,2,3}`） |
+| `EnemyGrid/Slot_r{row}c{col}` | 敌方右侧 3×3，共 9 个锚点 |
+| 每槽 `BattleGridSlotMarker`（可选组件） | 记录 `side`（Ally/Enemy）、`row`、`col` |
+
+**坐标系约定（面向屏幕，敌在我方右侧）：**
+- **行 row**：`1`=上、`2`=中、`3`=下
+- **列 col**：从我方视角，`col=1` 为最靠近战场中线（**前排**），`col=3` 为最靠外侧（**后排**）
+- 敌方网格使用**同一 row/col 编号语义**（敌方 `col=1` = 敌方靠中线前排）
+
+**我方默认落位（v3.212 修订，本期 P0 无手动布阵）：**
+
+由 `AssignAllyGridPositions(RunPartyRoster roster, int battleSeed)` 分配：
+
+1. **主角 Role** 固定 **`AllyGrid Slot_r2c2`**（第二行第二列，`row=2, col=2`）。
+2. **其余队员**（按名册拉手顺序，不含 Role）依次落位：
+   - **第一优先**：`col=2` 中除 `(2,2)` 外的空槽（`r1c2`, `r3c2`）**随机无放回**选取；
+   - **第二优先**：`col=1` 三槽（`r1c1`, `r2c1`, `r3c1`）**随机无放回**；
+   - **第三优先**：`col=3` 三槽（`r1c3`, `r2c3`, `r3c3`）**随机无放回**。
+3. **随机种子**：`placementSeed = battleSeed ^ hash("ally_placement")`；同场可复现。
+4. 队员数超过 8 时已在 `Show()` 名册初始化时截断。
+
+**敌方落位：** 由遭遇配置决定（§12.14.7）。
+
+**English (v3.212):** Role fixed at `r2c2`; other allies fill `col2` random (excl. r2c2) → `col1` random → `col3` random; seeded placement; enemy per §12.14.7.
+
+#### 12.14.3 回合与行动顺序 / Rounds and Turn Order
+
+**中文：**
+- 战斗按 **大回合（Round）** 循环；每大回合内所有 **存活** 单位各行动 **一次**。
+- **行动顺序**：按 `stats.agility` **降序**；`agility` 相同则 **随机打乱**（每大回合重新抽签）。
+- **随机种子**：`tieBreakSeed = battleSeed ^ (roundIndex * 397) ^ hash(instanceId)`；同大回合同单位顺序稳定、跨回合可变化。
+- **阵营**：排序 **不区分** 我方/敌方（混排）。
+- **单次行动（P0）**：仅 **普通攻击**；特殊攻击、防御、技能 **不在本期范围**。
+- **伤害公式**：沿用 §4.2：`damage = max(1, attacker.stats.atk - defender.stats.def)`（整数）；Tier-2/3 触发率 P0 **不参与**（与 §4.2 一致）。
+
+**English:** Major rounds; each living unit acts once per round; order by `agility` descending, random tie-break per round with seeded RNG; mixed factions; P0 normal attack only; damage `max(1, atk - def)` per §4.2; Tier-2/3 not active in P0.
+
+#### 12.14.4 普攻目标选择（不含特殊攻击）/ Normal Attack Target Selection
+
+**中文：** 攻击者在 **敌对阵营存活单位** 中选目标（我方打敌方、敌方打我方，规则对称）。**不含特殊攻击**（特殊攻击另行设计，本期不实现）。
+
+**第一优先级 — 列（col）：** `col=1` > `col=2` > `col=3`（目标方网格列号；即最靠近攻击者一侧的列优先）
+
+**第二优先级 — 行（row，同列内）：**
+1. 与攻击者 **同行**（`|Δrow| = 0`）
+2. 行差 **1**（`|Δrow| = 1`）
+3. 行差 **2**（`|Δrow| = 2`）
+
+**同优先级多目标：** 随机选一（种子 `battleSeed ^ roundIndex ^ hash(attackerInstanceId) ^ 0xTARGET`）。
+
+**示例：** 我方单位在 `r2c1` 攻击敌方，敌方 `(r2c1)` 与 `(r1c1)` 均存活 → 同属 `col=1` → 同行 `r2c1` 优先于 `r1c1`。
+
+**English:** Pick among living opponents: column priority `col1 > col2 > col3`, then row `same row > |Δrow|=1 > |Δrow|=2`; random among ties; special attacks out of scope.
+
+#### 12.14.5 精灵系统关闭 / Pets Disabled
+
+**中文：** 多单位战（§12.14）嵌入实例化时设 **`kGridBattlePetsEnabled = false`**（编译期常量或 `GridBattleSession` 标志）。**不**创建 §12.3 的 `PetLowerLeft` / `PetUpperLeft` 槽位；**不**执行 §12.4 / §4.1 偶数轮宠物协攻逻辑。§12.3 全屏 1v1 入侵战精灵行为 **不变**。  
+**English:** Grid battle sets `kGridBattlePetsEnabled = false`; no pet slots or even-round pet strikes; §12.3 fullscreen 1v1 pet behavior unchanged.
+
+#### 12.14.6 胜负判定、暂死与结算 / Win/Loss, Battle-Death, and Settlement (v3.212)
+
+##### 12.14.6.1 胜负判定 / Win/Loss Conditions
+
+**中文：**
+- **胜利**：敌方全部单位 `currentHp <= 0`（无存活敌人）。
+- **失败**：我方全部单位 `currentHp <= 0`（**含本场暂死者**；只要无存活我方单位即判负）。
+- **回合队列**：每大回合 `BeginRound()` 仅将 **存活** 单位（`currentHp > 0` 且 `!isBattleDead`）纳入 `turnQueue`；`currentHp <= 0` 的单位**不出手、不可被普攻选为目标**（§12.14.4 在存活对手中选取）。
+
+**English:** Win when all enemies dead; lose when all allies dead (including battle-dead); only living units act and can be targeted.
+
+##### 12.14.6.1.1 同时灭亡与行动顺序 / Simultaneous Wipe and Turn Order (v3.213)
+
+**中文：**
+- **每次 `ApplyNormalAttack` 结算后立即**调用 `IsBattleFinished`（**不在**整回合末批量判定）。
+- 若一次攻击使 **敌方全灭** → **立即胜利**，本回合剩余行动**取消**。
+- 若一次攻击使 **我方全灭** 且敌方未全灭 → **立即失败**。
+- **不存在**「双方同时归零仍继续」的平局；最后一击归属取决于**当前行动者**。
+- 若双方在同一大回合内先后归零：先完成攻击且触发对方全灭的一方获胜（行动顺序由 `agility` 降序 + §12.14.3 tie-break 随机决定）。
+
+```mermaid
+flowchart TD
+  attackHit[ApplyNormalAttack命中]
+  checkEnemy{敌方全灭?}
+  checkAlly{我方全灭?}
+  playerWon[playerWon=true]
+  playerLost[playerWon=false]
+  continueRound[继续本回合/下一大回合]
+  attackHit --> checkEnemy
+  checkEnemy -->|是| playerWon
+  checkEnemy -->|否| checkAlly
+  checkAlly -->|是| playerLost
+  checkAlly -->|否| continueRound
+```
+
+**English:** After each normal attack, check finish immediately; enemy wipe → instant win (cancel remaining turns); ally wipe → instant loss; no draw; last striker wins if both sides die in the same round.
+
+##### 12.14.6.2 暂死与胜后复活 / Battle-Death and Post-Victory Revival
+
+**中文：**
+- **战斗中死亡**：单位受击后 `currentHp <= 0` → 设 `isBattleDead=true`；仍占格（播死亡动画 / 灰化），**不出手、不被普攻选中**。
+- **战斗失败**：维持各条目 HP 与死亡状态；走 §12.11.10 关闭 `InvasionBattleModal_2`（本局结束）。
+- **战斗胜利**（`SyncRosterHpAfterBattle`，§12.14.8）回写 `RunPartyRoster` 后：
+  - **存活者**：`currentHp` **不变**；
+  - **本场死亡者**：`currentHp = max(1, floor(maxHp * 0.3))`，`isBattleDead=false`，恢复可参战；
+  - 下一场战斗可正常入队。
+- **结算流转**（`evt_fight_small_2`）：复用 §12.11.10 / §12.11.10.1 嵌入结算——**仅胜/负标题 +「点击关闭」**，**不列**队员 HP 或阵亡摘要；胜 → 销毁嵌入战斗、`SyncRosterHpAfterBattle`、**重建** `PartyStandRoot`（§12.14.15）、`SetNextDayButtonMode(Normal)` 继续「下一天」；负 → `Hide()` 关闭 `InvasionBattleModal_2`。
+
+```mermaid
+stateDiagram-v2
+  [*] --> Alive
+  Alive --> BattleDead: currentHp小于等于0
+  BattleDead --> Alive30: playerWon
+  Alive --> Alive: playerWon_HP不变
+  BattleDead --> [*]: playerLost
+  Alive --> [*]: playerLost
+```
+
+**English:** Battle-death at `currentHp<=0`; on win survivors keep HP, dead allies revive at `max(1, floor(maxHp*0.3))`; on loss close modal. Settlement same as §12.11.10 for `evt_fight_small_2`.
+
+#### 12.14.7 遭遇：战斗事件刷怪 / Encounter Spawn by Fight Event (v3.220)
+
+**中文：** `InvasionBattleModal_2` 嵌入战斗时，`GridEncounterBuilder.BuildEnemies(pendingEventId, battleSeed)` 按事件刷怪；**我方始终为 `RunPartyRoster` 全员**（含第 4 天原「1v1」文案事件，亦带队友入场）。
+
+| `pendingEventId` | 敌人数 | 单位模板 | 站位 |
+|---|---|---|---|
+| `evt_fight_small_1` | **1** | §B.9 `enemy_small` | 敌方 9 槽无放回随机 1 槽 |
+| `evt_fight_small_2` | **2 或 3**（`Random` 含下不含上 → 2..3） | `enemy_small` | 无放回随机对应槽 |
+| `evt_fight_boss` | **1** | §B.9 `boss_langren` | 无放回随机 1 槽 |
+
+每只独立实例：`atk`←配置 `attack`、`maxHp/currentHp`←`maxHp`、`def=0`（P0）；小怪 `agility` 默认 `2`，BOSS 可用同默认或配置扩展。
+
+**验收：** 第 **4** 天 `evt_fight_small_1`、第 **8** 天 `evt_fight_small_2`、第 **10** 天 `evt_fight_boss`；带 ≥1 名跟随者时我方槽位数 = 名册人数。
+
+**English (v3.220):** All three fight events use grid party battle; spawn 1 / 2–3 small / 1 boss by `pendingEventId`; allies always full roster.
+
+#### 12.14.8 接口与驱动（实现期）/ APIs and Driver (Implementation)
+
+**中文（v3.212 修订）：** 建议新增以下接口（`PetDemo.Battle` 命名空间），供 `InvasionBattleView` 嵌入多单位分支消费：
+
+```text
+interface IBattlePartyAssembler {
+  List<BattleUnitRuntime> BuildAllies(RunPartyRoster roster);
+  void AssignAllyGridPositions(RunPartyRoster roster, List<BattleUnitRuntime> allies, int battleSeed);
+}
+
+interface IGridEncounterBuilder {
+  List<BattleUnitRuntime> BuildEnemies(string eventId, int battleSeed);
+}
+
+interface IBattleTargetSelector {
+  BattleUnitRuntime PickNormalAttackTarget(BattleUnitRuntime attacker,
+    IReadOnlyList<BattleUnitRuntime> opponents, int roundIndex, int battleSeed);
+}
+
+interface IGridBattleResolver {
+  int ResolveNormalAttackDamage(BattleUnitRuntime attacker, BattleUnitRuntime defender);
+}
+
+interface IGridBattleDriver {
+  GridBattleSession GetSession();
+  void BeginRound();                              // 重算 turnQueue（仅存活单位）
+  BattleUnitRuntime GetCurrentActor();
+  void ApplyNormalAttack(BattleUnitRuntime attacker, BattleUnitRuntime defender);
+  bool AdvanceTurn();                             // false = 大回合结束
+  bool IsBattleFinished(out bool playerWon);    // §12.14.6.1 / §12.14.6.1.1（每次攻击后立即判定）
+}
+
+// 战斗结束回写名册 HP 与胜后复活（§12.14.6.2 / §12.14.13）
+void SyncRosterHpAfterBattle(RunPartyRoster roster, GridBattleSession session, bool playerWon);
+
+// 事件奖励全员分发（§12.14.12）
+void ApplyRewardToAllPartyMembers(RunPartyRoster roster, InvasionEventReward reward);
+void ApplyFlatStatToAllPartyMembers(RunPartyRoster roster, string attrId, int gain);
+void ApplyPercentStatToAllPartyMembers(RunPartyRoster roster, string target, int percent);
+void AcquireSkillForAllPartyMembers(RunPartyRoster roster, string skillId);
+```
+
+**English (v3.212):** Interfaces updated for `RunPartyRoster` assembly, placement, win/loss, roster HP sync, and per-member reward fan-out.
+
+#### 12.14.9 UI 与表现（P0 最小）/ UI and Presentation (P0 Minimum)
+
+**中文：**
+- 嵌入 [`InvasionBattleModal2View.TopArea`](PetDemo_2/Assets/Scripts/UI/Battle/InvasionBattleModal2View.cs)：用 **`GridBattleField`** 替换探索期 `PartyStandRoot` 站立布局；`InvasionBattleView.BuildEmbeddedGrid(hostRect, GridBattleSession, onEnded, resultOverlayHost)`（`embedded=true`，`useGridBattle=true`）。
+- **（v3.224）布局**：`GridBattleField` 在 `TopArea` 内全宽拉伸，**Top=200**（Inspector 语义：`offsetMax.y=-200`；常量 `GridBattleConstants.GridBattleFieldTopInsetPx`），Bottom/Left/Right 仍为 0。
+- **（v3.213）战斗开始**：**隐藏** `PartyStandRoot`（及 `PlayerSlot` 探索期站立层）；**战斗结束**销毁嵌入层后调用 `RebuildPartyStandVisuals` **恢复**探索期全队站立（§12.14.15）。
+- 每 occupied 槽：运行时 `SkeletonGraphic`（基底 `GridCharacterScaleBase=0.30` × **`BattleSpineDisplayScaleMultiplier=1.15`**）+ 槽位小型 HP 条（复用 §12.3 血条样式：`fillAmount = currentHp/maxHp`；**挂 `slotRt` 中心，Y 偏移 `-20px`**，即 Spine 中心正下方 20px）。
+- **（v3.222 / v3.223）Spine 绘制层级**：按 `GridBattleField` 槽位行 **`Slot_r3 > Slot_r2 > Slot_r1`**（下行遮挡上行）；实现为各单位 `UnitAnchor` 上 `Canvas.overrideSorting=true`，`sortingOrder = parentCanvas.sortingOrder + row × GridRowSortStep + col`（`GridRowSortStep=10`；**相对父 Canvas**，避免绝对小值落入 §9.8.17 世界带被 HUD 盖住）。新建嵌套 Canvas 须带 Spine 通道 `additionalShaderChannels |= TexCoord1|Normal|Tangent`，且在实例化 `SkeletonGraphic` **之前**挂好；并 `MainHudLayerRoot.EnsureGraphicRaycaster`。`GridBattleFieldLayout` 另按行重排槽位 sibling（r1→r3 递增置顶）。
+- 行动表现：攻击者移向 **目标槽前方中线邻近点** → 播 `attack_1` → 命中瞬间扣血 + 红字飘字 → 回位（时长沿用 `BattleAnimationSpec`：`moveToCenterSeconds=0.25` 等）。
+- **按速度排序的行动在 UI 上依次播放**（非整回合即时结算）；胜负判定仍按 §12.14.6.1.1 **每次命中后立即**检查。
+
+**English:** `GridBattleField` in `TopArea`; hide `PartyStandRoot` during fight, rebuild after; per-slot Spine + mini HP bar; sequential animated turns; immediate win/loss on hit per §12.14.6.1.1.
+
+#### 12.14.10 实现优先级 / Implementation Priority
+
+**中文（v3.214）：** §12.14 **P0** 的落地顺序与阶段拆分见 **§12.14.16**（5 阶段、逐段验收）；下表为功能优先级总览，**不**替代分阶段计划。  
+**English (v3.214):** §12.14 **P0** delivery order and phase breakdown are in **§12.14.16** (five phases, incremental acceptance); the table below is a feature-priority overview, not a substitute for the phased plan.
+
+| 优先级 / Priority | 内容 / Content |
+|---|---|
+| **P0** | `RunPartyRoster`、读队快照保留（§9.8.9.7 v3.220）、探索期 **`PartyStandRoot`**、九宫格全队战、`evt_fight_small_1/2` + `evt_fight_boss` 遭遇、事件全员收益、胜后回写 — **已交付** |
+| **P1** | Tier-2/3 触发率接入、特殊攻击、手动布阵、全队增益结算日志卡、全屏入侵战迁移至多单位 |
+| **P2** | （原 `small_1`/`boss` 多单位化已并入 P0 v3.220） |
+
+#### 12.14.11 资源清单 / Asset Manifest
+
+| 资源 / Asset | 路径 / Path | 说明 / Notes |
+|---|---|---|
+| 九宫格战场 / Grid field | `Resources/Prefabs/Battle/GridBattleField.prefab` | 新建；含 AllyGrid/EnemyGrid 各 9 槽 |
+| 槽位标记 / Slot marker | `BattleGridSlotMarker` 组件 | `side`, `row`, `col` |
+| 小怪骨骼 / Small enemy | `Resources/Pets/Monster_1_Salamander.prefab` | §B.9 `enemy_small.skeletonPrefab` |
+| 主角骨骼 / Role | `Resources/Prefabs/Air/Hero_Role_cunmin` | Role 单位外观 |
+| NPC 骨骼 / NPC | `FriendProfile.spinePrefabPath` 或 `GuildNpcMarker` 映射 | 跟随 NPC 外观 |
+
+#### 12.14.12 局内事件与多人收益 / In-Run Events and Multi-Member Rewards (v3.212)
+
+**中文：** 当 `RunPartyRoster.members.Count > 1` 时，`invasion_events` 中下列事件类型遵循 **「玩家操作、全员各得一份」** 规则。`战斗 Battle` 事件不走本节（走 §12.14 战斗流程）。
+
+**操作权**：仅**玩家 Role** 进行 UI 交互；NPC **不参与**操作。
+
+| 事件类型 / Event | 玩家操作 / Player action | 收益分发 / Reward fan-out |
+|---|---|---|
+| `调整属性` (`attr:hp\|atk\|speed:±%`) | 自动结算（无额外界面） | 对名册**每名** `RunAllyEntry.stats` 应用相同百分比；`hp` 增时按该成员自身 `maxHp` 计算并同步 `currentHp` |
+| `奇遇` 含 `attr:*` | 同上 | 同上 |
+| `奇遇` 含 `pick3:normal\|legendary` | 玩家三选一 + 确定（§12.11.9） | 所选 `skillId` **追加到每名** `acquiredSkillIds`；技能条 UI 仍只展示 Role 的列表 |
+| `抽奖` (`slot3` / `slot5`) | 玩家打开老虎机 + 摇奖（§12.12） | `onComplete` 每个 `(attrId, gain)` **累加到每名** `stats` / `runEnhanceBonuses`（映射规则同 §12.12.3） |
+
+**实现约定：**
+
+- 事件卡 `eventText` 仍以「你…」第二人称描述（玩家视角）。
+- 数据层须调用 `ApplyRewardToAllPartyMembers` / `ApplyFlatStatToAllPartyMembers` / `ApplyPercentStatToAllPartyMembers` / `AcquireSkillForAllPartyMembers`（§12.14.8）。
+- P1 可选：追加系统事件卡「全队 {N} 人各获得相同增益」；P0 可不实现该 UI。
+- 仅 1 人（无跟随）时行为与单 `runStats` 等价。
+
+**English:** For multi-member roster, `AdjustAttr`/`Adventure`/`Lottery` rewards apply identically to every `RunAllyEntry`; only the player operates UI; battle events excluded.
+
+##### 12.14.12.1 属性增减边界 / Attribute Change Bounds (v3.213)
+
+**中文：** 百分比 `attr:*`（`ApplyPercentStatToAllPartyMembers`）对**每名成员独立**计算：
+
+| target | 规则 |
+|--------|------|
+| `hp` | `maxHp = max(1, round(maxHp * (1 + percent/100)))`；**增**：`currentHp` 同比缩放（`round(currentHp * factor)` 后 clamp 至 `[0, maxHp]`）；**减**：`currentHp = min(currentHp, maxHp)`（不主动抬血） |
+| `atk` / `speed` | `max(0, round(value * factor))`；`speed` 映射 `agility` |
+| `def` | P0 事件表**暂不配置** `attr:def`；若未来扩展，同 `atk` 规则；老虎机 `def` 固定值仍走 `ApplyFlatStatToAllPartyMembers` |
+
+**其它约定：**
+
+- **空奖励**（如 `evt_calm`）：不修改名册，不追加系统卡。
+- **局内属性分叉**：除 **HP**（战斗/复活）外，事件对全员施加**相同**数值/比例；**P0 不允许仅 Role 受益的属性事件**。
+- `attr:hp` **负向**导致 `currentHp==0`：**不**在探索期判死亡；仅战斗内 HP≤0 触发暂死（§12.14.6.2）。
+
+**English:** Per-member percent attr math with HP max/current rules; empty rewards noop; no Role-only attr events in P0; explore-phase HP=0 is not death.
+
+#### 12.14.13 独立生命值 / Independent Hit Points (v3.212)
+
+**中文：**
+
+- 每名 `RunAllyEntry` 维护独立 `stats.currentHp` / `stats.maxHp`（局内事件与战斗均基于此）。
+- 开战时 `BattlePartyAssembler` 从各 `RunAllyEntry.stats` 生成 `BattleUnitRuntime`（**不再**从单一 `runStats` 复制给 NPC）。
+- 战斗中伤害仅扣被击单位 `currentHp`；`BattleUnitRuntime.stats` 为开战快照。
+- 战斗结束调用 `SyncRosterHpAfterBattle`（§12.14.6.2 / §12.14.8）将各 ally 的 `currentHp` 回写对应 `RunAllyEntry.stats`。
+- 事件 `attr:hp:+N%` 对每名队员**独立**计算（各自基于自己的 `maxHp`）。
+
+**English:** Per-member HP in roster and battle; sync back after battle; percent HP events computed per member.
+
+#### 12.14.14 验收要点 / Acceptance Checklist (v3.212, v3.213)
+
+1. 打开界面时带 2 名跟随者 → 名册 3 人；**探索期 TopArea 见 3 个站立 Spine**（§12.14.15）；第 8 天 `evt_fight_small_2` 开战 → Role 在 `r2c2`，另 2 人在 `col2` 剩余槽随机。
+2. `evt_boost_atk`（atk +10%）→ 3 人 `atk` 各 +10%。
+3. `evt_lottery` 摇奖 +5 atk → 3 人各 +5 atk。
+4. `evt_insight` 三选一 → 3 人 `acquiredSkillIds` 均含所选技能。
+5. 战斗中 1 名 NPC 阵亡、Role 存活并胜 → NPC `currentHp = max(1, floor(maxHp*0.3))`，Role HP 为战后剩余值。
+6. 3 人全灭 → 判负，关闭 `InvasionBattleModal_2`。
+7. 敌方全灭 → 判胜，继续「下一天」。
+8. **（v3.213）** 最后一击同时杀光双方 → 按**当前行动者**判胜（§12.14.6.1.1）；结算弹窗仅胜/负，不列队员 HP。
+9. **（v3.220）** `pendingEventId`：`evt_fight_small_1` / `evt_fight_small_2` / `evt_fight_boss` **均**走 §12.14 全队九宫格战（敌方 1 / 2~3 / 1 BOSS）；公会拉手后切主线打开冒险 → 名册含队友，探索期 `PartyStandRoot` 全程可见。
+
+#### 12.14.15 探索期队伍展示（非战斗）/ Exploration Party Display (v3.213)
+
+**中文：** `InvasionBattleModal_2` 处于**探索态**（未嵌入战斗）时，在 `TopArea` 展示主角 + 全部队友 Spine 站立，视觉类公会跟随。
+
+| 项 | 规则 |
+|---|---|
+| 时机 | 探索态：`Show()` 初始化名册后、`LaunchEmbeddedBattle` 之前，及每场战斗结束后重建 |
+| 容器 | `TopArea` 下除 `PlayerSlot` 外增 **`PartyStandRoot`**（或与 `PlayerSlot` 同级），挂载全队站立 Spine |
+| 布局 | **Role** 居中偏前（沿用 §12.11.4 镜像与待机链）；**FollowerNpc** 按名册拉手顺序在 Role **左右错开**排列（建议水平间距 `±120px` 步进，最多 8 名；超出 9 人上限已在名册截断） |
+| 外观 | 每名成员 `SkeletonGraphic` + `RunAllyEntry.skeletonPrefab`（缺资源 → 纯色占位 + `LogWarning`，不阻断） |
+| 动画 | 全员循环待机（同 §12.11.4 候选链）；「下一天」移动过场（§12.11.5）**全队**（Role + FollowerNpc）同步播 `move_1`（候选链 `move_1`→`move`→`animation`），1s 后全员恢复待机 |
+| 与战斗互斥 | 嵌入 `GridBattleField` 时 **隐藏** `PartyStandRoot`/`PlayerSlot` 站立层（§12.14.9）；战斗结束销毁嵌入层后 **重建**探索期站立队 |
+
+**实现依赖（脚注，v3.214 修订）：** 本节属 **阶段 2** 交付物（§12.14.16）；须于阶段 1 完成 `RunPartyRoster` 与 `pendingEventId` 后再实现；否则探索期多人展示与 `small_1`/`small_2` 分支无法验收。
+
+**English:** Exploration state shows full party stand Spines under `PartyStandRoot`; hidden during grid battle; rebuilt after; Role center, followers offset ±120px; move interlude animates **full party** (v3.222). **Phase 2 deliverable** per §12.14.16; depends on Phase 1 roster + `pendingEventId`.
+
+#### 12.14.16 分阶段实施计划（P0）/ Phased Implementation Plan (P0) (v3.214)
+
+**中文：** 本节将 §12.14 **P0 多单位阵型战斗**拆为 **5 个可独立验收的开发阶段**，以降低一次性改动面、便于回归。各阶段须**先更新本节实现状态**（见下表「状态」列），再按对应 SPEC 小节编码；**不得跳过前置阶段**直接做战斗 UI 或结算回写。  
+**English:** This subsection splits §12.14 **P0 multi-unit formation battle** into **five independently verifiable phases** to limit change blast radius and ease regression. Update the **Status** column here before coding each phase; **do not skip prerequisites** (e.g. battle UI before the rules engine).
+
+**范围澄清 / Scope clarification：**
+
+- 本节「多人战」= **本地多单位阵型战**（主角 Role + 公会拉手 NPC），**非**联网真人对战（见文档范围外说明）。
+- **§12.3 全屏入侵**在各阶段中可保持 legacy 1v1；Modal_2 内战斗事件自 **v3.220** 起全部九宫格全队化。
+- 公会→主线须**保留**跟随快照（§9.8.9.7 v3.220），否则探索/战斗名册无队友。
+
+**当前代码基线（v3.219 阶段 5 完成后）/ Code baseline after Phase 5 (v3.219):**
+
+| 项 | 状态 |
+|---|---|
+| `InvasionBattleModal_2` 探索玩法（事件、老虎机、三选一、legacy 嵌入 1v1） | 已落地 |
+| 公会 NPC 跟随（`GuildNpcFollowController`） | 已落地 |
+| `RunPartyRoster` / `GridBattleSession` 等纯数据类型 + `Show()` 初始化名册 | **已落地（阶段 1）** |
+| `GuildHomeVisitState.PeekFollowers()` | **已落地（阶段 1）** |
+| 事件 `attr:*` / `slot3`/`slot5` / `pick3` 全员收益 + `PartyStandRoot` | **已落地（阶段 2）** |
+| `BattlePartyAssembler` / `GridEncounterBuilder` / `GridBattleDriver`（headless） | **已落地（阶段 3）** |
+| `GridBattleField.prefab` + `BattleGridSlotMarker` | **已落地（阶段 3）** |
+| `LaunchEmbeddedBattle` 按 `pendingEventId` 分支 | **已落地（阶段 4）** |
+| `GridBattleField` 嵌入战斗 UI / 行动动画 | **已落地（阶段 4）** |
+| `SyncRosterHpAfterBattle` | **已落地（阶段 5）** |
+| 配置 `evt_fight_small_2`（第 8 天） | 已配置 |
+
+**阶段依赖 / Phase dependencies:**
+
+```mermaid
+flowchart TD
+  P1[阶段1 名册底座]
+  P2[阶段2 事件全员收益]
+  P3[阶段3 战斗纯逻辑]
+  P4[阶段4 战斗UI嵌入]
+  P5[阶段5 结算与验收]
+  P1 --> P2
+  P1 --> P3
+  P2 --> P5
+  P3 --> P4
+  P4 --> P5
+```
+
+**总工期估算 / Overall estimate:** P0 五阶段合计约 **10–15 个工作日**（含联调与动画打磨；阶段 3、4 为关键路径）。
+
+---
+
+##### 阶段 1：局内名册与读队（数据底座）/ Phase 1: In-Run Roster & Party Read
+
+| 项 | 内容 |
+|---|---|
+| **目标** | 将单人 `runStats` 升级为全队 `RunPartyRoster`；打通公会拉手 → 参战名单；为后续事件分发与战斗组装提供唯一数据源。 |
+| **状态** | `已完成` |
+| **依赖 SPEC** | §12.14.1、§12.14.1.1、§12.5 数据结构、`GuildHomeVisitState.PeekFollowers`（§9.8.9.7） |
+| **主要交付物** | ① 纯数据类型：`RunPartyRoster`、`RunAllyEntry`、`BattleGridPos`、`BattleUnitRuntime`、`GridBattleSession` 等（建议 `Assets/Scripts/Battle/`）；② `GuildHomeVisitState.PeekFollowers()`；③ `InvasionBattleModal2View.Show()` 初始化名册（读队、去重、截断 9 人、降级规则）；④ `runStats` 作为 `members[0].stats` 别名；⑤ 抽事件时写入 `pendingEventId`（`Show()` 清空） |
+| **阶段验收** | 公会带 2 名 NPC 打开界面 → 名册 3 人；无跟随 → 仅 Role、不阻断探索；中部属性区仍正确显示 Role；`pendingEventId` 在「下一天」抽事件后可查询。**自测：** Editor 菜单 `Tools/PetDemo/Self-Test RunPartyRoster Phase1`（Peek 非消费、3 人/1 人/截断/去重/别名）；运行时查 `PartyRoster`/`PendingEventId`。 |
+| **预估工期** | 1–2 天 |
+| **风险** | `PeekFollowers` 与 `Consume` 语义易混；须保证名册在 `Show()`→`Hide()` 内锁定 |
+
+---
+
+##### 阶段 2：局内事件「全员各得一份」+ 探索期全队站立 / Phase 2: Event Fan-Out & Exploration Party Display
+
+| 项 | 内容 |
+|---|---|
+| **目标** | 探索期全队共享成长；探索态可见全队 Spine，与战斗数据一致。 |
+| **状态** | `已完成` |
+| **依赖** | **阶段 1** 完成 |
+| **依赖 SPEC** | §12.14.12、§12.14.12.1、§12.14.13、§12.14.15 |
+| **主要交付物** | ① `ApplyPercentStatToAllPartyMembers` / `ApplyFlatStatToAllPartyMembers` / `AcquireSkillForAllPartyMembers`（及 `ApplyRewardToAllPartyMembers` 门面）；② 改造 `InvasionBattleModal2View` 现有事件路径：`attr:*`、`slot3/slot5`、`pick3`；③ `TopArea/PartyStandRoot` + `RebuildPartyStandVisuals()` |
+| **阶段验收** | 对应 §12.14.14 第 2–4 条及第 1 条探索期部分：3 人队见 3 个站立 Spine；`evt_boost_atk` / 老虎机 / 三选一对全员生效；技能条 UI 仍只展示 Role。**自测：** Editor 菜单 `Tools/PetDemo/Self-Test RunPartyRoster Phase2`（全员 `attr`/`flat`/`pick3` 边界）；运行时带 2 跟随者打开界面见 3 个站立 Spine。 |
+| **预估工期** | 约 2 天 |
+| **风险** | 须回归 legacy 单人局（`members.Count==1` 等价原 `runStats`） |
+
+---
+
+##### 阶段 3：九宫格战场 + 战斗纯逻辑（无动画）/ Phase 3: Grid Field & Headless Battle Rules
+
+| 项 | 内容 |
+|---|---|
+| **目标** | 可脱离 UI 跑通的战斗规则引擎，便于单测/调试菜单验证。 |
+| **状态** | `已完成` |
+| **依赖** | **阶段 1** 完成（阶段 2 可与阶段 3 **并行**，但阶段 4 前须完成阶段 2） |
+| **依赖 SPEC** | §12.14.2–§12.14.4、§12.14.5、§12.14.6、§12.14.6.1.1、§12.14.7、§12.14.8、§12.14.11 |
+| **主要交付物** | ① `GridBattleField.prefab` + `BattleGridSlotMarker` + 编辑器生成菜单；② `BattlePartyAssembler`、`AssignAllyGridPositions`、`GridEncounterBuilder`（`evt_fight_small_2`：2~3 只 `enemy_small`）；③ `IGridBattleDriver` / `IGridBattleTargetSelector` / `IGridBattleResolver` 实现；④ `kGridBattlePetsEnabled = false` |
+| **阶段验收** | 通过 Editor 测试或单元测试：3 人 vs 2~3 怪完整跑完；`agility` 混排、列/行目标选择、**每次攻击后即时胜负**（§12.14.6.1.1）、暂死标记；仅 Role 亦可开战。**自测：** Editor 菜单 `Tools/PetDemo/Self-Test RunPartyRoster Phase3`；`GridBattleHeadlessRunner.RunToCompletion`。 |
+| **预估工期** | 3–4 天 |
+| **风险** | 本阶段为规则核心；目标选择与同速 tie-break 须与 SPEC 种子公式一致 |
+
+---
+
+##### 阶段 4：战斗 UI 嵌入与 `evt_fight_small_2` 分支 / Phase 4: Battle UI Embed & Event Branch
+
+| 项 | 内容 |
+|---|---|
+| **目标** | 玩家在第 8 天触发「一群小怪」时进入可玩的九宫格多单位战。 |
+| **状态** | `已完成` |
+| **依赖** | **阶段 3** 完成；**阶段 2** 完成（`PartyStandRoot` 隐藏/重建） |
+| **依赖 SPEC** | §12.14.9、§12.11.10、`pendingEventId` 分支 |
+| **主要交付物** | ① `InvasionBattleView.BuildEmbeddedGrid(...)`（`embedded=true`，`useGridBattle=true`）；② 每槽 Spine + 小型 HP 条；按 `turnQueue` **依次播放**行动动画（移向目标 → `attack_1` → 飘字 → 回位）；③ `LaunchEmbeddedBattle()`：`pendingEventId == "evt_fight_small_2"` → 多单位战，否则 legacy 1v1；④ 复用 `EmbeddedResultOverlay/ResultDialog`（不扩展队员 HP 列表） |
+| **阶段验收** | 第 8 天 `evt_fight_small_2` → 九宫格多怪战；第 4 天 `evt_fight_small_1` → 仍为旧 1v1；战斗期隐藏 `PartyStandRoot`；行动按序播放非整回合瞬结。**自测：** Editor 菜单 `Tools/PetDemo/Self-Test RunPartyRoster Phase4`；运行时第 8 天触发多单位战。 |
+| **预估工期** | 3–5 天 |
+| **风险** | 动画协程与 `IGridBattleDriver` 状态须严格同步，避免重复扣血或漏判胜负 |
+
+---
+
+##### 阶段 5：战后回写、复活与端到端验收 / Phase 5: Post-Battle Sync, Revival & E2E Acceptance
+
+| 项 | 内容 |
+|---|---|
+| **目标** | 战斗结果正确写回名册，打通 P0 完整玩法闭环。 |
+| **状态** | `已完成` |
+| **依赖** | **阶段 4** 完成；**阶段 2** 已完成（胜后 `RebuildPartyStandVisuals`） |
+| **依赖 SPEC** | §12.14.6.2、§12.14.13、§12.14.14（全量 9 条） |
+| **主要交付物** | ① `RosterBattleSync.SyncRosterHpAfterBattle`（胜：死亡者 30% maxHp 复活，存活者保留战后 HP；负：不写回、由 `OnEmbeddedBattleEnded` 关闭 `InvasionBattleModal_2`）；② 胜后 `SetExplorationPartyVisible(true)` + `RebuildPartyStandVisuals`；③ Editor 自测 `Tools/PetDemo/Self-Test RunPartyRoster Phase5` 覆盖 §12.14.14 全 9 条 |
+| **阶段验收** | §12.14.14 **全部 9 条**；首期最小可玩路径：公会拉手 2 NPC → 推进至第 8 天 → `evt_fight_small_2` → 打完并复活 → 继续「下一天」。**自测：** Editor 菜单 `Tools/PetDemo/Self-Test RunPartyRoster Phase5`。 |
+| **预估工期** | 1–2 天 |
+| **风险** | 胜后 HP 回写与探索期百分比 `attr:hp` 的边界（§12.14.12.1）须一并回归 |
+
+---
+
+**实施约定 / Implementation conventions (v3.214):**
+
+1. **每阶段开始前**：确认 §12.14.16 对应行「状态」；若实现偏离设计，**先改 SPEC 再改代码**。
+2. **每阶段结束时**：仅合并该阶段验收项；**不**在未完成阶段 3 时合入阶段 4 的战斗 UI。
+3. **P1/P2**（§12.14.10）**不在**上述 5 阶段内；P0 验收通过后再排期。
+4. **建议新增脚本（汇总，非本阶段强制一次写完）**：
+
+| 脚本 / Script | 建议阶段 |
+|---|---|
+| `RunPartyRoster.cs`、`RunAllyEntry.cs`、`GridBattleTypes.cs` | 阶段 1 |
+| `PartyRewardFanOut.cs`（或等价静态类） | 阶段 2 |
+| `BattlePartyAssembler.cs`、`GridEncounterBuilder.cs`、`GridBattleDriver.cs` | 阶段 3 |
+| `GridBattleFieldLayout.cs`、`InvasionBattleView` 扩展 | 阶段 4 |
+| `RosterBattleSync.cs`（`SyncRosterHpAfterBattle`） | 阶段 5 |
+
+**English (summary):** Five phases — (1) roster + `PeekFollowers` + `pendingEventId`, (2) reward fan-out + `PartyStandRoot`, (3) headless grid battle rules + prefab, (4) `BuildEmbeddedGrid` + `evt_fight_small_2` branch, (5) `SyncRosterHpAfterBattle` + full §12.14.14 checklist. Phases 2 and 3 may run in parallel after Phase 1; Phase 4 requires Phase 3; Phase 5 requires Phases 2 and 4. Estimated 10–15 dev-days total for P0.
 
 ---
 
@@ -5106,7 +5738,9 @@ Seed:fanqie:2;Fertilizer:demo:1;SeedPack:Common:1
 - `pick3:legendary` —— 触发**传说品质**三选一（顿悟，**本期落地**，见 §12.11.9）。  
 - `pick3` —— 裸写默认等价 `pick3:normal`（兼容）。  
 
-**English:** One reward per token, `;`-separated: `attr:hp|atk|speed:±percent` (applied to the in-run stats clone this release); `slot3` / `slot5` trigger the 3-reel/5-reel slot machine (applied this release, see §12.12); `pick3:normal` / `pick3:legendary` trigger the Normal/Legendary skill pick-three (领悟/顿悟, applied this release, see §12.11.9; bare `pick3` defaults to `pick3:normal`); `battle_small` / `battle_boss` embed and reuse the level battle simulation (applied this release, enemies `enemy_small` / `boss_langren`, see §12.11.10).
+**中文（v3.213 脚注）：** `evt_fight_small_1` 与 `evt_fight_small_2` 共用奖励串 `battle_small`，**必须以 `pendingEventId`（事件 `eventId`）区分**分支——`small_2` 走 §12.14 多单位战，`small_1` 走 §12.11.10 legacy 1v1（见 §12.14.7）。
+
+**English:** One reward per token, `;`-separated: `attr:hp|atk|speed:±percent` (applied to the in-run stats clone this release); `slot3` / `slot5` trigger the 3-reel/5-reel slot machine (applied this release, see §12.12); `pick3:normal` / `pick3:legendary` trigger the Normal/Legendary skill pick-three (领悟/顿悟, applied this release, see §12.11.9; bare `pick3` defaults to `pick3:normal`); `battle_small` / `battle_boss` embed and reuse the level battle simulation (applied this release, enemies `enemy_small` / `boss_langren`, see §12.11.10). **(v3.213)** `evt_fight_small_1` and `evt_fight_small_2` both use `battle_small`; branch by `pendingEventId`.
 
 #### B.17.3 Demo 默认数据 / Demo Default Data
 
@@ -5117,7 +5751,8 @@ Seed:fanqie:2;Fertilizer:demo:1;SeedPack:Common:1
 | `evt_boost_hp` | 调整属性 | 温泉让你恢复元气，`<color=#33CC33>生命提升 15%</color>`。 | `attr:hp:+15` | 2 |
 | `evt_curse_speed` | 奇遇 | 沼泽拖慢了脚步，`<color=#3399FF>速度下降 10%</color>`。/n但你发现了一条捷径。 | `attr:speed:-10` | 3 |
 | `evt_forage` | 调整属性 | 发现补给。/n`<color=#33CC33>生命 +5%</color>`、`<color=#FF3B30>攻击 +5%</color>`。 | `attr:hp:+5;attr:atk:+5` | 4 |
-| `evt_fight_small` | 战斗 | 前方出现一群小怪！ | `battle_small` | 5 |
+| `evt_fight_small_1` | 战斗 | 前方出现一只小怪！ | `battle_small` | 5 |
+| `evt_fight_small_2` | 战斗 | 前方出现一群小怪！ | `battle_small` | 5 |
 | `evt_fight_boss` | 战斗 | `<color=#FF3B30>最终 BOSS 出现了！</color>` | `battle_boss` | 5 |
 | `evt_lottery` | 抽奖 | 你发现一个神秘宝箱。 | `slot3` | 4 |
 | `evt_lottery5` | 抽奖 | 一台华丽的五轴宝机出现在眼前！ | `slot5` | 4 |

@@ -90,11 +90,14 @@ namespace PetDemo.EditorTools
                 bgImage.color = new Color(0.08f, 0.07f, 0.12f, 1f);
             }
 
-            // 上部：TopArea + PlayerSlot
+            // 上部：TopArea + PlayerSlot + PartyStandRoot
             var topArea = CreateArea(rootRt, InvasionBattleModal2View.TopAreaName, new Vector2(0f, 0.55f), new Vector2(1f, 1f));
             var playerSlot = CreateChild(topArea, InvasionBattleModal2View.PlayerSlotName,
                 new Vector2(0.5f, 0.5f), Vector2.zero, CharacterSize);
             playerSlot.localScale = new Vector3(CharacterScale, CharacterScale, 1f);
+            var partyStandRoot = CreateChild(topArea, InvasionBattleModal2View.PartyStandRootName,
+                new Vector2(0.5f, 0.5f), Vector2.zero, CharacterSize);
+            partyStandRoot.localScale = new Vector3(CharacterScale, CharacterScale, 1f);
 
             // 中部：MiddleArea + 属性文本
             var midArea = CreateArea(rootRt, InvasionBattleModal2View.MiddleAreaName, new Vector2(0f, 0.30f), new Vector2(1f, 0.55f));
@@ -118,8 +121,8 @@ namespace PetDemo.EditorTools
             var closeButton = BuildCloseButton(rootRt);
 
             SerializeView(root.GetComponent<InvasionBattleModal2View>(),
-                playerSlot, hpText, atkText, speedText, eventScroll, eventContent, dayLabel, nextDayButton, closeButton,
-                detailAttrButton);
+                playerSlot, partyStandRoot, hpText, atkText, speedText, eventScroll, eventContent, dayLabel,
+                nextDayButton, closeButton, detailAttrButton);
 
             var prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
             Object.DestroyImmediate(root);
@@ -217,12 +220,14 @@ namespace PetDemo.EditorTools
         private static void SerializeView(
             InvasionBattleModal2View view,
             RectTransform playerSlot,
+            RectTransform partyStandRoot,
             Text hpText, Text atkText, Text speedText,
             ScrollRect eventScrollRect, RectTransform eventContent, Text dayLabel,
             Button nextDayButton, Button closeButton, Button detailAttrButton)
         {
             var so = new SerializedObject(view);
             so.FindProperty("playerSlot").objectReferenceValue = playerSlot;
+            so.FindProperty("partyStandRoot").objectReferenceValue = partyStandRoot;
             so.FindProperty("hpText").objectReferenceValue = hpText;
             so.FindProperty("atkText").objectReferenceValue = atkText;
             so.FindProperty("speedText").objectReferenceValue = speedText;

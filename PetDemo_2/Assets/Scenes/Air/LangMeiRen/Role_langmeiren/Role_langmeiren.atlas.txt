@@ -41,8 +41,8 @@ bounds:1,87,150,106
 youdabi
 bounds:278,420,52,66
 youshou
-bounds:442,29,45,63
-offsets:0,3,45,67
+bounds:442,26,45,66
+offsets:0,1,45,67
 youtui
 bounds:290,27,72,151
 rotate:90

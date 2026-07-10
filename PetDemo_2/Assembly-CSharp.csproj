@@ -215,6 +215,23 @@
     <Compile Include="Assets\Scripts\Core\RoleExpConfigCatalog.cs" />
     <Compile Include="Assets\Scripts\Core\RoleLevelUnlockCatalog.cs" />
     <Compile Include="Assets\Scripts\UI\RoleLevelUpPanelView.cs" />
+    <Compile Include="Assets\Scripts\Battle\GridBattleModels.cs" />
+    <Compile Include="Assets\Scripts\Battle\RunPartyRosterFactory.cs" />
+    <Compile Include="Assets\Scripts\Battle\RunPartyRewardApplier.cs" />
+    <Compile Include="Assets\Scripts\Battle\GridBattleSeedUtil.cs" />
+    <Compile Include="Assets\Scripts\Battle\GridBattleConstants.cs" />
+    <Compile Include="Assets\Scripts\Battle\BattlePartyAssembler.cs" />
+    <Compile Include="Assets\Scripts\Battle\GridBattleDriver.cs" />
+    <Compile Include="Assets\Scripts\Battle\GridBattleLiving.cs" />
+    <Compile Include="Assets\Scripts\Battle\RosterBattleSync.cs" />
+    <Compile Include="Assets\Scripts\Battle\BattleGridSlotMarker.cs" />
+    <Compile Include="Assets\Scripts\Battle\GridBattleResolver.cs" />
+    <Compile Include="Assets\Scripts\Battle\GridBattleFieldLayout.cs" />
+    <Compile Include="Assets\Scripts\Battle\GridBattleSessionFactory.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\InvasionBattleView.GridEmbedded.cs" />
+    <Compile Include="Assets\Scripts\Battle\GridEncounterBuilder.cs" />
+    <Compile Include="Assets\Scripts\Battle\GridBattleTargetSelector.cs" />
+    <Compile Include="Assets\Scripts\Battle\GridBattleInterfaces.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />

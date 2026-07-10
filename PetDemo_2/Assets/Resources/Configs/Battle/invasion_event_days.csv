@@ -12,9 +12,9 @@ id, day, eventId,         weight
 7,3,   evt_lottery,40
 8,3,   evt_lottery,30
 9,3,   evt_lottery,30
-10,4,evt_fight_small,40
-11,4,evt_fight_small,40
-12,4,evt_fight_small,40
+10,4,evt_fight_small_1,40
+11,4,evt_fight_small_1,40
+12,4,evt_fight_small_1,40
 13,5,evt_epiphany,40
 14,5,evt_epiphany,40
 15,5,evt_epiphany,40
@@ -24,9 +24,9 @@ id, day, eventId,         weight
 19,7,   evt_lottery,40
 20,7,   evt_lottery,30
 21,7,   evt_lottery,30
-22,8,evt_fight_small,40
-23,8,evt_fight_small,40
-24,8,evt_fight_small,40
+22,8,evt_fight_small_2,40
+23,8,evt_fight_small_2,40
+24,8,evt_fight_small_2,40
 25,9,evt_boost_atk,40
 26,9,evt_boost_hp,30
 27,9,evt_forage,30

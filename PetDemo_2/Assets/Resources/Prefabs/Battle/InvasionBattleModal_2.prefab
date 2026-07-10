@@ -94,6 +94,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerSlot: {fileID: 6493203069479012271}
+  partyStandRoot: {fileID: 0}
   hpText: {fileID: 7560465286158012719}
   atkText: {fileID: 2187276346516601193}
   speedText: {fileID: 8127536050655570505}
@@ -102,6 +103,7 @@ MonoBehaviour:
   dayLabel: {fileID: 7808215658025775345}
   nextDayButton: {fileID: 5829063769203726574}
   closeButton: {fileID: 4082599572123629720}
+  detailAttrButton: {fileID: 0}
 --- !u!1 &814891026953538935
 GameObject:
   m_ObjectHideFlags: 0
@@ -1103,7 +1105,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -168}
+  m_AnchoredPosition: {x: 0, y: -326}
   m_SizeDelta: {x: 720, y: 1200}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &8878028567302789564

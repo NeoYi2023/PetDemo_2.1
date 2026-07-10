@@ -1,7 +1,9 @@
-// SPEC §9.8.9.7 (v3.129)：公会跟随 NPC 进入家园来访。
+// SPEC §9.8.9.7 (v3.129 / v3.220)：公会跟随 NPC 进入家园来访。
 // 玩家在公会让 NPC 跟随后"直接"切到家园 Tab 时，所有跟随中的 NPC 来访：在主角左侧 250px
 // 生成村民 Spine 原地待机（多 NPC 依次错开），倒计时 5s 后朝左移动 1000px 并销毁。
-// 触发严格限定"公会→家园"直接切换（经其它 Tab 中转则取消挂起）。
+// 触发严格限定"公会→家园"直接切换。
+// v3.220：公会→主线等非家园 Tab 保留 GuildHomeVisitState 快照，供冒险 Peek 读队；
+// 仅「非公会→家园」Clear；公会→家园仍 Consume。
 using System.Collections;
 using System.Collections.Generic;
 using Spine.Unity;
@@ -51,12 +53,16 @@ namespace PetDemo.UI
                 var ids = GuildHomeVisitState.Consume();
                 SpawnVisitors(ids);
             }
+            else if (toJiaYuan)
+            {
+                // 非公会→家园：取消家园来访挂起（清空快照）。
+                GuildHomeVisitState.Clear();
+            }
             else
             {
-                // 其它任何切换（含离开家园、经中转 Tab）取消挂起并清理在场来访者。
-                GuildHomeVisitState.Clear();
-                if (!toJiaYuan)
-                    DestroyActiveVisitors();
+                // 公会→主线/角色等：保留快照供 Peek 读队（SPEC §9.8.9.7 / §12.14.1.1 v3.220）；
+                // 仅清理家园来访者视觉。
+                DestroyActiveVisitors();
             }
 
             lastKey = key;

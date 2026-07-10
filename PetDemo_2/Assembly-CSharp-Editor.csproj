@@ -88,6 +88,12 @@
     <Compile Include="Assets\Scripts\UI\Farm\Editor\HeroStatsRowPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\StaminaBarPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\RoleLevelUpPanelPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase1SelfTest.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase2SelfTest.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase4SelfTest.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase5SelfTest.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase3SelfTest.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\Editor\GridBattleFieldPrefabGenerator.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">

@@ -355,7 +355,8 @@ namespace PetDemo.Battle
             AddDefault(dict, "evt_boost_hp", InvasionEventType.AdjustAttr, "温泉让你恢复元气，<color=#33CC33>生命提升 15%</color>。", "attr:hp:+15", 2);
             AddDefault(dict, "evt_curse_speed", InvasionEventType.Adventure, "沼泽拖慢了脚步，<color=#3399FF>速度下降 10%</color>。/n但你发现了一条捷径。", "attr:speed:-10", 3);
             AddDefault(dict, "evt_forage", InvasionEventType.AdjustAttr, "发现补给。/n<color=#33CC33>生命 +5%</color>、<color=#FF3B30>攻击 +5%</color>。", "attr:hp:+5;attr:atk:+5", 4);
-            AddDefault(dict, "evt_fight_small", InvasionEventType.Battle, "前方出现一群小怪！", "battle_small", 5);
+            AddDefault(dict, "evt_fight_small_1", InvasionEventType.Battle, "前方出现一只小怪！", "battle_small", 5);
+            AddDefault(dict, "evt_fight_small_2", InvasionEventType.Battle, "前方出现一群小怪！", "battle_small", 5);
             AddDefault(dict, "evt_fight_boss", InvasionEventType.Battle, "<color=#FF3B30>最终 BOSS 出现了！</color>", "battle_boss", 5);
             AddDefault(dict, "evt_lottery", InvasionEventType.Lottery, "你发现一个神秘宝箱。", "slot3", 4);
             AddDefault(dict, "evt_lottery5", InvasionEventType.Lottery, "一台华丽的五轴宝机出现在眼前！", "slot5", 4);
@@ -386,7 +387,8 @@ namespace PetDemo.Battle
                 new InvasionEventDayEntry { day = 1, eventId = "evt_forage", weight = 20 },
                 new InvasionEventDayEntry { day = 2, eventId = "evt_calm", weight = 40 },
                 new InvasionEventDayEntry { day = 2, eventId = "evt_boost_hp", weight = 30 },
-                new InvasionEventDayEntry { day = 2, eventId = "evt_fight_small", weight = 30 },
+                new InvasionEventDayEntry { day = 4, eventId = "evt_fight_small_1", weight = 40 },
+                new InvasionEventDayEntry { day = 8, eventId = "evt_fight_small_2", weight = 40 },
                 new InvasionEventDayEntry { day = 3, eventId = "evt_lottery", weight = 40 },
                 new InvasionEventDayEntry { day = 3, eventId = "evt_curse_speed", weight = 30 },
                 new InvasionEventDayEntry { day = 3, eventId = "evt_fight_boss", weight = 30 },
