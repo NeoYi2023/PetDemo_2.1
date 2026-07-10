@@ -31,6 +31,8 @@ namespace PetDemo.Save
         // SPEC §9.14.4：创角界面好友列表与创角状态。
         public FriendProfileSave[] friends;
         public CharacterCreationSave characterCreation;
+        // SPEC §9.14.12 (v3.194)：训练会话。
+        public TrainingSessionSave trainingSession;
 
         public static GameSaveSnapshot FromPlantingService(PlantingService service)
         {
@@ -63,6 +65,7 @@ namespace PetDemo.Save
                 uiProgress = UiProgressSave.From(session.uiProgress),
                 friends = FriendProfileSave.FromList(session.friends),
                 characterCreation = CharacterCreationSave.From(session.characterCreation),
+                trainingSession = TrainingSessionSave.From(session.trainingSession),
             };
         }
 
@@ -100,6 +103,9 @@ namespace PetDemo.Save
             session.characterCreation = snapshot.characterCreation != null
                 ? snapshot.characterCreation.ToModel()
                 : new CharacterCreationState();
+            session.trainingSession = snapshot.trainingSession != null
+                ? snapshot.trainingSession.ToModel()
+                : new TrainingSession();
         }
 
         public static int ResolveSeqFromIds(IEnumerable<string> ids, string prefix)
@@ -145,6 +151,15 @@ namespace PetDemo.Save
         public int stun;
         public int evasion;
         public int lifeSteal;
+        public int intelligence;
+        public int memory;
+        public int imagination;
+        public int physique;
+        public int charm;
+        public int emotionalIntelligence;
+        public int level;
+        public int currentExp;
+        public int expToNextLevel;
 
         public static RoleStatsSave From(RoleStats r)
         {
@@ -174,6 +189,15 @@ namespace PetDemo.Save
                 stun = r.stun,
                 evasion = r.evasion,
                 lifeSteal = r.lifeSteal,
+                intelligence = r.intelligence,
+                memory = r.memory,
+                imagination = r.imagination,
+                physique = r.physique,
+                charm = r.charm,
+                emotionalIntelligence = r.emotionalIntelligence,
+                level = r.level,
+                currentExp = r.currentExp,
+                expToNextLevel = r.expToNextLevel,
             };
         }
 
@@ -203,9 +227,33 @@ namespace PetDemo.Save
                 stun = stun,
                 evasion = evasion,
                 lifeSteal = lifeSteal,
+                intelligence = intelligence,
+                memory = memory,
+                imagination = imagination,
+                physique = physique,
+                charm = charm,
+                emotionalIntelligence = emotionalIntelligence,
+                level = level,
+                currentExp = currentExp,
+                expToNextLevel = expToNextLevel,
             };
             ApplyHexDefaultsIfLegacyUnset(role);
+            ApplyLevelExpDefaultsIfLegacyUnset(role);
+            ApplyGrowthAttrsDefaultsIfLegacyUnset(role);
             return role;
+        }
+
+        /// <summary>旧存档无等级经验字段时回填 §9.14.11 默认值。</summary>
+        private static void ApplyLevelExpDefaultsIfLegacyUnset(RoleStats role)
+        {
+            if (role == null)
+                return;
+            if (role.level <= 0)
+                role.level = 1;
+            if (role.currentExp < 0)
+                role.currentExp = 0;
+            if (role.expToNextLevel <= 0)
+                role.expToNextLevel = 100;
         }
 
         /// <summary>旧存档无六宫字段时（全 0）回填 §5 默认值。</summary>
@@ -222,6 +270,17 @@ namespace PetDemo.Save
             role.stun = 2;
             role.evasion = 4;
             role.lifeSteal = 8;
+        }
+
+        /// <summary>旧存档无家园成长六属性时（全 0）按当前等级从表回填（§B.21）。</summary>
+        private static void ApplyGrowthAttrsDefaultsIfLegacyUnset(RoleStats role)
+        {
+            if (role == null)
+                return;
+            if (role.intelligence != 0 || role.memory != 0 || role.imagination != 0
+                || role.physique != 0 || role.charm != 0 || role.emotionalIntelligence != 0)
+                return;
+            RoleLevelConfigCatalog.ApplyToRole(role);
         }
     }
 
@@ -284,6 +343,10 @@ namespace PetDemo.Save
     {
         public bool created;
         public string partnerFriendId;
+        // SPEC §9.14.4（v3.203）：亲密度页签展示模式；旧档缺字段视为 Normal。
+        public int friendListMode;
+        // SPEC §9.14.4（v3.206）：开局营救待完成；旧档缺字段视为 false。
+        public bool openingRescuePending;
 
         public static CharacterCreationSave From(CharacterCreationState state)
         {
@@ -293,6 +356,8 @@ namespace PetDemo.Save
             {
                 created = state.created,
                 partnerFriendId = state.partnerFriendId,
+                friendListMode = (int)state.friendListMode,
+                openingRescuePending = state.openingRescuePending,
             };
         }
 
@@ -302,6 +367,39 @@ namespace PetDemo.Save
             {
                 created = created,
                 partnerFriendId = partnerFriendId,
+                friendListMode = (FriendListMode)friendListMode,
+                openingRescuePending = openingRescuePending,
+            };
+        }
+    }
+
+    /// <summary>SPEC §9.14.12 (v3.194)：训练会话存档。</summary>
+    [Serializable]
+    public class TrainingSessionSave
+    {
+        public string courseId;
+        public long endUnixMs;
+        public int activeFilterMask;
+
+        public static TrainingSessionSave From(TrainingSession state)
+        {
+            if (state == null)
+                return null;
+            return new TrainingSessionSave
+            {
+                courseId = state.courseId ?? string.Empty,
+                endUnixMs = state.endUnixMs,
+                activeFilterMask = state.activeFilterMask,
+            };
+        }
+
+        public TrainingSession ToModel()
+        {
+            return new TrainingSession
+            {
+                courseId = courseId ?? string.Empty,
+                endUnixMs = endUnixMs,
+                activeFilterMask = activeFilterMask & 0x3F,
             };
         }
     }

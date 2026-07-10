@@ -379,9 +379,24 @@ namespace PetDemo.Core
         public int evasion = 4;
         public int lifeSteal = 8;
 
+        // SPEC §5 / §9.14.11 / §B.21 (v3.188)：家园成长六属性（与战斗六宫独立）。
+        public int intelligence;
+        public int memory;
+        public int imagination;
+        public int physique;
+        public int charm;
+        public int emotionalIntelligence;
+
+        // SPEC §9.14.11 / §B.23 (v3.186 / v3.208)：等级与经验；升级不扣减 currentExp。
+        public int level = 1;
+        public int currentExp = 0;
+        public int expToNextLevel = 100;
+
         public static RoleStats CreateDefault()
         {
-            return new RoleStats();
+            var role = new RoleStats();
+            RoleLevelConfigCatalog.ApplyToRole(role);
+            return role;
         }
     }
 
@@ -519,11 +534,37 @@ namespace PetDemo.Core
         public string spinePrefabPath;      // 模型 Spine 预制体 Resources 路径
     }
 
+    /// <summary>SPEC §9.14.2（v3.203）：亲密度页签好友列表展示模式。</summary>
+    public enum FriendListMode
+    {
+        Normal = 0,
+        RecommendPrompt = 1,
+        WerewolfListZero = 2,
+        TownSearch = 3,
+    }
+
     /// <summary>SPEC §9.14.2：创角状态（主角是否已创建 + 所用好友）。</summary>
     public class CharacterCreationState
     {
         public bool created;
         public string partnerFriendId;
+        /// <summary>SPEC §9.14.2（v3.203）：亲密度页签展示模式；旧档缺字段视为 Normal。</summary>
+        public FriendListMode friendListMode;
+        /// <summary>SPEC §9.14.11（v3.206）：开局营救待完成；新档 true，营救后 false；旧档缺字段视为 false。</summary>
+        public bool openingRescuePending;
+    }
+
+    /// <summary>
+    /// SPEC §9.14.12 (v3.194)：挂机训练会话。
+    /// courseId 空表示无进行中训练；activeFilterMask 为 6bit 筛选状态。
+    /// </summary>
+    public class TrainingSession
+    {
+        public string courseId = string.Empty;
+        public long endUnixMs;
+        public int activeFilterMask;
+
+        public bool HasActiveCourse => !string.IsNullOrEmpty(courseId);
     }
 
     public class GameSession
@@ -533,6 +574,8 @@ namespace PetDemo.Core
         // SPEC §9.14：创角界面好友列表与创角状态（随存档持久化）。
         public List<FriendProfile> friends = new List<FriendProfile>();
         public CharacterCreationState characterCreation = new CharacterCreationState();
+        // SPEC §9.14.12 (v3.194)：训练会话。
+        public TrainingSession trainingSession = new TrainingSession();
         public List<CropTile> farmTiles = new List<CropTile>();
         public List<PlantInstance> plants = new List<PlantInstance>();
         public PlayerSeedBag seedBag = new PlayerSeedBag();

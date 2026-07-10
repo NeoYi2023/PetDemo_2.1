@@ -58,6 +58,28 @@ namespace PetDemo.Farm
         bool CreateCharacterWith(string friendId);
         // CreateCharacterDirect（v3.117 / §9.14.1）：无伙伴直接创角，写 created=true 与 partnerFriendId=""，恒返回 true。
         bool CreateCharacterDirect();
+        // SPEC §9.14.2（v3.203）：写入亲密度页签好友列表展示模式。
+        void SetFriendListMode(FriendListMode mode);
+        // SPEC §9.14.11（v3.206）：开局营救状态查询与完成。
+        bool IsOpeningRescuePending();
+        void CompleteOpeningRescue();
+
+        // SPEC §9.14.13 / §B.23 (v3.208)：给主角加经验；升级时不扣减 currentExp。
+        // amount<=0 → false；成功累加 currentExp，while 可升级则 level++ 并 ApplyToRole；
+        // leveledToLevels 为本次升到的等级列表（升序）；触发 OnRoleStatsChanged 并落盘。
+        bool TryAddRoleExp(int amount, out List<int> leveledToLevels);
+
+        // ---- SPEC §9.14.12 (v3.194)：挂机训练 ----
+        // GetTrainingSession：返回当前会话引用（可能 courseId 为空）。
+        // SetTrainingFilterMask：写入 6bit 筛选掩码并落盘。
+        // TryStartTraining：开始一门课；失败：非法 id / 未解锁 / 已有进行中课程。
+        // TryCompleteTraining：倒计时已结束后结算 gains/penalties（下限 0），清空会话；失败：无会话/未到期。
+        // IsTrainingReadyToComplete：有会话且 wall-clock 已过 endUnixMs。
+        TrainingSession GetTrainingSession();
+        void SetTrainingFilterMask(int mask);
+        bool TryStartTraining(string courseId);
+        bool TryCompleteTraining(out AttrDeltaEntry[] appliedGains);
+        bool IsTrainingReadyToComplete();
 
         // ---- 自 v2.10 起新增：施肥三段式（SPEC §9.7） ----
         // SelectActiveFertilizer：写入 PlayerFertilizerBag.activeId；fertilizerId 必须存在于

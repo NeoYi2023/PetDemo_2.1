@@ -1,5 +1,5 @@
 // SPEC §9.8.9.4 / §9.8.9.6 / §9.8.9.11 / §9.8.9.12：公会场景接近检测 — 0.1s 轮询主角与建筑/NPC/响应区的
-// 平方距离，进入半径显示名牌、离开隐藏；响应区沿边进入触发 Entered；全景模式暂停轮询并强制显名牌。
+// 平方距离，进入半径显示名牌、离开隐藏；响应区区域内静止 2s 触发 Entered（v3.197）；全景模式暂停轮询并强制显名牌。
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -9,13 +9,19 @@ namespace PetDemo.UI
     public sealed class GuildProximityController : MonoBehaviour
     {
         private const float PollIntervalSeconds = 0.1f;
+        private const float MoveDirectionThresholdSq = 0.0001f;
 
         private RectTransform playerRt;
         private RectTransform worldContentRt;
+        private VirtualJoystickView joystick;
         private readonly List<GuildBuildingMarker> buildings = new List<GuildBuildingMarker>();
         private readonly List<GuildNpcMarker> npcs = new List<GuildNpcMarker>();
         private readonly List<GuildResponseAreaMarker> responseAreas = new List<GuildResponseAreaMarker>();
         private readonly Dictionary<GuildResponseAreaMarker, bool> wasInside = new Dictionary<GuildResponseAreaMarker, bool>();
+        private readonly Dictionary<GuildResponseAreaMarker, float> idleSinceUnscaledTime =
+            new Dictionary<GuildResponseAreaMarker, float>();
+        private readonly Dictionary<GuildResponseAreaMarker, bool> navigateTriggered =
+            new Dictionary<GuildResponseAreaMarker, bool>();
         private float nextPollTime;
         private bool initialized;
         private bool panoramaMode;
@@ -25,10 +31,12 @@ namespace PetDemo.UI
             RectTransform worldContent,
             IList<GuildBuildingMarker> buildingMarkers,
             IList<GuildNpcMarker> npcMarkers,
-            IList<GuildResponseAreaMarker> responseAreaMarkers = null)
+            IList<GuildResponseAreaMarker> responseAreaMarkers = null,
+            VirtualJoystickView joystickView = null)
         {
             playerRt = player;
             worldContentRt = worldContent;
+            joystick = joystickView;
 
             buildings.Clear();
             if (buildingMarkers != null)
@@ -52,6 +60,8 @@ namespace PetDemo.UI
 
             responseAreas.Clear();
             wasInside.Clear();
+            idleSinceUnscaledTime.Clear();
+            navigateTriggered.Clear();
             if (responseAreaMarkers != null)
             {
                 for (int i = 0; i < responseAreaMarkers.Count; i++)
@@ -61,6 +71,7 @@ namespace PetDemo.UI
                         continue;
                     responseAreas.Add(marker);
                     wasInside[marker] = false;
+                    navigateTriggered[marker] = false;
                 }
             }
 
@@ -106,6 +117,9 @@ namespace PetDemo.UI
                 var marker = responseAreas[i];
                 if (marker == null)
                     continue;
+                marker.SetNavigateCountdownActive(false);
+                idleSinceUnscaledTime.Remove(marker);
+                navigateTriggered[marker] = false;
                 marker.SetPlateVisible(true, panoramaOverride: true);
                 marker.ApplyPlateScaleCompensation(plateScaleCompensation);
                 if (plateFontSize > 0)
@@ -138,7 +152,10 @@ namespace PetDemo.UI
                 marker.ResetPlateScale();
                 marker.SetPlateVisible(false);
                 marker.ResetVisitState();
+                marker.SetNavigateCountdownActive(false);
                 wasInside[marker] = false;
+                idleSinceUnscaledTime.Remove(marker);
+                navigateTriggered[marker] = false;
             }
 
             nextPollTime = 0f;
@@ -190,14 +207,47 @@ namespace PetDemo.UI
                 bool inside = (markerPos - playerPos).sqrMagnitude <= r * r;
                 marker.SetPlateVisible(inside);
 
-                if (!wasInside.TryGetValue(marker, out bool prevInside))
-                    prevInside = false;
+                if (!inside)
+                {
+                    marker.SetNavigateCountdownActive(false);
+                    idleSinceUnscaledTime.Remove(marker);
+                    navigateTriggered[marker] = false;
+                    wasInside[marker] = false;
+                    continue;
+                }
 
-                if (inside && !prevInside && marker.TryConsumeEnter())
-                    marker.NotifyEntered();
+                wasInside[marker] = true;
 
-                wasInside[marker] = inside;
+                if (IsPlayerControllingMove())
+                {
+                    marker.SetNavigateCountdownActive(false);
+                    idleSinceUnscaledTime.Remove(marker);
+                    continue;
+                }
+
+                if (!idleSinceUnscaledTime.ContainsKey(marker))
+                    idleSinceUnscaledTime[marker] = Time.unscaledTime;
+
+                marker.SetNavigateCountdownActive(true);
+
+                if (navigateTriggered.TryGetValue(marker, out bool triggered) && triggered)
+                    continue;
+
+                float idleDuration = Time.unscaledTime - idleSinceUnscaledTime[marker];
+                if (idleDuration < GuildResponseAreaMarker.NavigateDelaySeconds)
+                    continue;
+
+                if (!marker.TryConsumeEnter())
+                    continue;
+
+                navigateTriggered[marker] = true;
+                marker.NotifyEntered();
             }
+        }
+
+        private bool IsPlayerControllingMove()
+        {
+            return joystick != null && joystick.Direction.sqrMagnitude > MoveDirectionThresholdSq;
         }
     }
 }

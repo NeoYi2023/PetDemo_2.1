@@ -68,6 +68,7 @@
     <Compile Include="Assets\Scripts\UI\Farm\Editor\CharacterCreationScreenPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\SkillPickThreeModalPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\WarehouseHubPanelPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\HomeTabPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\LevelSelectScreenPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\WarehouseBackgroundPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\DressUpPanelPrefabGenerator.cs" />
@@ -80,10 +81,13 @@
     <Compile Include="Assets\Scripts\UI\Farm\Editor\GongHuiScreenPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\AppScreenPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\SowActionButtonPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\TrainingPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\PestControlGameModelTests.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\RoleGrowthPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\SlotMachineModalPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\HeroStatsRowPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\StaminaBarPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\RoleLevelUpPanelPrefabGenerator.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">

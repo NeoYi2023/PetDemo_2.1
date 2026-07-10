@@ -78,6 +78,9 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
 
     private SaveSlotPickerView saveSlotPicker;
     private GongHuiScreenView builtGongHuiScreen;
+    private HudEnterHomeTabBarView hudEnterHomeTabBar;
+    private bool enterHomeHudMode;
+    private bool suppressBottomNavBarMutex;
 
     private void Awake()
     {
@@ -470,6 +473,8 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
         }
 
         var bottomNavBar = BuildBottomNavBar(hudRoot, jiaYuanWorld, heroStatsRowRt);
+        // SPEC §9.8（v3.207）：EnterHomeHud 专用 BottomTabBar（默认隐藏，与 BottomNavBar 互斥）。
+        hudEnterHomeTabBar = HudEnterHomeTabBarView.BuildInto(hudRoot);
 
         // SPEC §9.8.9.7 (v3.129)：公会跟随 NPC 进入家园来访（须在底栏创建后绑定 Tab 切换）。
         if (bottomNavBar != null && jiaYuanWorldContent != null)
@@ -559,6 +564,8 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
                 if (friendListPanel != null)
                     friendListPanel.Show();
             });
+            if (builtGongHuiScreen != null && friendListPanel != null)
+                builtGongHuiScreen.BindFriendListPanel(friendListPanel);
             PetDemo.UI.Friend.HomeAssistEventController.Attach(
                 gameObject, PlantingService.Instance, hudRoot,
                 GetComponent<MainRoleCunminPresenter>(), bottomNavBar);
@@ -598,7 +605,27 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
             if (characterCreationScreen != null)
                 MainHudLayerRoot.ApplySortTier(characterCreationScreen.transform as RectTransform, MainUiSortTier.HudPopup);
 
-            void RestoreFromOverlay(string navKey)
+            void ExitEnterHomeHudToBottomNav(string navKey)
+            {
+                enterHomeHudMode = false;
+                if (hudEnterHomeTabBar != null)
+                    hudEnterHomeTabBar.HideBar();
+                if (builtGongHuiScreen != null)
+                    builtGongHuiScreen.ClearEnterHomeHudBottomInset();
+                if (bottomNavBar != null)
+                {
+                    bottomNavBar.gameObject.SetActive(true);
+                    bottomNavBar.transform.SetAsLastSibling();
+                    if (!string.IsNullOrEmpty(navKey))
+                        bottomNavBar.SetOpenKey(navKey);
+                }
+                // SPEC §9.8（v3.207）：离开 EnterHomeHud 后恢复世界层门控；
+                // 实际显隐仍由 JiaYuanWorldScreenView 按 OpenKey 决定。
+                if (jiaYuanWorld != null)
+                    jiaYuanWorld.SetWorldScreenEnabled(true);
+            }
+
+            void EnterEnterHomeHudMode(bool applyTownSearchBootstrap = false)
             {
                 if (appScreen != null)
                     appScreen.Hide();
@@ -606,11 +633,55 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
                     singleChatPanel.Hide();
                 if (characterCreationScreen != null)
                     characterCreationScreen.Hide();
-                MainHudLayerRoot.SetVisible(true);
+
+                enterHomeHudMode = true;
                 if (jiaYuanWorld != null)
-                    jiaYuanWorld.SetWorldScreenEnabled(true);
-                if (bottomNavBar != null && !string.IsNullOrEmpty(navKey))
-                    bottomNavBar.SetOpenKey(navKey);
+                    jiaYuanWorld.SetWorldScreenEnabled(false);
+
+                // SPEC §9.8（v3.152/v3.207）：先写入 GongHui OpenIndex，再 SetVisible，
+                // 避免 BottomNavBar.Start 回落 defaultOpenIndex=JiaYuan。
+                if (bottomNavBar != null)
+                {
+                    suppressBottomNavBarMutex = true;
+                    bottomNavBar.SetOpenKey(GongHuiScreenView.GongHuiNavKey);
+                    suppressBottomNavBarMutex = false;
+                }
+
+                MainHudLayerRoot.SetVisible(true);
+
+                if (bottomNavBar != null)
+                    bottomNavBar.gameObject.SetActive(false);
+
+                if (builtGongHuiScreen != null)
+                {
+                    // SetOpenKey 在已是 GongHui 时可能不触发 OnOpenChanged，须强制显示。
+                    builtGongHuiScreen.ForceShowForEnterHomeHud();
+                    builtGongHuiScreen.ApplyEnterHomeHudBottomInset(
+                        CharacterCreationScreenLayout.BottomTabBarHeight);
+                    if (applyTownSearchBootstrap)
+                        builtGongHuiScreen.ApplyTownSearchNpcBootstrap();
+                }
+
+                if (hudEnterHomeTabBar != null)
+                    hudEnterHomeTabBar.ShowEnterHomeMode();
+            }
+
+            void RestoreFromOverlay(string navKey)
+            {
+                if (string.Equals(navKey, GongHuiScreenView.GongHuiNavKey, System.StringComparison.Ordinal))
+                {
+                    EnterEnterHomeHudMode();
+                    return;
+                }
+
+                if (appScreen != null)
+                    appScreen.Hide();
+                if (singleChatPanel != null)
+                    singleChatPanel.Hide();
+                if (characterCreationScreen != null)
+                    characterCreationScreen.Hide();
+                MainHudLayerRoot.SetVisible(true);
+                ExitEnterHomeHudToBottomNav(navKey);
             }
 
             void OpenCharacterCreationScreen()
@@ -621,16 +692,31 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
                     appScreen.Hide();
                 if (singleChatPanel != null)
                     singleChatPanel.Hide();
+                if (hudEnterHomeTabBar != null)
+                    hudEnterHomeTabBar.HideBar();
+                if (builtGongHuiScreen != null)
+                    builtGongHuiScreen.ClearEnterHomeHudBottomInset();
+                enterHomeHudMode = false;
                 MainHudLayerRoot.SetVisible(false);
                 if (jiaYuanWorld != null)
                     jiaYuanWorld.SetWorldScreenEnabled(false);
                 characterCreationScreen.Show();
             }
 
+            void OpenCharacterCreationToTab(string tabKey)
+            {
+                OpenCharacterCreationScreen();
+                if (characterCreationScreen != null && characterCreationScreen.IsShown)
+                    characterCreationScreen.NavigateFromGuild(tabKey);
+            }
+
             void ReturnToAppFromCharacterCreation()
             {
                 if (singleChatPanel != null)
                     singleChatPanel.Hide();
+                if (hudEnterHomeTabBar != null)
+                    hudEnterHomeTabBar.HideBar();
+                enterHomeHudMode = false;
                 MainHudLayerRoot.SetVisible(false);
                 if (jiaYuanWorld != null)
                     jiaYuanWorld.SetWorldScreenEnabled(false);
@@ -638,8 +724,67 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
                     appScreen.Show();
             }
 
+            void HandleHudEnterHomeTabClicked(int tabIndex)
+            {
+                switch (tabIndex)
+                {
+                    case HudEnterHomeTabBarView.TabIndexEnterHome:
+                        return;
+                    case HudEnterHomeTabBarView.TabIndexIntimacy:
+                        OpenCharacterCreationToTab(GongHuiScreenView.NavIntimacyTab);
+                        break;
+                    case HudEnterHomeTabBarView.TabIndexDressUp:
+                        OpenCharacterCreationToTab(GongHuiScreenView.NavDressUpTab);
+                        break;
+                    case HudEnterHomeTabBarView.TabIndexHome:
+                        OpenCharacterCreationToTab(GongHuiScreenView.NavHomeTab);
+                        break;
+                    case HudEnterHomeTabBarView.TabIndexTraining:
+                        OpenCharacterCreationToTab(GongHuiScreenView.NavTrainingTab);
+                        break;
+                }
+            }
+
+            void HandleBottomNavOpenChangedForEnterHomeHud(int index, string key)
+            {
+                if (suppressBottomNavBarMutex)
+                    return;
+
+                if (string.Equals(key, GongHuiScreenView.GongHuiNavKey, System.StringComparison.Ordinal))
+                {
+                    if (!enterHomeHudMode)
+                        EnterEnterHomeHudMode();
+                    return;
+                }
+
+                // 公会 Building_3 / SwitchToBottomNav 等：从 EnterHomeHud 切到 JiaYuan 等 Tab。
+                if (enterHomeHudMode)
+                {
+                    enterHomeHudMode = false;
+                    if (hudEnterHomeTabBar != null)
+                        hudEnterHomeTabBar.HideBar();
+                    if (bottomNavBar != null)
+                    {
+                        if (!bottomNavBar.gameObject.activeSelf)
+                            bottomNavBar.gameObject.SetActive(true);
+                        bottomNavBar.transform.SetAsLastSibling();
+                    }
+                    if (builtGongHuiScreen != null)
+                        builtGongHuiScreen.ClearEnterHomeHudBottomInset();
+                    // 恢复世界层门控；JiaYuan 时 RefreshVisibility 才会真正显示农场。
+                    if (jiaYuanWorld != null)
+                        jiaYuanWorld.SetWorldScreenEnabled(true);
+                }
+            }
+
             if (topDing != null)
                 topDing.BindNavigateToCharacterCreation(OpenCharacterCreationScreen);
+
+            if (bottomNavBar != null)
+                bottomNavBar.OnOpenChanged += HandleBottomNavOpenChangedForEnterHomeHud;
+
+            if (hudEnterHomeTabBar != null)
+                hudEnterHomeTabBar.OnTabClicked += HandleHudEnterHomeTabClicked;
 
             if (appScreen != null)
             {
@@ -666,10 +811,16 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
             if (characterCreationScreen != null)
             {
                 characterCreationScreen.OnNavigateToBottomNav += RestoreFromOverlay;
+                characterCreationScreen.OnEnterHomeHudRequested += applyTownSearch =>
+                    EnterEnterHomeHudMode(applyTownSearch);
                 characterCreationScreen.OnCloseRequested += ReturnToAppFromCharacterCreation;
-                // SPEC §9.14.10 (v3.184)：「进入家园」页签内嵌公会场景。
+                // SPEC §9.8 / §9.14.10（v3.207）：公会跳转创角页签；EnterHome 走 EnterHomeHud，不再内嵌。
                 if (builtGongHuiScreen != null)
-                    characterCreationScreen.BindEmbeddedGongHui(builtGongHuiScreen);
+                {
+                    builtGongHuiScreen.BindCharacterCreationHost(characterCreationScreen);
+                    builtGongHuiScreen.BindOpenCharacterCreationRequest(OpenCharacterCreationScreen);
+                    characterCreationScreen.BindGongHuiForTownSearch(builtGongHuiScreen);
+                }
                 // SPEC §9.14.10 (v3.139)：亲密度页签「去Ta家」→ 恢复家园层后打开好友家园。
                 characterCreationScreen.OnVisitFriendHome += friend =>
                 {

@@ -388,8 +388,8 @@ struct RoleStats {
   int def;                  // 防御 / defense
   int maxHp;                // 生命上限 / max life
   int currentHp;            // 当前生命 / current life
-  int agility;              // 敏捷；决定出手顺序；Demo 可恒为 10
-                            // agility; drives turn order; demo may fix at 10
+  int agility;              // 敏捷 / 基础攻击速度；决定出手顺序；亦为 §B.21 role_levels.baseAtkSpeed 写回目标
+                            // agility / base attack speed; drives turn order; also target of §B.21 baseAtkSpeed
                             // 取代旧字段 speed（同义重命名，见 §11 v0.6）
                             // replaces the legacy field "speed" (rename, see §11 v0.6)
   // ---- 体力（v3.40 新增，见 §9.8.12） / Stamina (new in v3.40, see §9.8.12) ----
@@ -419,14 +419,29 @@ struct RoleStats {
   int stun;                 // 击晕 / Stun；默认 2
   int evasion;              // 闪避 / Evasion；默认 4
   int lifeSteal;            // 吸血 / Life Steal；默认 8
+  // ---- 家园成长属性（v3.188，§9.14.11 / §B.21；与战斗六宫独立） ----
+  // ---- Home growth attrs (v3.188, §9.14.11 / §B.21; independent of battle hex) ----
+  int intelligence;         // 智商 / intelligence
+  int memory;               // 记忆 / memory
+  int imagination;          // 想象 / imagination
+  int physique;             // 体魄 / physique
+  int charm;                // 魅力 / charm
+  int emotionalIntelligence;// 情商 / emotional intelligence
+  // ---- 等级与经验（v3.186 / v3.188；自 v3.208 起实现加经验与升级，升级不扣减 currentExp） ----
+  // ---- Level & exp (v3.186 / v3.188; since v3.208: add-exp + level-up; currentExp not deducted on level-up) ----
+  int level;                // 等级；默认 1 / level; default 1
+  int currentExp;           // 当前经验进度；升级时不减、不归零（可大于本级需求）/ current exp progress; not deducted on level-up
+  int expToNextLevel;       // 升至下一级所需单级经验；优先来自 §B.23，回退 §B.21 / single-level exp; prefer §B.23, fallback §B.21
 }
 
 // Demo 默认值 / Demo defaults (Role)：
-//   Tier-1: atk=10, def=5, maxHp=50, currentHp=50, agility=10
+//   Tier-1: atk/maxHp/agility 由 §B.21 Lv1 写回（默认表：atk=12, maxHp=25, agility=2）；def=5
 //   Stamina (v3.40): stamina=0, staminaMax=100
 //   Tier-2: critRate=comboRate=counterRate=blockRate=0.05
 //   Tier-3: critResist=comboResist=counterResist=blockResist=0.00
 //   Hex (v3.178): criticalHit=3, combo=6, counterattack=12, stun=2, evasion=4, lifeSteal=8
+//   Growth (v3.188): intelligence/memory/imagination/physique/charm/emotionalIntelligence 由 §B.21 Lv1 写回（默认各 10）
+//   Level (v3.186 / v3.208): level=1, currentExp=0, expToNextLevel 优先由 §B.23 写回（默认 100）
 // 敌人模板 / Enemy templates 共用同形 RoleStats，2/3 阶默认全 0；具体平衡数值在 P1 实装时补全。
 // Enemies share the same RoleStats schema with Tier-2/3 defaulted to 0;
 // concrete balance values are supplied when P1 implementation lands.
@@ -1575,7 +1590,7 @@ void ExitAnchorViewLock();            // 收获视角退出（既有，清除 Zh
 | 常量 | 值 | 典型内容 |
 |------|-----|----------|
 | `WorldMax` | `499` | §9.1.4 世界 Y 排序上界 |
-| `HudChrome` | `1000` | 底栏、属性条、种子/肥料/果实入口、统一操作钮、播种钮、家园订单/仓库入口、入侵入口、收获视角入口 |
+| `HudChrome` | `1000` | 底栏（`BottomNavBar`；EnterHomeHud 态下另见 HUD `BottomTabBar` / `HudEnterHomeTabBarView`）、属性条、种子/肥料/果实入口、统一操作钮、播种钮、家园订单/仓库入口、入侵入口、收获视角入口 |
 | `HudScreen` | `1100` | 底栏 Tab 全屏（公会/角色成长/主线/竞技场等） |
 | `HudModal` | `1200` | 种子/肥料/果实仓库弹窗、订单弹窗、统一仓库 Hub |
 | `HudOverlay` | `1300` | 虫灾/附魔/转盘、入侵战斗全屏 |
@@ -1597,6 +1612,9 @@ void ExitAnchorViewLock();            // 收获视角退出（既有，清除 Zh
 
 **中文：** **默认 `Open` 项**：`JiaYuan`（家园，索引 2）；可在 `BottomNavBarView.defaultOpenIndex` Inspector 字段中改为其它索引（0..4）。  
 **English:** **Default `Open` item:** `JiaYuan` (index 2); adjustable via the Inspector field `BottomNavBarView.defaultOpenIndex` to any index in `0..4`.
+
+**中文（自 v3.207 起，EnterHomeHud 互斥底栏）：** 当主流程处于 **EnterHomeHud**（`OpenKey == "GongHui"`，或创角 `EnterHomeButton` / `OnNavigateToBottomNav("GongHui")` 汇合入口）时：`MainHudLayerRoot` **可见**；**隐藏** `BottomNavBar`；在 `MainHudLayerRoot` 下显示与 §9.14.10 同款的 **`BottomTabBar`**（`HudEnterHomeTabBarView`，默认 `EnterHomeButton` IconOpen）；内容为 `GongHuiScreen`（主 HUD 全屏层，`offsetMin.y = BottomTabBarHeight`，**不再**走创角 `EnterCharacterCreationEmbed`）。当 `OpenKey` 为 `JueSe` / `JiaYuan` / `ZhuXian` / `ShangDian` 时：恢复显示 `BottomNavBar`，隐藏 HUD `BottomTabBar`，并 **`JiaYuanWorldScreenView.SetWorldScreenEnabled(true)`** 恢复世界层门控（实际显隐仍按 `OpenKey`；公会 `Building_3` 等 `SwitchToBottomNav` 同此路径），行为与既有 §9.8 一致。HUD `BottomTabBar` 点「亲密度 / 装扮 / 家园 / 训练」→ 打开创角覆盖层并 `NavigateFromGuild` 至对应页签（`MainHudLayerRoot.SetVisible(false)`）；点「进入家园」在已激活时 no-op。  
+**English (since v3.207, EnterHomeHud bar mutex):** In **EnterHomeHud** (`OpenKey == "GongHui"` or EnterHome entry), hide `BottomNavBar`, show HUD `BottomTabBar` (`HudEnterHomeTabBarView`, EnterHome open) with `GongHuiScreen` (no character-creation embed). Other keys restore `BottomNavBar`, hide the HUD tab bar, and re-enable `JiaYuanWorldScreen` gating via `SetWorldScreenEnabled(true)`. Non-EnterHome HUD tabs open character creation via `NavigateFromGuild`.
 
 #### 9.8.2 几何与左对齐布局 / Geometry and Left-Aligned Layout
 
@@ -1961,15 +1979,18 @@ class GongHuiCommunityOverlayView : MonoBehaviour {
 }
 ```
 
-##### 9.8.9.11 地图响应区域 (v3.182)
+##### 9.8.9.11 地图响应区域 (v3.182 / v3.197)
 
 **中文：** 在 §9.8.9 公会 2D 场景层中新增 **`ResponseAreas/`** 分组，由人工摆放若干 **`GuildResponseAreaMarker`**（地图响应区域）。玩家走进 `interactRadius`（默认 `220px`，content 局部单位）时：
 
 1. **靠近提示**：在区域锚点上方显示 **NamePlate** 提示框（视觉对齐 NPC 名牌：深色底板 + 可选左侧图标 + 区域名称；**无** InteractButton，因采用自动进入）；
-2. **进入触发**：玩家从区域外**首次穿越**进入半径时（沿边检测 `outside→inside`），自动触发 `OnEntered` 回调；站在区域内不重复触发；`triggerOncePerVisit=true` 时同一次公会 Tab 会话内仅触发一次；
-3. **界面跳转（占位）**：本期 `GongHuiScreenView.HandleResponseAreaEntered` 仅 `Debug.Log`；Inspector 字段 `navTargetKey` 预留后续对接底栏 `SetOpenKey`（如 `ShangDian`/`ZhuXian`/`JiaYuan`）或自定义全屏面板 id（对齐 §9.14.10 `OnNavigateToBottomNav` 字符串约定）。
+2. **进入触发（v3.197）**：玩家在区域内**停止控制移动**后，累计静止 **`ResponseAreaNavigateDelaySec = 2f`** 秒再触发 `Entered` 回调；若区域内仍推动摇杆（`VirtualJoystickView.Direction.sqrMagnitude > 0.0001f`）则不累计倒计时；离开区域清零计时；`triggerOncePerVisit=true` 时同一次公会 Tab 会话内仅触发一次（在 2s 满足时消费 `TryConsumeEnter`）；
+3. **倒计时 UI（v3.197）**：静止倒计时期间，NamePlate 的 `NameText` **临时替换**为 **`ResponseAreaNavigateCountdownText = "正在前往...."`**；移动、离开区域或全景退出时还原为 `displayName`；
+4. **界面跳转（v3.195）**：`Entered` 触发后 `GongHuiScreenView.HandleResponseAreaEntered` 读取 `navTargetKey` 并调用 `NavigateByKey`：
+   - **创角底栏页签**（内嵌公会或主 HUD 公会均适用；主 HUD 时先 `onRequestOpenCharacterCreation` 打开创角界面）：`DressUpButton` → 装扮页签；`RoleAddFavorButton` → 训练页签；`HomeTabButton` → 家园页签（分别复用 `CharacterCreationScreenView.NavigateFromGuild` 内 `OnDressUpClicked` / `OnRoleAddFavorClicked` / `OnHomeTabClicked` 流程，自动 `HideGongHuiEmbeddedPanel`）。
+   - 预制体示例映射：`ResponseArea_1`→`DressUpButton`、`ResponseArea_2`→`RoleAddFavorButton`、`ResponseArea_3`→`HomeTabButton`。
 
-**English:** Hand-placed **`GuildResponseAreaMarker`** nodes under **`ResponseAreas/`** show an NPC-style **NamePlate** when the player is within `interactRadius` (default `220px`). Crossing **into** the radius fires **`OnEntered`** once per edge (no repeat while standing inside; optional `triggerOncePerVisit` per session). Navigation is placeholder `Debug.Log` this release; `navTargetKey` reserves bottom-nav / overlay wiring.
+**English:** While inside a response area, navigation fires only after the player stops joystick input for **2 seconds** (`ResponseAreaNavigateDelaySec`). Active joystick direction resets the timer. During countdown, `NameText` shows `"正在前往...."` (`ResponseAreaNavigateCountdownText`). On `Entered`, `HandleResponseAreaEntered` reads `navTargetKey` and calls `NavigateByKey`. Character-creation tab keys open the matching bottom tab via `CharacterCreationScreenView.NavigateFromGuild`. Prefab example: `ResponseArea_1`→`DressUpButton`, etc.
 
 **预制体结构增补 / Prefab tree addition:**
 
@@ -1991,8 +2012,9 @@ class GuildResponseAreaMarker : MonoBehaviour {
     [SerializeField] bool triggerOncePerVisit;   // 同 Tab 会话内仅触发一次
     [SerializeField] Sprite iconOverride;        // 可选名牌图标
 
-    Action<GuildResponseAreaMarker> Entered;    // 进入沿边触发
+    Action<GuildResponseAreaMarker> Entered;    // 区域内静止 2s 后触发（v3.197）
     void SetPlateVisible(bool visible);
+    void SetNavigateCountdownActive(bool active); // v3.197：切换 NameText 倒计时文案
     bool TryConsumeEnter();                       // triggerOncePerVisit 消费逻辑
     void ResetVisitState();                       // OnDisable 复位
 }
@@ -2001,10 +2023,10 @@ class GuildResponseAreaMarker : MonoBehaviour {
 **API 与装配 / API & wiring:**
 
 - `GuildSceneUiFactory.BuildResponseAreaNamePlate(...)`：响应区名牌（无按钮，`raycastTarget=false`）。
-- `GuildProximityController.Initialize(..., responseAreas)`：扩展 0.1s 轮询；对响应区维护 `wasInside` 字典，沿边触发 `TryConsumeEnter` + `Entered`；`OnDisable` 隐藏名牌并重置 `wasInside` / `ResetVisitState`。
-- `GongHuiScreenView`：`responseAreasRootRt` + `EnsureSceneSpawned` 扫描子树并订阅 `Entered → HandleResponseAreaEntered`（占位跳转）。
+- `GuildProximityController.Initialize(..., responseAreas, joystick)`：扩展 0.1s 轮询；对响应区维护 `wasInside` 与 `idleSinceUnscaledTime` 字典；区域内静止满 2s 触发 `TryConsumeEnter` + `Entered`；移动或离开清零计时；`OnDisable` 隐藏名牌并重置 `wasInside` / `ResetVisitState` / 倒计时文案。
+- `GongHuiScreenView`：`responseAreasRootRt` + `EnsureSceneSpawned` 扫描子树并订阅 `Entered → HandleResponseAreaEntered → NavigateByKey`；向 `GuildProximityController` 传入 `joystick`；`BindCharacterCreationHost` + `BindOpenCharacterCreationRequest` 由 `AirMainMenuRuntimeBuilder` 装配。
 
-**实现优先级 / Priority:** **P1** — 名牌 + 沿边自动进入 + 占位跳转日志；真实 `navTargetKey` 跳转后续版本。
+**实现优先级 / Priority:** **P1** — 名牌 + 静止 2s 自动进入 + 倒计时文案 + `navTargetKey` 创角页签跳转（v3.197）。
 
 ##### 9.8.9.12 公会全景模式 (v3.183)
 
@@ -2056,6 +2078,58 @@ class GuildPanoramaController : MonoBehaviour {
 - 各 Marker：`SetPlateVisible(bool, bool panoramaOverride)`、`ApplyPlateScaleCompensation(float)`、`ResetPlateScale()`。
 
 **实现优先级 / Priority:** **P1** — 全景切换 + 全览镜头 + 强制名牌；无平滑过渡动画。
+
+##### 9.8.9.13 公会建筑功能跳转 (v3.195；v3.196 修订)
+
+**中文：** `GuildBuildingMarker` 新增 Inspector 字段 **`navTargetKey`**；主角进入 `interactRadius` 显示名牌（含 `ActionButton`「功能」），**点击按钮**触发 `ActionClicked` → `GongHuiScreenView.NavigateByKey`：
+
+| 预制体节点 | `navTargetKey` | 目标 |
+|------------|----------------|------|
+| `Building_1` | `MainStoryLine` | 底栏切 `ZhuXian`，显示 §9.8.8 `MainStoryLineScreenView`（**不**打开选关层） |
+| `Building_2` | `FriendListPanel` | `FriendListPanelView.Show()`（§13.2 好友列表弹窗） |
+| `Building_3` | `JiaYuan` | 底栏切 `JiaYuan`，显示 §9.8.14 `JiaYuanWorldScreenView` |
+
+跳转前：若公会处于创角内嵌（`embeddedInCharacterCreation`），`Building_1`/`Building_3` 调用 `CharacterCreationScreenView.RequestExitToBottomNav(navKey)` 恢复 HUD 并切底栏；`Building_2` 先 `RequestExitToBottomNav("GongHui")` 恢复 HUD 保持在公会 Tab，再打开好友列表弹窗。主 HUD 公会模式下：`Building_1`/`Building_3` 直接 `bottomNav.SetOpenKey`；`Building_2` 直接 `FriendListPanelView.Show()`。
+
+**English:** `GuildBuildingMarker` **`navTargetKey`** drives building **ActionButton** navigation: `MainStoryLine` → ZhuXian tab / main-story screen; `FriendListPanel` → friend list modal; `JiaYuan` → home tab / world screen. Exit character-creation embed when applicable.
+
+**数据结构增补 / Data structure addition:**
+
+```csharp
+class GuildBuildingMarker : MonoBehaviour {
+    [SerializeField] string navTargetKey = "";   // MainStoryLine / FriendListPanel / JiaYuan / …
+    event Action<GuildBuildingMarker> ActionClicked;
+}
+```
+
+**API 与装配 / API & wiring:**
+
+- `GongHuiScreenView.EnsureSceneSpawned`：扫描 `GuildBuildingMarker` 并订阅 `ActionClicked`。
+- `GongHuiScreenView` 导航常量：`NavMainStoryLine`、`NavFriendListPanel`、`NavJiaYuanWorld`（=`JiaYuan`）。
+- `GongHuiScreenView.BindFriendListPanel(FriendListPanelView)`：由 `AirMainMenuRuntimeBuilder` 注入。
+
+**实现优先级 / Priority:** **P1** — 建筑按钮真实跳转（v3.195 / v3.196 修订）。
+
+##### 9.8.9.14 公会右上玩法入口按钮 (v3.198)
+
+**中文：** `GongHuiScreenPanel` 根节点右上角新增竖排 **4** 个图标按钮（与 `PanoramaButtonLayer` 同级，叠在 `GongHuiViewport` 之上），自上而下依次为：
+
+| 节点名 | 图标资源 | 点击行为 |
+|--------|----------|----------|
+| `WfXuanShangButton` | `AirUI/WF_XuanShang` | `NavigateByKey(MainStoryLine)` → 底栏 `ZhuXian` / §9.8.8 `MainStoryLineScreen` |
+| `WfZuDuiButton` | `AirUI/WF_ZuDui` | `NavigateByKey(FriendListPanel)` → `FriendListPanelView.Show()` |
+| `WfJjcButton` | `AirUI/WF_JJC` | 无跳转；`ShowTips("敬请期待")`，约 **2.2s** 自动隐藏 |
+| `WfZhuangYuanButton` | `AirUI/WF_ZhuangYuan` | `NavigateByKey(JiaYuan)` → 底栏 `JiaYuan` / §9.8.14 `JiaYuanWorldScreen` |
+
+**布局常量**（对齐 §9.14.11 `HomeTabPanelLayout` v3.190 右上按钮范式）：`buttonSize = 120×120`，`margin = 24px`，`gap = 16px`；容器 `TopRightWorkflowLayer/TopRightWorkflowActions`，锚点 `(1,1)`、`pivot=(1,1)`、`anchoredPosition=(-24,-24)`。竖排 Y：`-(i * (size.y + gap) + size.y * 0.5f)`（`i = 0..3`）。
+
+**TipsToast：** 面板根下居中 `TipsToast/TipsText`（参照 `TrainingPanelLayout.BuildTipsToast`），默认 `active=false`；`GongHuiScreenView.ShowTips` 显示并 `SetAsLastSibling()`。
+
+**构建入口：** `GongHuiScreenLayout.EnsureTopRightWorkflowActions` + `EnsureTipsToast`；由 `GongHuiScreenView.BuildSceneSkeleton` 与 `Awake` 幂等补建；`GongHuiScreenPrefabGenerator` 生成预制体。创角内嵌公会时跳转语义与 §9.8.9.13 一致（`RequestExitToBottomNav`）。
+
+**English:** Top-right vertical stack of four workflow icon buttons on `GongHuiScreenPanel`: bounty → main story, team → friend list, arena → "coming soon" toast, manor → home world; layout matches §9.14.11 top-right pattern; built via `GongHuiScreenLayout` + `GongHuiScreenView`.
+
+**实现优先级 / Priority:** **P1** — 右上玩法入口与 §9.8.9.13 跳转复用。
 
 #### 9.8.10 商店全屏背景层（底部导航 ShangDian）(v3.34, 背景资源 v3.37)
 
@@ -2160,24 +2234,33 @@ class GuildPanoramaController : MonoBehaviour {
 - 运行时构建路径：`PetDemo.UI.StaminaBarView.BuildInto(parent, role)`，挂在指定 `RectTransform` 下生成本 View；  
 - 预制体路径：`Resources/Prefabs/Farm/StaminaBar.prefab`，提供 `Tools/PetDemo/Generate Stamina Bar Prefab` 编辑器菜单一键生成（不依赖 prefab 时也能跑通）。
 
-**节点结构（从底到顶，对应 `Transform.GetSiblingIndex()` 从 0 递增）/ Node hierarchy (bottom to top, increasing `siblingIndex`)：**
+**节点结构（自 v3.204 起：横向 Icon + BarTrack；BarTrack 内从底到顶递增 `siblingIndex`）/ Node hierarchy (since v3.204: horizontal Icon + BarTrack; within BarTrack, bottom→top by increasing `siblingIndex`)：**
 
 ```
-StaminaBarRoot               // RectTransform, sizeDelta=(800, 60)
-├── BottomLayer (sibling=0)  // Image, sprite="AirUI/TiLi_1", StretchFull, raycastTarget=false
-├── FillLayer (sibling=1)    // Image, sprite="AirUI/TiLi_2"
-│                            // 左对齐拉伸：anchorMin=(0,0), anchorMax=(0,1), pivot=(0,0.5)
-│                            // 通过 sizeDelta.x = totalWidth * stamina / staminaMax 缩放（左对齐 fill）
-│                            // raycastTarget=false
-└── TopLayer (sibling=2)     // Image, sprite="AirUI/TiLi_3", StretchFull, raycastTarget=false
+StaminaBarRoot               // RectTransform; 尺寸由 parent 槽位决定（如 275×116）
+├── IconLayer (sibling=0)  // Image, sprite="AirUI/TiLi_0", 左锚固定宽度, preserveAspect=true, raycastTarget=false
+└── BarTrack (sibling=1)     // RectTransform, 拉伸占满 Icon 右侧条轨区域
+    ├── BottomLayer (sibling=0)  // Image, sprite="AirUI/TiLi_1", StretchFull, raycastTarget=false
+    ├── FillLayer (sibling=1)    // Image, sprite="AirUI/TiLi_2"
+    │                            // 左对齐拉伸：anchorMin=(0,0), anchorMax=(0,1), pivot=(0,0.5)
+    │                            // sizeDelta.x = barTrackWidth * stamina / staminaMax（体力减少时右缘左移 = 从右向左缩短）
+    │                            // raycastTarget=false
+    └── TopLayer (sibling=2)     // Image, sprite="AirUI/TiLi_3", StretchFull, raycastTarget=false
 ```
 
-**中文（填充实现选择）：** SPEC 在两个候选中选定 **`RectTransform.sizeDelta.x` 缩放 + 左对齐锚点**（候选 A），原因：(1) `TiLi_2` 资源边缘没有 9-slice，使用 `Image.fillMethod` 可能在中段拉出锯齿；(2) 用 `sizeDelta.x` 配合 `anchorMin=(0,0)/anchorMax=(0,1)` 可以保证"向右拉长"和"左对齐"两个语义同时成立；(3) 这种方式也是 §9.6 `MainHeroStatsPresenter` HP 横条的常用做法。**坐标**：以 `StaminaBarRoot` 内部空间为参考，`FillLayer.anchoredPosition = (0,0)`、`sizeDelta = (totalWidth * stamina / staminaMax, totalHeight)`。  
-**English (fill mode):** SPEC picks **`RectTransform.sizeDelta.x` scaling + left-anchored pivot** (option A). Reasons: (1) the `TiLi_2` sprite has no 9-slice, so `Image.fillMethod` could alias at the seam; (2) `sizeDelta.x` with `anchorMin=(0,0)`/`anchorMax=(0,1)` keeps both "fill rightward" and "left-aligned" semantics; (3) §9.6 HP bar already uses the same idiom. **Coordinates:** within `StaminaBarRoot`'s local space, `FillLayer.anchoredPosition = (0,0)`, `sizeDelta = (totalWidth * stamina / staminaMax, totalHeight)`.
+**中文（视觉层级，渲染从底到顶）：** `TiLi_1` 背景 → `TiLi_2` 体力量 → `TiLi_3` 刻度 → `TiLi_0` 体力图标（最左，最上层）。  
+**English (visual stack, render bottom→top):** `TiLi_1` background → `TiLi_2` fill → `TiLi_3` scale overlay → `TiLi_0` icon (leftmost, topmost).
+
+**中文（填充实现选择）：** SPEC 在两个候选中选定 **`RectTransform.sizeDelta.x` 缩放 + 左对齐锚点**（候选 A），原因：(1) `TiLi_2` 资源边缘没有 9-slice，使用 `Image.fillMethod` 可能在中段拉出锯齿；(2) 用 `sizeDelta.x` 配合 `anchorMin=(0,0)/anchorMax=(0,1)` 可以保证"向右拉长"和"左对齐"两个语义同时成立；(3) 这种方式也是 §9.6 `MainHeroStatsPresenter` HP 横条的常用做法。**坐标**：以 `BarTrack` 内部空间为参考，`FillLayer.anchoredPosition = (0,0)`、`sizeDelta = (barTrackWidth * stamina / staminaMax, totalHeight)`；`baseWidth` 取 `BarTrack.rect.width`（**不含** `IconLayer` 宽度）。  
+**English (fill mode):** SPEC picks **`RectTransform.sizeDelta.x` scaling + left-anchored pivot** (option A). **Coordinates:** within `BarTrack`'s local space, `FillLayer.anchoredPosition = (0,0)`, `sizeDelta = (barTrackWidth * stamina / staminaMax, totalHeight)`; `baseWidth` = `BarTrack.rect.width` (excludes `IconLayer`).
+
+**中文（预制体生成）：** `PetDemo.EditorTools.StaminaBarPrefabGenerator` 提供 `Tools/PetDemo/Generate Stamina Bar Prefab`，产出 `Assets/Resources/Prefabs/Farm/StaminaBar.prefab`（调用 `StaminaBarView.BuildRuntimeForPrefab()` 后 `SaveAsPrefabAsset`）。  
+**English (prefab generator):** `StaminaBarPrefabGenerator` menu `Tools/PetDemo/Generate Stamina Bar Prefab` → `Resources/Prefabs/Farm/StaminaBar.prefab`.
 
 **中文（API）：** 
 - `void Bind(IRoleStateReadonly role)`：保存只读引用并立即 `Refresh()`。本 SPEC 中 `IRoleStateReadonly` 等同于 `RoleStats`（已是公共字段），只读语义由调用方保证。
 - `void Refresh()`：从 `role.stamina / role.staminaMax` 计算填充比例，写入 `FillLayer.sizeDelta.x`；`stamina == 0` 时 `FillLayer.gameObject.SetActive(false)` 以避免 0 宽度像素残留，`stamina > 0` 时恢复显示。
+- `static StaminaBarView GetOrCreateIn(RectTransform parent, IRoleStateReadonly role, IPlantingService service = null)`（**自 v3.205**）：若 `parent` 下已有 `StaminaBarView`（预制体嵌入）则复用并 `Bind`/`SubscribeService`；否则等同 `BuildInto`。
 - `static StaminaBarView BuildInto(RectTransform parent, IRoleStateReadonly role, IPlantingService service = null)`：在 `parent` 下生成节点（如果 `Resources/Prefabs/Farm/StaminaBar.prefab` 存在则 `Instantiate`，否则代码搭建），调用 `Bind(role)`；若提供 `service`，则**订阅 `service.OnStaminaChanged`** 并在 `OnDestroy` 解除（避免悬挂）。
 
 **English (API):**
@@ -2738,7 +2821,7 @@ WheelLotteryScreenView.BuildInto(canvasRect, PlantingService.Instance /* 或 IPl
 
 **中文：** 创角界面由「主角展示区域」与「好友列表弹窗」两大子系统组成，按创角状态切换三种中心态：
 
-1. **加号态（未创建主角）**：展示区中央显示一个大「加号」按钮（`AddButton`，使用精灵 `AirUI/AddButton`）；**点击即直接创角（无伙伴）**：调用 `CreateCharacterDirect()` 写 `created=true`、`partnerFriendId=""`，立即切到主角态（不再弹好友列表）。**自 v3.166 起**，`AddButton` 由 `DisplayArea` 子节点提升为 `CharacterCreationScreen` **根节点最高层级**（最后同级 = 最上渲染），确保不被任何 UI（含底部页签栏、内容区面板、弹窗）遮挡；加号态显示时额外在 `AddButton` 之下、其余全部 UI 之上覆盖一层**全屏纯黑背景** `AddButtonBackdrop`（`RGBA(0,0,0,1)`、`raycastTarget=true` 仅阻挡点击不触发逻辑），覆盖含 `BottomTabBar`/`ScreenCloseButton` 在内的全部界面，**仅露出 `AddButton`**；离开加号态（缺好感态 / 主角态）时隐藏 `AddButtonBackdrop`，其余 UI 恢复可见。
+1. **加号态（未创建主角）**：展示区中央显示一个大「加号」按钮（`AddButton`，使用精灵 `AirUI/AddButton`）；**点击即直接创角（无伙伴）**：调用 `CreateCharacterDirect()` 写 `created=true`、`partnerFriendId=""`，立即切到主角态（不再弹好友列表）。**自 v3.203 起**，创角成功后写 `friendListMode=RecommendPrompt` 并自动切到「家园」页签（`HomeTabButton` / `HomeTabPanel`）；「推荐好友」空态引导在玩家切换到「亲密度」页签时展示（见 §9.14.8）。**自 v3.166 起**，`AddButton` 由 `DisplayArea` 子节点提升为 `CharacterCreationScreen` **根节点最高层级**（最后同级 = 最上渲染），确保不被任何 UI（含底部页签栏、内容区面板、弹窗）遮挡；加号态显示时额外在 `AddButton` 之下、其余全部 UI 之上覆盖一层**全屏纯黑背景** `AddButtonBackdrop`（`RGBA(0,0,0,1)`、`raycastTarget=true` 仅阻挡点击不触发逻辑），覆盖含 `BottomTabBar`/`ScreenCloseButton` 在内的全部界面，**仅露出 `AddButton`**；离开加号态（缺好感态 / 主角态）时隐藏 `AddButtonBackdrop`，其余 UI 恢复可见。加号态显隐仍由 `CharacterCreationState.created==false` 驱动（已创角老档不显示 AddButton）。
 2. **缺好感态（已选好友但亲密度不足 80）**：展示区不出现主角，改为显示"需要好感度 80 / 当前 X"提示与「增加好感度」按钮；每点一次该好友亲密度 +10，达到 80 立即创建主角并切到主角态。（自 v3.117 起此态不再由加号触发，仅作为好友列表选人路径的保留分支。）
 3. **主角态（已创建主角）**：展示区中央显示主角（`DisplayArea` → `RoleMount` → 运行时 `RoleSpine`；挂点尺寸 720×1000 像素，复用家园 `VillagerRoleRoot` 的 `Hero_Role_cunmin` Spine 形象；**`RoleSpine` `localScale` 固定为 `(0.75, 0.75, 1)`**，即相对原始尺寸缩小至 75% 显示），**持续循环播放待机动作**（动画名解析复用 §9.5 候选链：`exclusive_2` → `standby_1` → `animation` → `idle` → 骨骼首条动画；`SetAnimation(..., loop=true)`）。**自 v3.119 起**新增「装扮」（打开装扮界面，见 §9.14.9）与「加好感」（**自 v3.121 起**全屏打开 `AirUI/ZhuanQian` 介绍图，见 §9.14.8 第 4 点）按钮。
 
@@ -2772,6 +2855,19 @@ public class CharacterCreationState
 {
     public bool   created;          // 主角是否已创建
     public string partnerFriendId;  // 创建主角所用好友 id（含未达 80 时的待选好友）
+    // 自 v3.203 起：亲密度页签好友列表展示模式（旧档缺字段视为 Normal）。
+    public FriendListMode friendListMode;
+    // 自 v3.206 起：开局营救待完成（新档 true；点击角色营救后 false；旧档缺字段视为 false）。
+    public bool openingRescuePending;
+}
+
+// 自 v3.203 起
+public enum FriendListMode
+{
+    Normal = 0,            // 默认：TopFriends.csv 真实亲密度
+    RecommendPrompt = 1,   // 新创角后：隐藏 Cell，显示「推荐好友」双选项
+    WerewolfListZero = 2,  // 选项 2：显示 Cell，IntimacyText 强制「亲密度 0」
+    TownSearch = 3,        // 选项 1：已去小镇；亲密度页回 Normal 列表
 }
 ```
 
@@ -2791,7 +2887,7 @@ public class CharacterCreationState
 
 #### 9.14.4 持久化 / Persistence
 
-**中文：** `GameSaveSnapshot` 新增 `friends`（`FriendProfileSave[]`）与 `characterCreation`（`CharacterCreationSave`）顶层字段，在 `FromPlantingService` / `ApplyToSession` 读写。旧档（字段为 null）回退：`friends` 用默认目录、`characterCreation.created=false`（即旧档玩家进入存档同样先进创角界面）。创角状态与亲密度变更依赖既有「退出自动落盘」机制；为稳妥，`CreateCharacterWith` 成功后亦可主动调用 `GameSaveCoordinator.TrySaveActiveSlot()`。
+**中文：** `GameSaveSnapshot` 新增 `friends`（`FriendProfileSave[]`）与 `characterCreation`（`CharacterCreationSave`）顶层字段，在 `FromPlantingService` / `ApplyToSession` 读写。旧档（字段为 null）回退：`friends` 用默认目录、`characterCreation.created=false`（即旧档玩家进入存档同样先进创角界面）。**自 v3.203 起**，`CharacterCreationSave` 增 `friendListMode`（`int`，映射 `FriendListMode`）；旧档缺字段视为 `Normal`。**自 v3.206 起**，`CharacterCreationSave` 增 `openingRescuePending`（`bool`）；旧档缺字段视为 `false`。新档初始化时 `openingRescuePending=true`（`PlantingService` 新会话路径）。创角状态与亲密度变更依赖既有「退出自动落盘」机制；为稳妥，`CreateCharacterWith` / `CompleteOpeningRescue` 成功后亦可主动调用 `GameSaveCoordinator.TrySaveActiveSlot()`。
 
 #### 9.14.5 服务接口 / Service API
 
@@ -2803,11 +2899,15 @@ CharacterCreationState GetCharacterCreation();
 bool AddFriendFavor(string friendId, int amount = 10); // 亲密度封顶 100
 bool CreateCharacterWith(string friendId);             // intimacy>=80 才成功，写 created/partnerFriendId
 bool CreateCharacterDirect();                          // v3.117：无伙伴直接创角，写 created=true、partnerFriendId=""
+void SetFriendListMode(FriendListMode mode);           // v3.203：写入亲密度页签展示模式
+bool IsOpeningRescuePending();                         // v3.206：开局营救是否待完成
+void CompleteOpeningRescue();                          // v3.206：体力拉满 + 清 openingRescuePending + OnStaminaChanged + 落盘
+bool TryAddRoleExp(int amount, out List<int> leveledToLevels); // v3.208：加经验；升级不扣 currentExp；返回升到的等级列表
 ```
 
 #### 9.14.6 装配与导航流程 / Assembly and Flow
 
-**中文：** 在 `AirMainMenuRuntimeBuilder.Build()` 末尾（底栏与家园层构建完成后）调用 `CharacterCreationScreenView.BuildInto(canvasRect, PlantingService.Instance)` 与 §9.15 `AppScreenView.BuildInto`，均置 `MainUiSortTier.HudPopup`；**自 v3.143 起默认 `Show()` 的是创角界面**（`OpenCharacterCreationScreen()`），APP 界面预构建但不自动显示。APP/创角期间须调用 `MainHudLayerRoot.SetVisible(false)` 隐藏整个 HUD 层，并调用 `JiaYuanWorldScreenView.SetWorldScreenEnabled(false)`；订阅 **`OnNavigateToBottomNav(string navKey)`** → `Hide()` 并恢复 HUD 与世界层后 `bottomNavBar.SetOpenKey(navKey)`（`GongHui` / `JiaYuan` / `ZhuXian`，见 §9.14.10）。**自 v3.138 起**，创角界面右上角 `ScreenCloseButton`（72×72「×」，与 §9.14.9 关闭按钮范式一致）点击触发 `OnCloseRequested` → 隐藏创角界面并 `AppScreenView.Show()` 回退 APP 首页（HUD/世界层保持隐藏）。**自 v3.122 起**（**v3.158** 扩展至公会 Tab），玩家已在家园或公会 Tab 时还可通过 §9.8.15 `TopDingBar` 点击再次打开创角界面（复用上述隐藏/恢复流程，不新增独立导航栈）。
+**中文：** 在 `AirMainMenuRuntimeBuilder.Build()` 末尾（底栏与家园层构建完成后）调用 `CharacterCreationScreenView.BuildInto(canvasRect, PlantingService.Instance)` 与 §9.15 `AppScreenView.BuildInto`，均置 `MainUiSortTier.HudPopup`；**自 v3.143 起默认 `Show()` 的是创角界面**（`OpenCharacterCreationScreen()`），APP 界面预构建但不自动显示。APP/创角期间须调用 `MainHudLayerRoot.SetVisible(false)` 隐藏整个 HUD 层，并调用 `JiaYuanWorldScreenView.SetWorldScreenEnabled(false)`；订阅 **`OnNavigateToBottomNav(string navKey)`** → `Hide()` 并恢复 HUD 与世界层后 `bottomNavBar.SetOpenKey(navKey)`（`GongHui` / `JiaYuan` / `ZhuXian`，见 §9.14.10）。**自 v3.138 起**，创角界面 `ScreenCloseButton`（72×72「×」，与 §9.14.9 关闭按钮范式一致；**自 v3.199 起锚定左上角**，`anchor/pivot = (0,1)`，`anchoredPosition ≈ (20, -20)`）点击触发 `OnCloseRequested` → 隐藏创角界面并 `AppScreenView.Show()` 回退 APP 首页（HUD/世界层保持隐藏）。**自 v3.191 起**：当 `ZhuanQianPopup` 可见时，`ScreenCloseButton` **不**离开创角回 APP，改为关闭 `ZhuanQianPopup` 并 `OpenHomeTabPanel()`（底栏保持「家园」页签高亮）。**自 v3.122 起**（**v3.158** 扩展至公会 Tab），玩家已在家园或公会 Tab 时还可通过 §9.8.15 `TopDingBar` 点击再次打开创角界面（复用上述隐藏/恢复流程，不新增独立导航栈）。
 
 ```mermaid
 flowchart TD
@@ -2837,6 +2937,9 @@ flowchart TD
 - `PetDemo.UI.EnterHomeNavCellView`（**自 v3.141**：进入家园页签跳转长框行 — 图标/名称 + 右侧「跳转」按钮；`AutoWire` / `Bind`）。
 - `PetDemo.EditorTools.CharacterCreationScreenPrefabGenerator`（`Tools/PetDemo/Generate Character Creation Screen Prefab`）。
 - `PetDemo.UI.DressUpPanelView` / `PetDemo.UI.DressUpPanelLayout`（装扮界面：上下分栏 + 商店 4 页签；`GetOrCreate` / `Bind` / `Show` / `Hide`，见 §9.14.9）。
+- `PetDemo.UI.HomeTabPanelView` / `PetDemo.UI.HomeTabPanelLayout`（家园页签面板：角色 Spine + 等级经验 + 信息子页签 + **v3.187 气泡文字**；`GetOrCreate` / `Bind` / `Show` / `Hide`，见 §9.14.11）。
+- `PetDemo.Core.HomeTabBubbleConfig` / `PetDemo.Core.HomeTabBubbleCatalog`（**自 v3.187**：家园气泡 CSV；`Load` / `GetEligible` / `ClearCache` / `BuildDefault`，见 §B.20）。
+- `PetDemo.EditorTools.HomeTabPanelPrefabGenerator`（**自 v3.186**：`Tools/PetDemo/Generate Home Tab Panel Prefab`）。
 - `PetDemo.UI.DressUpActionSpinePresenter`（**自 v3.153**：装扮 Tab2 动作页 Spine 预览；LangRen/LangMeiRen 骨骼构建、`standby_1` 待机、`dz_001` `work_2` 协程序列，见 §9.14.9）。
 - `PetDemo.Core.DressUpItemCatalog` / `PetDemo.Core.DressUpItemConfig`（**自 v3.145**：装扮商店道具配置表加载与排序；CSV `Resources/Configs/DressUpItems.csv`；`Load` / `GetItemsByTab`，见 §9.14.9）。
 - `PetDemo.UI.DressUpItemCellView`（**自 v3.160**：装扮商店道具单元独立预制体；`AutoWire` / `Bind(DressUpItemConfig, Action)` / `SetSelected`；选中叠加层 `SelectionOverlay`，见 §9.14.9）。
@@ -2869,6 +2972,8 @@ flowchart TD
    | `online` | 是否在线 | `true`→`friends_ing_1` + `OnlineText`「在线」；`false`→`friends_ing_2` +「离线」 |
    | `avatarFrame` | 头像框 | Resources 路径，留空=无框，如 `AirUI/friends_Avatar_frame_1` |
    | `spinePrefab` | 模型 Spine 名称 | Resources 预制体路径，如 `Prefabs/Air/Hero_Role_cunmin` |
+
+   **推荐好友空态（自 v3.203 起）**：当 `CharacterCreationState.friendListMode == RecommendPrompt` 时，隐藏 `TopFriendScrollView` 与全部 `TopFriendCell`，在 `IntimacyTopPanel` 显示 `RecommendFriendPanel`：正文 `BodyText`「你现在还没有好友」（**白色**、`fontSize=42`，无 `TitleText`）、选项 1「去小镇寻找」、选项 2「邀请狼人杀好友」（上下布局）。点击选项 2 → `friendListMode=WerewolfListZero`，恢复 Cell 列表，数据仍读 `TopFriends.csv`，`IntimacyText` 展示层强制「亲密度 0」。点击选项 1 → `friendListMode=TownSearch`，切到 §9.14.10 `EnterHomeButton` 公会嵌入，并调用 `GongHuiScreenView.ApplyTownSearchNpcBootstrap()`：将 `Npcs/Npc_1~3` 随机偏移至主角附近（半径约 150~350，最小间距 80），`NamePlate/InteractButton/Label` 文案改为「打招呼」（一次性，同会话不重复随机）。
 
 2. **好友详情弹窗（自 v3.158 起：Spine + 三按钮）**：点击 `TopFriendCell` 弹出全屏好友详情弹窗（半透明遮罩 + 居中内容，点击遮罩关闭；`Show()` 时自动隐藏，与其它创角弹窗互斥）。
    - 中央展示该角色的**模型 Spine**：按配置 `spinePrefabPath` 加载预制体探针取 `SkeletonDataAsset`，经 `SkeletonGraphic.AddSkeletonGraphicComponent` 构建并循环播放待机动作（动画候选链同 §9.14.1），缺资源时回退纯色占位。
@@ -2932,9 +3037,9 @@ flowchart TD
 5. **生命周期**：进入 Tab2 时仍显示静态默认立绘（点击后才切 Spine）；`SelectTab` 切离 Tab2、`Hide()`、`OnDestroy()` 时调用 `Teardown()` 销毁 Spine 并恢复 `Image`。
 6. **布局（自 v3.155 起）**：`PlayerRole/ActionSpine` 与 `FriendRole/ActionSpine` 共用同一套 `RectTransform` 约定——`anchoredPosition = (0, -218)`，`localScale = (0.7, 0.7, 1)`（由 `DressUpActionSpinePresenter` 构建时写入）。
 
-**中文（自 v3.142 起）：** 装扮界面在创角界面中作为 §9.14.10「装扮」页签的**内容型页签**呈现，不再全屏覆盖：**移除右上角 `CloseButton`** 与全屏 `Dim` 的点击关闭逻辑，靠底部页签互斥/再次点击收起；背景图（`ShopBg` 等）采用**底部对齐**。`DressUpPanelView.WireOnce` 对已移除的 `closeButton` / `dimButton` 做空判断。
+**中文（自 v3.142 起；自 v3.192 起不再靠再次点击收起）：** 装扮界面在创角界面中作为 §9.14.10「装扮」页签的**内容型页签**呈现，不再全屏覆盖：**移除右上角 `CloseButton`** 与全屏 `Dim` 的点击关闭逻辑，靠底部页签**互斥切换到其它页签**收起；背景图（`ShopBg` 等）采用**底部对齐**。`DressUpPanelView.WireOnce` 对已移除的 `closeButton` / `dimButton` 做空判断。
 
-**中文（自 v3.144 起，装扮页签分屏）：** 打开「装扮」页签时**隐藏**创角界面 `DisplayArea`（含 Spine 主角 / 加号态 / 缺好感态），`DressUpPanel` 根节点全屏拉伸，`TopHalf` / `BottomHalf` 分别锚定屏幕**上方 40%**（`anchorMin.y = 0.6`）与**下方 60%**（`anchorMax.y = 0.6`，`offsetMin.y = BottomTabBarHeight`）；收起装扮页签或切到他页签时**恢复** `DisplayArea` 可见。布局由 `DressUpPanelLayout.ApplyScreenSplitLayout` 在 `CharacterCreationScreenView.OpenDressUpPanel` 中应用。
+**中文（自 v3.144 起，装扮页签分屏）：** 打开「装扮」页签时**隐藏**创角界面 `DisplayArea`（含 Spine 主角 / 加号态 / 缺好感态），`DressUpPanel` 根节点全屏拉伸，`TopHalf` / `BottomHalf` 分别锚定屏幕**上方 40%**（`anchorMin.y = 0.6`）与**下方 60%**（`anchorMax.y = 0.6`，`offsetMin.y = BottomTabBarHeight`）；切到他页签时**恢复** `DisplayArea` 可见。布局由 `DressUpPanelLayout.ApplyScreenSplitLayout` 在 `CharacterCreationScreenView.OpenDressUpPanel` 中应用。
 
 ```mermaid
 flowchart TD
@@ -2951,7 +3056,7 @@ flowchart TD
     G -->|Tab0/1/2| Sel["ItemCell SelectionOverlay common_bg_2"]
     E -->|Tab0 默认| DefSel["自动选中第一个道具+预览 icon"]
     G -->|Tab3| G2["介绍界面(后续补充) 当前仅日志"]
-    B -->|再次点击装扮或切页签| F[收起并恢复 DisplayArea]
+    B -->|切到其它页签| F[收起并恢复 DisplayArea]
 ```
 
 #### 9.14.10 底部页签栏 / Bottom Tab Bar (v3.139)
@@ -2960,25 +3065,26 @@ flowchart TD
 
 | 索引 | 节点名 | 图标（Closed / Open） | 点击行为 |
 |------|--------|----------------------|----------|
-| 0 | `IntimacyTab` | `AirUI/bottom_bar_a_1` / `bottom_bar_a_2` | 切换显示 `IntimacyTopPanel` 全量好友列表（见 §9.14.8 第 1 点）于**内容区**；再次点击或切到他页签则收起 |
-| 1 | `DressUpButton` | `AirUI/bottom_bar_b_1` / `bottom_bar_b_2` | 切换显示装扮界面 `DressUpPanel`（§9.14.9）**分屏占满上40%+下60%**并隐藏 `DisplayArea`（见 §9.14.9 v3.144）；再次点击或切到他页签则收起并恢复 `DisplayArea` |
-| 2 | `HomeTabButton` | `AirUI/bottom_bar_c_1` / `bottom_bar_c_2` | **占位**（v3.184）：切换显示 `HomeTabPlaceholderPanel` 空面板于**内容区**；再次点击或切到他页签则收起 |
-| 3 | `EnterHomeButton` | `AirUI/bottom_bar_e_1` / `bottom_bar_e_2` | **自 v3.184 起**：在创角界面内**嵌入** `GongHuiScreenView`（等价主 HUD `BottomNavSlot_GongHui`），全屏区域止于 `BottomTabBar` 之上并**隐藏 `DisplayArea`**；**不**调用 `OnNavigateToBottomNav` / `RestoreFromOverlay`；**底栏仍用创角 `BottomTabBar`**，不显示 `MainHudLayerRoot` 的 `BottomNavBar`；再次点击或切到他页签则收起 |
-| 4 | `RoleAddFavorButton` | `AirUI/bottom_bar_d_1` / `bottom_bar_d_2` | 切换显示 `AirUI/ZhuanQian` 赚钱介绍图（见 §9.14.8 第 4 点）于**内容区**；再次点击或切到他页签则收起 |
+| 0 | `IntimacyTab` | `AirUI/bottom_bar_a_1` / `bottom_bar_a_2` | 切换显示 `IntimacyTopPanel` 全量好友列表（见 §9.14.8 第 1 点）于**内容区**；**已 IconOpen 时再点无变化**（v3.192）；切到他页签则切换 |
+| 1 | `DressUpButton` | `AirUI/bottom_bar_b_1` / `bottom_bar_b_2` | 切换显示装扮界面 `DressUpPanel`（§9.14.9）**分屏占满上40%+下60%**并隐藏 `DisplayArea`（见 §9.14.9 v3.144）；**已 IconOpen 时再点无变化**（v3.192）；切到他页签则收起并恢复 `DisplayArea` |
+| 2 | `HomeTabButton` | `AirUI/bottom_bar_c_1` / `bottom_bar_c_2` | **自 v3.186 起**：切换显示 `HomeTabPanel`（§9.14.11）并**隐藏 `DisplayArea`**；**已 IconOpen 时再点无变化**（v3.192，含 ZhuanQian 展示期间）；切到他页签则切换 |
+| 3 | `EnterHomeButton` | `AirUI/bottom_bar_e_1` / `bottom_bar_e_2` | **自 v3.207 起**：点击后 `Hide()` 创角 → `OnEnterHomeHudRequested(false)` → 装配层进入 §9.8 **EnterHomeHud**（`MainHudLayerRoot` 可见、HUD `BottomTabBar` + `GongHuiScreen`，隐藏 `BottomNavBar`）；**不再**在创角内 `EnterCharacterCreationEmbed` / `ShowGongHuiEmbeddedPanel`。**自 v3.184～v3.206**：曾在创角内嵌公会（已废弃主路径）。创角覆盖层内其它页签逻辑不变；「去小镇寻找」走 `OnEnterHomeHudRequested(true)` 后 `ApplyTownSearchNpcBootstrap` |
+| 4 | `RoleAddFavorButton` | `AirUI/bottom_bar_d_1` / `bottom_bar_d_2` | **自 v3.194 起**：打开训练面板 `TrainingPanel`（§9.14.12），全屏内容区止于 `BottomTabBar` 之上并**隐藏 `DisplayArea`**；`SetActiveTab(TabIndexFavor)`（本钮 IconOpen）；**已 IconOpen 时再点无变化**（v3.192）。**不再**由本钮打开 `ZhuanQianPopup`。加好感/`ZhuanQianPopup` 仅由家园「每日任务」经 `OpenAddFavorTab()` 打开（底栏仍高亮家园，见下第 5 点 / §9.14.11） |
 
-**中文（自 v3.146 起）：** 每次 `CharacterCreationScreenView.Show()`（选档后首次进入、TopDingBar / APP 热区 / 狼宝等任意路径再次打开）**默认激活「亲密度」页签**（索引 0）：`SetActiveTab(0)` 并 `ShowIntimacyPanel()`，不再以无激活页签（`activeTabIndex = -1`）作为初始态。  
-**English (since v3.146):** Every `CharacterCreationScreenView.Show()` defaults to the **亲密度 / Intimacy** tab (index 0) via `SetActiveTab(0)` + `ShowIntimacyPanel()`, instead of starting with no active tab.
+**中文（自 v3.146 起，v3.189 调整默认页签）：** 每次 `CharacterCreationScreenView.Show()`（选档后首次进入、TopDingBar / APP 热区 / 狼宝等任意路径再次打开）**默认激活「家园」页签**（索引 2，`HomeTabButton`）：`SetActiveTab(TabIndexHome)` 并 `OpenHomeTabPanel()`，不再以无激活页签（`activeTabIndex = -1`）作为初始态。加号态（未创角）时黑底仍覆盖全部 UI（含 `HomeTabPanel`），创角完成后或已创角再次进入时直接展示 `HomeTabPanel`。  
+**English (since v3.146, default tab changed in v3.189):** Every `CharacterCreationScreenView.Show()` defaults to the **家园 / Home** tab (index 2, `HomeTabButton`) via `SetActiveTab(TabIndexHome)` + `OpenHomeTabPanel()`. In plus-state (no character yet) the black backdrop still covers all UI including `HomeTabPanel`; after creation or on re-entry with an existing character, `HomeTabPanel` is shown directly.
 
-**中文（自 v3.142 起，非全屏内容区改造）：** 5 个页签**统一为内容型页签**：同一时刻至多一个页签处于激活高亮态，点击切换在**内容区**展示各自内容，再次点击当前页签或切到他页签则收起/切换。关键约束：
+**中文（自 v3.142 起，非全屏内容区改造；自 v3.192 再点无变）：** 5 个页签**统一为内容型页签**：同一时刻至多一个页签处于激活高亮态（`IconOpen`）；点击**其它**页签在内容区切换。**自 v3.192 起**：已处于 `IconOpen` 的页签再次点击**不改变**状态与内容（无 `SetActiveTab(-1)` / 无收起当前面板）；仅切到其它页签才切换。关键约束：
 
-1. **非全屏内容区**：亲密度 / 家园占位 / 加好感 3 个页签内容显示在屏幕**下方 60%** 的内容区（`anchorMax.y = 0.6`，底边位于 `BottomTabBar` 之上 `offsetMin.y = BottomTabBarHeight`）；屏幕**上方 40% 持续显示 `DisplayArea`**。**装扮页签与进入家园（公会嵌入）为例外**（§9.14.9 v3.144 / v3.184）：打开时隐藏 `DisplayArea`；装扮 `DressUpPanel.TopHalf` / `BottomHalf` 分别占屏上 40% 与屏下 60%；公会嵌入 `GongHuiEmbedMount` 全屏拉伸且 `offsetMin.y = BottomTabBarHeight`。
+1. **非全屏内容区**：亲密度页签内容显示在屏幕**下方 60%** 的内容区（`anchorMax.y = 0.6`，底边位于 `BottomTabBar` 之上 `offsetMin.y = BottomTabBarHeight`）；屏幕**上方 40% 持续显示 `DisplayArea`**。**装扮 / 家园 / 训练为例外**（§9.14.9 v3.144 / §9.14.11 v3.186 / §9.14.12 v3.194）：打开时隐藏 `DisplayArea`；装扮 `DressUpPanel.TopHalf` / `BottomHalf` 分别占屏上 40% 与屏下 60%；家园 `HomeTabPanel`、训练 `TrainingPanel` 全屏拉伸且 `offsetMin.y = BottomTabBarHeight`。**进入家园（v3.207）**离开创角进入 EnterHomeHud，不再在创角内嵌公会。
 2. **底栏常驻**：无论切换到哪个页签，`BottomTabBar` 始终显示且不被内容区覆盖（内容区与底栏不重叠）。
 3. **背景图底部对齐**：各页签内容的背景图统一采用**底部对齐**模式（水平拉伸、`pivot.y=0`、贴内容区底边、`preserveAspect`）。
-4. **无关闭按钮**：删除「装扮」`DressUpPanel` 与「加好感」`ZhuanQian` 原右上角 `CloseButton`；二者由全屏覆盖层改为**嵌入内容区**的内容型页签，靠页签互斥/再次点击收起，不再依赖独立关闭按钮（`DressUpPanel` 亦不再使用全屏 `Dim` 关闭）。
+4. **无关闭按钮**：删除「装扮」`DressUpPanel` 与「加好感」`ZhuanQian` 原右上角 `CloseButton`；二者由全屏覆盖层改为**嵌入内容区**的内容型页签，靠页签互斥切换收起，不再依赖独立关闭按钮（`DressUpPanel` 亦不再使用全屏 `Dim` 关闭）。训练面板同理靠页签互斥收起。
+5. **ZhuanQian 与底栏 / ScreenClose（自 v3.191；v3.192 修订收起路径；v3.194 与训练底栏解耦）**：`OpenAddFavorTab()` **仅**由家园「每日任务」调用，打开 `ZhuanQianPopup` 时：隐藏含 `HomeTabPanel` / `TrainingPanel` 在内的其它内容面板，但 **`SetActiveTab(TabIndexHome)`**（家园 IconOpen、训练页签 IconClosed）。收起路径：点 `ScreenCloseButton`（创角根）→ `HideZhuanQianPopup()` + `OpenHomeTabPanel()`；或切到其它底栏页签。**不再**由 `RoleAddFavorButton` 开/关 ZhuanQian。`ScreenCloseButton` 在 ZhuanQian 可见时**不**触发离开创角回 APP（见 §9.14.6）。
 
 **中文（自 v3.159 起，页签双态图标；v3.185 全页签图片化）：** 每个页签按钮（`IntimacyTab` / `DressUpButton` / `HomeTabButton` / `EnterHomeButton` / `RoleAddFavorButton`）含 **`IconOpen`** / **`IconClosed`** 两个拉伸填满槽位的 `Image` 子节点（`preserveAspect=true`）；**全部 5 个页签**的 open/closed sprite 由 `CharacterCreationScreenLayout` 在构建与 `RefreshBottomTabBarPresentation` 时按上表加载。**`Label` 子节点已废弃**（v3.185 构建时不再创建；旧 prefab 运行时 `HideTabButtonLabels` 隐藏）。`CharacterCreationScreenView.SetTabHighlight(button, active)` **仅切换 `IconOpen`/`IconClosed` 显隐**（同一时刻至多一个页签 `IconOpen` 可见），**不再修改根 `Image.color`**（开关态背景均不变色）。`EnsureBottomTabButton` 在 `WireOnce` 时启用透明命中区（根 `Image` 可禁用/透明）、`Button.transition = None`，并关闭图标 `raycastTarget` 以免挡点击。子节点缺失时静默跳过，兼容旧 prefab。
 
-**中文（自 v3.184 起，公会嵌入创角）：** `EnterHomeButton` 通过 `GongHuiScreenView.EnterCharacterCreationEmbed(GongHuiEmbedMount, BottomTabBarHeight)` 复用主 HUD 已构建的 `builtGongHuiScreen` 单例；嵌入期间 `OnBottomNavOpenChanged` 忽略主底栏事件；`ExitCharacterCreationEmbed` 在切页签 / `Hide()` / 关闭创角时调用。`AirMainMenuRuntimeBuilder` 在 `builtGongHuiScreen` 创建后调用 `CharacterCreationScreenView.BindEmbeddedGongHui(builtGongHuiScreen)`。
+**中文（自 v3.184；v3.207 修订）：** 创角内嵌公会（`EnterCharacterCreationEmbed` / `BindEmbeddedGongHui` / `ShowGongHuiEmbeddedPanel`）**主路径已废弃**；`EnterHomeButton` 与主底栏 `GongHui` 汇合为 EnterHomeHud（见 §9.8）。API 可保留作兼容，但运行时 EnterHome / 小镇寻找不再调用嵌入。`GongHuiScreenView.SwitchToBottomNav` 在 EnterHomeHud 下直接切主 `BottomNavBar`（恢复显示并 `SetOpenKey`），不再依赖 `characterCreationHost.RequestExitToBottomNav` 的嵌入分支。
 
 **中文（自 v3.141，保留供其它入口）：`EnterHomeTopPanel` 跳转列表** — 结构镜像 `IntimacyTopPanel`（`EnterHomeScrollView` / `Viewport` / `EnterHomeContent` / `EnterHomeNavCellTemplate`），固定 **6 条**（非动态数据）；**不再由 `EnterHomeButton` 触发**，仍供任务列表「前往」等经 `OnNavigateToBottomNav` 跳转：
 
@@ -2996,19 +3102,148 @@ flowchart TD
 flowchart TD
     A["创角界面 三态常驻底栏 上40%常显DisplayArea"] --> T0[亲密度页签]
     A --> T1[装扮页签]
-    A --> T2[家园页签 占位]
+    A --> T2[家园页签 HomeTabPanel]
     A --> T3[进入家园页签]
-    A --> T4[加好感页签]
+    A --> T4[训练页签 TrainingPanel]
     T0 -->|"内容区(下60%)"| L[显示好友列表]
     L -->|每行右侧| R0[去找Ta 占位]
     L --> R1[去Ta家 OnVisitFriendHome]
     L --> R2[发消息 占位]
     R1 --> H[FriendHomeScreenView.ShowFor]
     T1 -->|"隐藏DisplayArea 上40%TopHalf+下60%BottomHalf"| D[DressUpPanel 分屏 无关闭按钮]
-    T2 -->|"内容区(下60%)"| HP[HomeTabPlaceholderPanel 占位]
+    T2 -->|"隐藏DisplayArea HomeTabPanel"| HP[角色Spine+等级经验+信息子页签]
     T3 -->|"嵌入 GongHuiEmbedMount 保留BottomTabBar"| GH[GongHuiScreenView 公会场景]
-    T4 -->|"内容区(下60%) 底部对齐"| Z[嵌入 ZhuanQian 无关闭按钮]
+    T4 -->|"隐藏DisplayArea TrainingPanel"| TR[角色+挂机训练+筛选+课程列表]
+    HP -->|"每日任务 DailyTaskButton"| Z[ZhuanQianPopup 挂在家园]
 ```
+
+#### 9.14.11 家园页签面板 / Home Tab Panel (v3.186)
+
+**中文：** 本节定义创角界面 `HomeTabButton`（家园页签）的完整内容面板，以**独立预制体**制作（`Resources/Prefabs/Farm/HomeTabPanel.prefab`），层级与运行时回退共用 `HomeTabPanelLayout.BuildRuntime`；`CharacterCreationScreenView` 在打开家园页签时 `HomeTabPanelView.GetOrCreate` 懒加载并 `Show()`，**隐藏 `DisplayArea`**（与 §9.14.9 装扮页签一致），根节点全屏拉伸且 `offsetMin.y = BottomTabBarHeight`。
+
+**中文（布局自上而下）：**
+
+1. **纯色底层 `SolidBackground`**：全屏 `Image`，`RGBA` 由 Layout 常量定义（与创角背景色系一致）。
+2. **角色展示区 `CharacterZone`**：锚定屏**上 40%**（`anchorMin.y = ContentRegionTopAnchorY = 0.6`）。
+   - **`DecorBackground`**：`AirUI/common_bg_11`，位于 Spine **背后**（先创建 = 下层渲染），`preserveAspect=true`、水平居中。
+   - **`RoleMount`**：Spine 挂点，锚点约在屏从上算 **40%** 处（`anchor.y ≈ 0.6`）；运行时构建 `SkeletonGraphic`，**持续循环待机**（动画名候选链与 §9.14.1 一致：`exclusive_2` → `standby_1` → `animation` → `idle` → 骨骼首条）。
+   - **`SpeechBubble`（自 v3.187）**：角色**左上方固定位置**的气泡文字（见下「气泡文字」）；框体九宫格 `AirUI/DialogBox_1`（`Image.Type.Sliced`，需已配 `spriteBorder`）；子节点 `BubbleText` 展示文案；根节点可点击（`Button`），点击后隐藏当前气泡并推进下一条。
+3. **等级与经验行 `LevelExpRow`**（紧贴角色区下方）：
+   - **`LevelBadge`**：背景 `AirUI/Lv_bg_003`，子节点 `LevelText` **仅显示等级数字**（无 `Lv.` 前缀）。
+   - **`ExpBarRoot`** 四层（低→高渲染顺序）：`Lv_bg_004` 底轨 → `Lv_bg_005` 进度填充（`currentExp / expToNextLevel` 比例，左对齐 `sizeDelta.x` 缩放，范式同 §9.8.12.4 `StaminaBarView`）→ `Lv_bg_006` 装饰框 → 顶层 `ExpText` 显示 `"{currentExp}/{expToNextLevel}"`。
+   - **经验填充宽度（自 v3.209）**：每次 `RefreshLevelExp` 以 `ExpBarRoot.rect.width`（>0 时）作为轨道满宽 `expTrackWidth`，**禁止**在首次读到 0/未布局完成时永久缓存回退值（如 `800`）；仅当轨道宽度暂不可用且尚无有效缓存时才用回退。`ExpFill.sizeDelta.x = expTrackWidth * Clamp01(currentExp / expToNextLevel)`，与体力条 `EnsureFillRect` 一致。`RoleLevelUpPanelView` 共用同一规则。
+4. **信息展示区 `InfoSection`**（填满 `LevelExpRow` 下方至 `BottomTabBar` 之上）：
+   - **`InfoTabBar`**：两个互斥子页签按钮——**「角色6项属性」**（`HexAttrsTab`）与 **「当前」**（`CurrentTab`）。
+   - **`InfoContent`**：
+     - **`HexAttrsPage`**（默认显示，自 **v3.188**）：**不再**使用 `HexRadarChart` / `HexLabels`。改为 `AttrGrid` **两列三行**（共 6 项，从左到右、从上到下：智商→记忆→想象→体魄→魅力→情商）。每项节点 `AttrItem_{0..5}` = **属性图标** `Icon`（`AirUI/SX_1_ZhiShang_B` … `SX_6_QingShang_B`）+ **属性数值** `Value`（`Text`，**不显示**中文属性名）。数值来自局外 `RoleStats` 成长字段：`intelligence/memory/imagination/physique/charm/emotionalIntelligence`（由 §B.21 等级表在创角默认 / 旧档回填时写入）。
+     - **`CurrentPlaceholderPage`**（自 **v3.201**）：含与 `HexAttrsPage` 同结构的 `AttrGrid`（`AttrItem_{0..5}` = `Icon` + `Value`）。`AttrItem_{i}.Value` **直接同步** `HexAttrsPage` 同索引 `AttrItem_{i}.Value` 的展示数值（`RefreshHexAttrs` 写入 HexAttrs 后镜像到 Current 页）；其余占位 UI（如背景图）可保留。
+5. **右上功能按钮 `TopRightActions`（自 v3.190）**：锚定面板根节点**右上角**（`anchor/pivot = (1,1)`，边距约 `24`），**竖排**两枚图标按钮（尺寸约 `120×120`，间距约 `16`，`preserveAspect=true`）：
+   - **`RankingButton`（排行榜）**：图标 `AirUI/ZJM_PaiHangbang_1`；可点击；本期仅 `Button.ColorTint` 按下变色反馈，**不打开任何界面、不切换页签**。
+   - **`DailyTaskButton`（每日任务）**：图标 `AirUI/ZJM_RenWu_1`；点击后触发 `HomeTabPanelView.OnDailyTaskRequested`，由宿主 `CharacterCreationScreenView.OpenAddFavorTab()` 打开既有 `ZhuanQianPopup`（**自 v3.194 起**：与底栏 `RoleAddFavorButton`/训练页签**解耦**，仅此入口打开加好感；打开后底栏仍为家园 IconOpen，见 §9.14.10）。
+6. **关闭按钮 `ScreenCloseButton`（自 v3.193；v3.199 移至左上角）**：锚定面板根节点**左上角**（与 §9.14.6 / §9.14.9 关闭按钮范式一致：`72×72`，`anchor/pivot = (0,1)`，`anchoredPosition ≈ (20, -20)`，「×」文案或等价 Sprite）。点击触发 `HomeTabPanelView.OnCloseRequested` → 宿主 `CharacterCreationScreenView.OnScreenCloseClicked()`（与创角根 `ScreenCloseButton` 同路径）：关闭创角界面并 `AppScreenView.Show()` 回退 §9.15 APP **PageHome**（HUD/世界层保持隐藏）。家园页签可见时 `ZhuanQianPopup` 已隐藏，本按钮**不**承担 ZhuanQian 特例；该特例仍由创角根 `ScreenCloseButton` 处理（§9.14.6 / §9.14.10 v3.191）。
+7. **左上体力 HUD `TopLeftStaminaHud`（自 v3.204）**：锚定面板根节点**左上角**、位于 `ScreenCloseButton` **右侧**（`anchor/pivot = (0,1)`，`anchoredPosition ≈ (108, -20)`）；子节点 `StaminaBarSlot` 尺寸 **`275×116`**（与 §9.8.13 统一仓库体力槽一致）。**自 v3.205 起**，`StaminaBarSlot` 可在 `HomeTabPanel.prefab` 内**预先嵌入** `StaminaBar.prefab` 子实例（编辑器拖入并调 RectTransform）；`Show()` 时 `HomeTabPanelView.EnsureStaminaBar()` 调用 `StaminaBarView.GetOrCreateIn(slot, role, service)`——**若槽内已有 `StaminaBarView` 则复用并 `Bind`/`SubscribeService`，否则** `BuildInto` 实例化 `Resources/Prefabs/Farm/StaminaBar.prefab`（缺失则代码回退）。`HomeTabPanelView` 可选序列化字段 `staminaBar` 直接引用嵌入实例。`Bind` 订阅 `IPlantingService.OnStaminaChanged` 实时刷新。新档初始 `stamina=0`（§5），体力条仅显示背景+刻度+左侧 `TiLi_0` 图标。`siblingIndex` 置于 `ScreenCloseButton` 之上，避免被遮挡。
+8. **增加经验按钮 `AddExpButton`（自 v3.208）**：位于 `TopLeftStaminaHud` 内、`StaminaBarSlot` **右侧**（黑底白字「增加经验」，约 `140×64`，间距约 `16`）。点击后按当前等级 `expToNextLevel` 的 **40%**（`max(1, floor(expToNextLevel * 0.4))`）调用 `IPlantingService.TryAddRoleExp`；若发生升级则排队打开 §9.14.13 `RoleLevelUpPanel`（连升多级时按级依次展示，OK 推进下一级）。
+
+**中文（数据模型）：** `RoleStats` 含 `level`（默认 `1`）、`currentExp`（默认 `0`）、`expToNextLevel`（**自 v3.208** 优先由 §B.23 按当前等级写入单级需求，缺表回退 §B.21）；自 **v3.188** 另增六项成长属性并 `RoleStatsSave` 持久化。`RoleStats.CreateDefault()` / 新会话 / **升级时**调用 `RoleLevelConfigCatalog.ApplyToRole`：按 `level` 写入六属性、`expToNextLevel`、`maxHp`←`baseHp`、`atk`←`baseAtk`、`agility`←`baseAtkSpeed`（`currentHp` 新建时等于 `maxHp`，应用时若 `currentHp > maxHp` 则 clamp）。旧存档六成长属性全 0 时 `ToModel` 回填 `ApplyToRole`。**不在**每次 UI 刷新时重写战斗字段（避免覆盖收获加成）。**自 v3.208**：`TryAddRoleExp` 累加 `currentExp`；当 `currentExp >= expToNextLevel` 且存在下一级配置时 `level++` 并 `ApplyToRole`，**不扣减** `currentExp`（可溢出本级需求；`LevelExpRow` 填充条 `Clamp01`）。
+
+**中文（气泡文字，自 v3.187）：**
+
+1. **配置表**：`Resources/Configs/HomeTabBubbles.csv`（附录 §B.20）；字段：`entryId`（条目ID）、`triggerCondition`（触发条件）、`roleAnim`（角色播放动作）、`animPlayCount`（动作播放次数，`0`=持续循环）、`bubbleText`（气泡文案）。CSV **行序**即展示优先级（先→后）。
+2. **显示条件**：打开 `HomeTabPanel`（`Show()`）时立即求值；收齐当前所有满足 `triggerCondition` 的条目形成队列，展示队列中**第一条**。
+3. **隐藏与推进**：点击气泡区域 → 隐藏当前气泡；若队列仍有后续满足条件的条目 → 展示下一条并切换对应角色动作；否则保持隐藏并恢复待机，直到下次 `Show()` 重新求值。
+4. **多条件冲突**：同时满足多条时严格按 CSV 行序优先→后排队；每次只显示一条。
+5. **触发条件本期取值**：`Always`（打开即满足）。未识别条件视为不满足（`Warning`）。后续可扩展（如等级/任务态等），扩展时先更新本 SPEC 与 §B.20。
+6. **角色动作**：展示某条气泡时，若 `roleAnim` 非空则在 `RoleMount` 的 `SkeletonGraphic` 上播放该动画：`animPlayCount == 0` → `loop=true` 持续循环；`animPlayCount > 0` → 连续播放该次数（每次 `loop=false`），全部播完后回退待机循环。气泡被点击切换/关闭时打断当前动作并切到下条动作或待机。动画名在骨骼中找不到时告警并保持待机。
+7. **气泡位置**：相对 `CharacterZone` **固定**在角色左上方（Layout 常量：`SpeechBubbleAnchoredPos ≈ (-220, 280)`、尺寸约 `420×160`，不以内容漂移）；位置不随文案长短平移。
+8. **气泡框**：`AirUI/DialogBox_1` 九宫格（`Image.Type.Sliced` + `fillCenter=true`）；文案 `fontSize≈30`、黑色、居中、支持换行；字段内禁用英文逗号（用全角 `，`）。
+
+**中文（开局营救，自 v3.206）：**
+
+1. **状态字段**：`CharacterCreationState.openingRescuePending`（新空槽存档初始化 `true`；点击角色营救后 `false` 并落盘；旧档缺字段视为 `false`）。
+2. **触发范围**：仅 `HomeTabPanel` 的 `RoleMount` Spine 预览区（**不**改主 HUD 家园世界 `MainRoleCunminPresenter`）。
+3. **倒地姿态**：`Show()` / `EnsureRoleSpine` 时若 `IsOpeningRescuePending()==true`，在 `SkeletonGraphic` 上 `SetAnimation(0,"death",false)`（可回退 `Dead`），随即 `entry.TrackTime = entry.AnimationEnd`（或 `Animation.Duration`）冻结到**最后一帧**；**不**循环、**不**播放过程动画。
+4. **气泡强制文案**：pending 期间跳过 `HomeTabBubbles.csv` 队列与 `PlayBubbleRoleAnim`；`BubbleText` 固定为「**好饿哦~~~好饿哦~~~**」；气泡仍显示；点击气泡**不**触发营救、**不**推进 CSV 队列（no-op）。
+5. **角色点击**：`RoleMount` 下透明 `RoleClickHitbox`（`Image` alpha=0 + `Button`，`raycastTarget=true`）；仅 pending 时可点；点击后调用 `IPlantingService.CompleteOpeningRescue()`（`stamina=staminaMax` + `OnStaminaChanged` + `openingRescuePending=false` + `TrySaveActiveSlot`），随后播 `work_2` 一次（`loop=false`），结束后循环 `standby_1`（缺 clip 时回退 §9.14.1 待机链）。
+6. **营救后**：`BeginSpeechBubbleQueue()` 恢复正常 CSV 气泡逻辑；`RoleClickHitbox` 不可点。
+
+**English (opening rescue, since v3.206):** New empty-slot saves set `openingRescuePending=true`. While pending, `HomeTabPanel` `RoleMount` shows `death` frozen on its last frame, speech bubble text is forced to 「好饿哦~~~好饿哦~~~」, and tapping the role calls `CompleteOpeningRescue()` (full stamina + clear flag + save) then plays `work_2` once → `standby_1` loop. Bubble tap does not rescue. After rescue, normal bubble CSV queue resumes.
+
+**中文（接口）：**
+
+- `PetDemo.UI.HomeTabPanelView` / `PetDemo.UI.HomeTabPanelLayout`（`GetOrCreate` / `Bind(IPlantingService)` / `Show` / `Hide` / `RefreshAll`；气泡逻辑内嵌于 `Show`/`Hide`/点击回调；自 **v3.190** 另有事件 `OnDailyTaskRequested`；自 **v3.193** 另有事件 `OnCloseRequested` 与根级 `ScreenCloseButton`；自 **v3.206** 另有开局营救：`ApplyDeathLastFrame` / `RoleClickHitbox` / `CompleteOpeningRescue` 联动）。
+- `PetDemo.UI.CharacterCreationScreenView.OpenAddFavorTab()`（自 **v3.190**：公开打开加好感/`ZhuanQianPopup`；**自 v3.194 起仅**供家园「每日任务」使用，底栏 `RoleAddFavorButton` 改开 §9.14.12 训练面板）。
+- `PetDemo.Core.HomeTabBubbleConfig` / `PetDemo.Core.HomeTabBubbleCatalog`（`Load` / `GetEligible` / `ClearCache` / `BuildDefault`）。
+- `PetDemo.EditorTools.HomeTabPanelPrefabGenerator`（`Tools/PetDemo/Generate Home Tab Panel Prefab`）。
+- `PetDemo.EditorTools.StaminaBarPrefabGenerator`（**自 v3.204**：`Tools/PetDemo/Generate Stamina Bar Prefab`）。
+
+**English:** Standalone `HomeTabPanel` prefab for the character-creation **家园** tab: top 40% hero Spine with `common_bg_11` decor over a solid fill; level badge (`Lv_bg_003`) + 4-layer exp bar (`Lv_bg_004`–`006` + text); info area with sub-tabs **角色6项属性** (**v3.188:** 2×3 icon+value grid from growth fields, not hex radar) and **当前** (placeholder). Hides `DisplayArea` while open. `RoleStats` has `level` / `currentExp` / `expToNextLevel` + six growth attrs with save sync; level row from §B.21/§B.23. **Since v3.187:** fixed upper-left speech bubbles in `CharacterZone` driven by `HomeTabBubbles.csv` (nine-slice `DialogBox_1`); show on panel open; tap dismisses and advances queue by CSV order; role anim per entry (`animPlayCount=0` loops). **Since v3.190:** upper-right `TopRightActions` with ranking (`ZJM_PaiHangbang_1`, clickable ColorTint only) and daily-task (`ZJM_RenWu_1` → `OnDailyTaskRequested` → `OpenAddFavorTab` / `ZhuanQianPopup`). **Since v3.193:** root `ScreenCloseButton` fires `OnCloseRequested` → host `OnScreenCloseClicked` → hide character-creation and `AppScreenView.Show()` (PageHome); ZhuanQian special-case remains on the character-creation root close button (**since v3.199:** upper-left anchor). **Since v3.194:** daily-task remains the sole ZhuanQian entry; bottom-tab Favor button opens TrainingPanel instead. **Since v3.204:** upper-left `TopLeftStaminaHud` to the right of `ScreenCloseButton` (`anchoredPosition ≈ (108,-20)`), `StaminaBarSlot` 275×116, `StaminaBarView` bound to `RoleStats.stamina` via `OnStaminaChanged`; new saves start at `stamina=0`. **Since v3.208:** `AddExpButton` to the right of stamina grants 40% of current `expToNextLevel` (min 1) via `TryAddRoleExp` and may open §9.14.13.
+
+#### 9.14.12 训练页签面板 / Training Panel (v3.194)
+
+**中文：** 本节定义创角界面 `RoleAddFavorButton`（训练页签）的完整内容面板，以**独立预制体**制作（`Resources/Prefabs/Farm/TrainingPanel.prefab`），层级与运行时回退共用 `TrainingPanelLayout.BuildRuntime`；`CharacterCreationScreenView` 在点击训练页签时 `TrainingPanelView.GetOrCreate` 懒加载并 `Show()`，**隐藏 `DisplayArea`**，根节点全屏拉伸且 `offsetMin.y = BottomTabBarHeight`。同时仅允许 **1** 门挂机训练。
+
+**中文（布局自上而下三区）：**
+
+1. **上部 `TopSection`（左右布局）**
+   - **左 `RoleMount`**：主角 Spine（挂点/待机候选链与 §9.14.1 / §9.14.11 一致；`localScale=0.75`）。
+   - **右 `ActiveTrainingSlot`**：
+     - **无进行中训练**：文案「请选择1项开始训练」。
+     - **进行中**：课程图标 + 名称 + 倒计时（`mm:ss`，基于墙钟 `endUnixMs`，支持离线重进）。
+     - **倒计时结束**：倒计时位置改为按钮「完成」；点击后结算（见下），并将增益属性图标飞向左部角色位置（复用/扩展 `RewardFlyFx`）。
+2. **中部 `FilterSection`（筛操作区，单行）**
+   - 一行展示 6 项属性图标（左→右）：`AirUI/SX_1_ZhiShang_A`、`SX_2_JiYi_A`、`SX_3_XiangXiang_B`、`SX_4_TiPo_A`、`SX_5_MeiLi_A`、`SX_6_QingShang_A`。
+   - **已加入筛选**：属性图标正常亮度，并在图标**右下角**叠加 `AirUI/common_bg_5`。
+   - **未加入筛选**：属性图标变暗（无角标）。
+   - 点击切换加入/剔除；筛选状态写入存档 `TrainingSession.activeFilterMask`（6bit，bit0=智力…bit5=情商）。
+   - **匹配规则（OR）**：若 mask=0（未选任何）→ 显示全部课程；否则课程 `filterTags` 与选中属性编号有**任一交集**即显示，否则隐藏。
+3. **下部 `CourseSection`（双列课程列表）**
+   - **`CourseScroll`（`ScrollRect`）**：相对 `CourseSection` 中心锚点 `anchorMin/Max=(0.5,0.5)`、`pivot=(0.5,0.5)`；**`PosY=40`**、**`Width=1080`**、**`Height=870`**（`anchoredPosition.y` / `sizeDelta`）；`TrainingPanelLayout` 常量 `CourseScrollPosY` / `CourseScrollWidth` / `CourseScrollHeight`。
+   - 内容网格：每行 **2** 个课程格；数据来自 §B.22 `Configs/Farm/role_training_courses.csv`。
+   - **课程格 `CourseCellTemplate`（自 v3.200）**：左侧课程图标 `Icon`；右侧自上而下 `Name`（课程名）、`Duration`（时长）、`AttrGains`（**属性增益文案**，读取 `attrGains`，格式为中文属性名 + `+` + 数值，多项用全角逗号 `，` 连接，如 `智力+3`、`智力+2，记忆+2，想象+2`；无增益时留空；**不展示** `penalties`）。
+   - **未解锁**：课程图变暗 + 叠加锁图标 `AirUI/common_bg_Suo`（透明度 **0.9**）；点击显示 Tips（文案=`unlockTip`）。
+   - **已解锁**：点击 `StartTraining(courseId)`；若已有进行中会话 → 忽略并 Tips「已有训练进行中」。
+   - 本期解锁判定取配置 `unlockedByDefault`（0/1）；后续可扩条件，须先改 SPEC。
+
+**中文（数据与结算）：**
+
+- 运行时会话 `TrainingSession`：`courseId`（空=无训练）、`endUnixMs`、`activeFilterMask`；挂在 `GameSession` 并经 `GameSaveSnapshot` 持久化。
+- `IPlantingService`：`GetTrainingSession` / `SetTrainingFilterMask` / `TryStartTraining` / `TryCompleteTraining`；完成时对 `RoleStats` 六成长属性应用 `attrGains`（加）与 `penalties`（减，下限 0）；`rewardPool` **本期仅存字段、不结算**；触发 `OnRoleStatsChanged` 并自动存档。
+- Tips：面板内轻量居中 Toast（短时显示后隐藏），非全屏弹窗。
+
+**中文（接口）：**
+
+- `PetDemo.UI.TrainingPanelView` / `TrainingPanelLayout`（`GetOrCreate` / `Bind` / `Show` / `Hide` / `RefreshAll`）。
+- `PetDemo.Core.RoleTrainingCourseConfig` / `RoleTrainingCourseCatalog`。
+- `PetDemo.EditorTools.TrainingPanelPrefabGenerator`（`Tools/PetDemo/Generate Training Panel Prefab`）。
+- `CharacterCreationScreenView.OpenTrainingPanel()`（底栏训练页签）。
+
+**English:** Standalone `TrainingPanel` prefab for the character-creation Favor-tab button (v3.194): top role + active AFK course / idle hint / Complete CTA; mid single-row OR attribute filter with `common_bg_5` badge; bottom 2-column course grid from §B.22 with lock overlay `common_bg_Suo` α=0.9; one concurrent session persisted on save; complete applies gains/penalties and flies gain icons to the role mount.
+
+#### 9.14.13 主角升级全屏面板 / Role Level-Up Panel (v3.208 / v3.210)
+
+**中文：** 当 `TryAddRoleExp`（或其它加经验入口）使经验达到本级升级阈值并实际升到新等级时，弹出全屏展示界面（**独立预制体** `Resources/Prefabs/Farm/RoleLevelUpPanel.prefab`）。本面板**仅展示**升级结果与解锁说明，不实现真实解锁玩法。与 §12.10 `ProtagonistLevelUpDialogView`（战斗后演示窗）**独立**，互不替换。
+
+**中文（布局）：**
+
+1. **根节点**：全屏拉伸半透明遮罩；默认隐藏；`GetOrCreate` 挂在创角根（或 `HomeTabPanel` 同级）之上并 `SetAsLastSibling`。根节点须带独立 `Canvas`（`overrideSorting=true`，`sortingOrder` 高于创角 `HudPopup`）+ `GraphicRaycaster` + `CanvasGroup(interactable/blocksRaycasts=true)`，保证盖过底栏且可点。
+2. **上部 `UpperSection`**：
+   - 文案 **`Level UP!`**（`fontSize=60`，内置字体）。
+   - 升级后的**等级数字**（`fontSize=100`）。
+   - **`LevelExpRow`**：与 §9.14.11 家园页**完全相同**的结构与资源（`Lv_bg_003` + `Lv_bg_004`–`006` + `ExpText`）；由 `HomeTabPanelLayout.BuildLevelExpRow` 共享构建；展示升级后的 `level` / `currentExp` / `expToNextLevel`。
+3. **下部 `UnlockSection`**：读取 §B.24 中 `requiredLevel == 本次展示等级` 的解锁项，**每一项一行**（功能图片 + 功能标题 + 功能描述），多项向下排列；无配置时下部可为空。**不用** `ScrollRect`/`Mask`（避免裁切与挡点击）。
+4. **底部 `OkButton`（自 v3.210）**：挂在**面板根节点**最上层（不在 `Content` 内）；黑底白字 **`OK`**；`sizeDelta≈320×96`，底边位于 `BottomTabBar` 之上。点击关闭当前展示；若队列中仍有连升的下一级，则展示下一级，否则 `Hide`。
+   - **点击命中（强制）**：`Button.targetGraphic` 必须是**不透明矩形**（无 Sprite，或子节点 `HitArea` 的纯色 `Image`，`raycastTarget=true`）。装饰图若有透明像素，只能挂在子节点且 `raycastTarget=false`，**禁止**用带透明区的 Sprite 作为 `targetGraphic`（否则点击穿透到 `DimOverlay`，表现为 OK 无效）。
+   - 打开时 `RoleLevelUpPanelLayout.EnsureClickableLayout` 校正旧 prefab（迁 OK 到根、补 HitArea、销毁旧 `UnlockScroll`），`RoleLevelUpPanelView` 每次展示重新 `WireOkButton`。
+
+**中文（连升排队）：** 一次加经验可连升多级；`RoleLevelUpPanelView` 按升到的等级**从低到高排队**，每次只展示一级；点 OK 推进。
+
+**中文（接口）：**
+
+- `PetDemo.UI.RoleLevelUpPanelView` / `RoleLevelUpPanelLayout`（`GetOrCreate` / `EnqueueLevels` / `Show` / `Hide`；事件 `OnClosed`）。
+- `PetDemo.EditorTools.RoleLevelUpPanelPrefabGenerator`（`Tools/PetDemo/Generate Role Level Up Panel Prefab`）。
+- `IPlantingService.TryAddRoleExp(int amount, out List<int> leveledToLevels)`（§6）：`amount<=0` → false；否则 `currentExp += amount`；`while (currentExp >= expToNextLevel && 存在 level+1 配置) { level++; ApplyToRole; 记录 leveledToLevels }`；触发 `OnRoleStatsChanged` 并落盘；**不扣减** `currentExp`。
+
+**English:** Fullscreen level-up showcase: nested Canvas above HudPopup; unlock list without ScrollRect; OK on root with opaque HitArea (no transparent sprite as targetGraphic) so clicks dismiss / advance the multi-level queue.
 
 ---
 
@@ -3147,6 +3382,29 @@ function executeUnifiedAction():
 
 | 版本 / Ver | 日期 / Date | 说明 / Notes |
 |------------|-------------|--------------|
+| 3.210 | 2026-07-10 | **RoleLevelUpPanel OK 点击修复**：§9.14.13——`OkButton` 禁止用带透明像素的 Sprite 作 `targetGraphic`（穿透到 `DimOverlay` 导致点了无响应）；根级 OK + 不透明 `HitArea`；打开时 `EnsureClickableLayout` / 重新 `WireOkButton`。 / **RoleLevelUp OK click fix:** opaque HitArea as Button targetGraphic; no transparent sprite hit-test fallthrough. |
+| 3.209 | 2026-07-10 | **经验条填充宽度修正**：§9.14.11 / §9.14.13——`ExpFill` 轨道满宽每次刷新以 `ExpBarRoot.rect.width`（>0）为准，禁止布局未完成时永久缓存回退 `800` 导致进度条超出轨道；`HomeTabPanelView` / `RoleLevelUpPanelView` 对齐 `StaminaBarView.EnsureFillRect`。 / **Exp bar fill width fix:** re-read `ExpBarRoot.rect.width` each refresh; do not permanently cache fallback 800 before layout. |
+| 3.208 | 2026-07-10 | **主角升级全屏展示**：§5/§6 加经验与升级（`TryAddRoleExp`，升级不扣 `currentExp`）；§9.14.11 体力条右侧「增加经验」按钮（本级单级需求×40%，最小 1）；新 §9.14.13 `RoleLevelUpPanel`（Level UP! / 等级 / LevelExpRow / 解锁列表 / OK）；§B.23 `role_exp.csv`、§B.24 `role_level_unlocks.csv`；`ApplyToRole` 的 `expToNextLevel` 优先读 §B.23；需生成 `RoleLevelUpPanel.prefab` 并重生成 `HomeTabPanel.prefab`。 / **Role level-up fullscreen:** add-exp + level-up panel; HomeTab debug grant; exp/unlock CSVs; regen prefabs. |
+| 3.207 | 2026-07-10 | **EnterHomeHud 底栏**：§9.8 / §9.14.10——`GongHui` / 创角 `EnterHomeButton` 汇合为 EnterHomeHud：`MainHudLayerRoot` 可见时隐藏 `BottomNavBar`、显示同款 HUD `BottomTabBar`（`HudEnterHomeTabBarView`，EnterHome IconOpen）+ `GongHuiScreen`（底 inset=`BottomTabBarHeight`）；废弃创角内嵌公会主路径；其它 BottomNav key 与创角其它页签不变。 / **EnterHomeHud bar:** GongHui/EnterHome → HUD BottomTabBar + GongHui; no CC embed; other tabs unchanged. |
+| 3.206 | 2026-07-09 | **开局营救（HomeTabPanel）**：§9.14.11 新档 `openingRescuePending` 时 `RoleMount` 冻结 `death` 末帧、气泡强制「好饿哦~~~好饿哦~~~」、点击角色 `CompleteOpeningRescue` 体力满 + `work_2`×1 → `standby_1` loop；`CharacterCreationState/Save.openingRescuePending` 持久化；`IPlantingService.IsOpeningRescuePending` / `CompleteOpeningRescue`。 / **Opening rescue (HomeTabPanel):** new-save death last frame + hungry bubble; tap role → full stamina + work_2 → standby_1; persisted flag + service API. |
+| 3.205 | 2026-07-09 | **家园体力条预制体嵌入复用**：§9.14.11 `StaminaBarView.GetOrCreateIn`——`StaminaBarSlot` 内已嵌入 `StaminaBar.prefab` 时复用，否则 `BuildInto`；`HomeTabPanelView.staminaBar` 可序列化引用。 / **Home stamina bar prefab embed:** `GetOrCreateIn` reuses embedded instance in slot. |
+| 3.204 | 2026-07-09 | **家园页签左上体力条**：§9.14.11 新增 `TopLeftStaminaHud`（关闭钮右侧 `anchoredPosition≈(108,-20)`，`StaminaBarSlot` 275×116）；§9.8.12.4 `StaminaBarView` 扩展四层 `TiLi_0/1/2/3`（`IconLayer`+`BarTrack`）+ `StaminaBarPrefabGenerator`；新档 `stamina=0`；需重生成 `StaminaBar.prefab` / `HomeTabPanel.prefab`。 / **Home-tab stamina HUD:** §9.14.11 `TopLeftStaminaHud`; §9.8.12.4 four-layer `StaminaBarView` + prefab generator; regen prefabs. |
+| 3.203 | 2026-07-09 | **空存档好友引导**：§9.14.1 AddButton 仍由 `created==false` 驱动；点击创角后 `friendListMode=RecommendPrompt` 并切**家园**页签；亲密度页展示「推荐好友」双选项；选项 2 显示 TopFriends 列表且 `IntimacyText` 强制「亲密度 0」；选项 1 切 EnterHome 公会嵌入并将 `Npc_1~3` 随机移至主角附近、互动钮「打招呼」；`FriendListMode` + `CharacterCreationSave.friendListMode` 持久化。 / **Empty-save friend onboarding:** recommend-friend prompt on intimacy tab after AddButton create; home tab on create; werewolf invite shows cells at intimacy 0; town search embeds guild with nearby NPCs and greet label. |
+| 3.202 | 2026-07-09 | **训练课程列表滚动区尺寸**：§9.14.12 `CourseSection/CourseScroll` `PosY=40`、`Height=870`（`Width=1080` 不变）；`TrainingPanelLayout` 常量对齐；需重生成 `TrainingPanel.prefab`。 / **Training course scroll layout:** §9.14.12 `CourseScroll` `PosY=40`, `Height=870`; regen prefab. |
+| 3.201 | 2026-07-09 | **家园「当前」页属性数值同步**：§9.14.11 `CurrentPlaceholderPage` 的 `AttrItem_{0..5}.Value` 与 `HexAttrsPage` 同索引 `Value` 展示一致（`HomeTabPanelView.RefreshHexAttrs` 镜像）；`EnsureAttrGridRefs` 接线 Current 页 AttrGrid。 / **Home Current tab attr sync:** `CurrentPlaceholderPage` AttrItem values mirror `HexAttrsPage` by index. |
+| 3.200 | 2026-07-09 | **训练课程格属性增益展示**：§9.14.12 `CourseCellTemplate` 新增 `AttrGains` 文案节点，展示 `attrGains`（中文属性名+`+`数值，多项 `，` 分隔）；`RoleTrainingCourseCatalog.FormatAttrGainsDisplay`；需重生成 `TrainingPanel.prefab`。 / **Training course cell attr gains:** §9.14.12 `AttrGains` text on course cells; `FormatAttrGainsDisplay`; regen prefab. |
+| 3.199 | 2026-07-09 | **创角/家园关闭钮左上角**：§9.14.6 / §9.14.11 `ScreenCloseButton` 由右上角改为左上角（`anchor/pivot=(0,1)`，`anchoredPosition≈(20,-20)`）；`CharacterCreationScreenLayout` / `HomeTabPanelLayout` 运行时校正旧 prefab；需重生成或 Ensure `CharacterCreationScreen.prefab` / `HomeTabPanel.prefab`。 / **CC/Home ScreenClose top-left:** §9.14.6 / §9.14.11 close button moved to upper-left; layout apply on existing prefabs; regen/Ensure prefabs. |
+| 3.198 | 2026-07-09 | **公会右上玩法按钮**：§9.8.9.14 新增 `TopRightWorkflowLayer` 竖排 `WF_XuanShang`/`WF_ZuDui`/`WF_JJC`/`WF_ZhuangYuan`；前三项复用 `NavigateByKey`（主线/好友列表/家园世界）；`WF_JJC` 显示「敬请期待」TipsToast；`GongHuiScreenLayout` + `GongHuiScreenView`/`GongHuiScreenPrefabGenerator`；需重生成 `GongHuiScreenPanel.prefab`。 / **Guild top-right workflow buttons:** §9.8.9.14 four-icon stack; main story / friend list / coming-soon toast / home world; regen prefab. |
+| 3.197 | 2026-07-09 | **公会响应区静止跳转**：§9.8.9.11 进入半径后需停止摇杆输入 2s 才触发 `Entered`；倒计时期间 NamePlate `NameText` 显示「正在前往....」；移动/离开清零；`GuildProximityController` 注入 `joystick`。 / **Guild response-area idle nav:** 2s stationary before `Entered`; countdown text on NamePlate; joystick-aware timer reset. |
+| 3.196 | 2026-07-09 | **公会建筑跳转修订**：§9.8.9.13 `Building_1`→`MainStoryLine`（主线层）、`Building_2`→`FriendListPanel`、`Building_3`→`JiaYuan`（家园世界层）；移除建筑跳转 `LevelSelect`/`TeamAdventure`；`BindFriendListPanel`。 / **Guild building nav revision:** main story / friend list / home world. |
+| 3.195 | 2026-07-09 | **公会场景跳转**：§9.8.9.11 响应区 `navTargetKey` 对接创角底栏（`DressUpButton`/`RoleAddFavorButton`/`HomeTabButton`）；新增 §9.8.9.13 建筑 `ActionButton` 跳转（`Building_1`→`LevelSelect`、`Building_2`→`TeamAdventure`）；`GuildBuildingMarker.navTargetKey` + `GongHuiScreenView.NavigateByKey` + `CharacterCreationScreenView.NavigateFromGuild`/`RequestExitToBottomNav`。 / **Guild scene navigation:** response areas → character-creation tabs; building buttons → level select / team adventure modal. |
+| 3.194 | 2026-07-08 | **训练页签 TrainingPanel**：§9.14.10 `RoleAddFavorButton` 改为打开独立预制体 `TrainingPanel`（新 §9.14.12：上角色+挂机槽 / 中 OR 属性筛选+`common_bg_5` / 下双列课程+锁 `common_bg_Suo`）；家园每日任务仍开 ZhuanQian；§B.22 `role_training_courses.csv` + Catalog；`TrainingSession` 存档与 Service 开始/完成结算（惩罚下限 0，rewardPool 仅字段）；完成增益图标飞向角色。 / **Training tab:** Favor button opens `TrainingPanel`; daily task keeps ZhuanQian; course CSV + session save + complete fly FX. |
+| 3.193 | 2026-07-08 | **家园页签关闭回 APP PageHome**：§9.14.11 新增根级 `ScreenCloseButton`——点击 `HomeTabPanelView.OnCloseRequested` → 宿主 `OnScreenCloseClicked`（与创角根关闭同路径）→ 隐藏创角并 `AppScreenView.Show()` 回 §9.15 PageHome；ZhuanQian 特例仍由创角根关闭钮处理；需重生成 / Ensure `HomeTabPanel.prefab`。 / **Home-tab close → APP PageHome:** §9.14.11 root `ScreenCloseButton` → `OnCloseRequested` → host close path → `AppScreenView.Show()` (PageHome); ZhuanQian special-case unchanged on CC root close; regen/Ensure prefab. |
+| 3.192 | 2026-07-08 | **创角底栏 IconOpen 再点无变**：§9.14.10——已激活（`IconOpen`）的页签再次点击不收起、不改状态；仅切到其它页签才切换。ZhuanQian 展示期间再点家园亦 no-op；收起 ZhuanQian 仍靠 `RoleAddFavorButton`（Closed）或 `ScreenCloseButton`。 / **BottomTabBar no re-toggle:** IconOpen tabs ignore re-clicks; ZhuanQian close still via Favor or ScreenClose. |
+| 3.191 | 2026-07-08 | **ZhuanQianPopup 展示时底栏与关闭**：§9.14.10 / §9.14.6——打开 `ZhuanQianPopup`（底栏加好感或家园每日任务）时 `SetActiveTab(Home)`（`HomeTabButton` IconOpen、`RoleAddFavorButton` IconClosed）；`ScreenCloseButton` 在 ZhuanQian 可见时关闭该层并 `OpenHomeTabPanel()`，不回 APP；再次点加好感/家园页签亦收起回 `HomeTabPanel`。 / **ZhuanQian shown as home overlay:** tab highlight stays on Home; ScreenClose returns to `HomeTabPanel` instead of APP. |
+| 3.190 | 2026-07-08 | **家园页签右上功能按钮**：§9.14.11 新增 `TopRightActions`——竖排「排行榜」`RankingButton`（`AirUI/ZJM_PaiHangbang_1`，可点仅 ColorTint、不打开界面）与「每日任务」`DailyTaskButton`（`AirUI/ZJM_RenWu_1` → `OnDailyTaskRequested` → `CharacterCreationScreenView.OpenAddFavorTab()` 打开既有 `ZhuanQianPopup`）；需重生成 `HomeTabPanel.prefab`。 / **Home-tab top-right actions:** §9.14.11 adds `TopRightActions` — ranking (`ZJM_PaiHangbang_1`, ColorTint only) and daily task (`ZJM_RenWu_1` → `OpenAddFavorTab` / `ZhuanQianPopup`); regen prefab. |
+| 3.189 | 2026-07-08 | **创角界面默认家园页签**：§9.14.10 `Show()` 默认 `SetActiveTab(TabIndexHome)` + `OpenHomeTabPanel()`，创建新角色或从其它界面进入创角界面时默认打开 `HomeTabButton`（取代 v3.146 的亲密度默认）。 / **Character-creation default home tab:** §9.14.10 `Show()` now activates tab 2 (`HomeTabButton`) and opens `HomeTabPanel` on every open, replacing the v3.146 intimacy default. |
+| 3.188 | 2026-07-08 | **家园 HexAttrsPage 六成长属性 + 角色等级表**：§9.14.11 `HexAttrsPage` 移除 `HexRadarChart`/`HexLabels`，改为双列三行图标+数值（`SX_1`…`SX_6`，无中文名）；§5 `RoleStats` 增 `intelligence/memory/imagination/physique/charm/emotionalIntelligence` 并持久化；新增 §B.21 `Configs/Farm/role_levels.csv` + `RoleLevelConfigCatalog`（含 `ApplyToRole`：写六属性、`expToNextLevel`、`maxHp`/`atk`/`agility`）；新档与旧档六属性全 0 时回填；战斗六宫与 `DetailAttributeModal` 不变；需重生成 `HomeTabPanel.prefab`。 / **Home HexAttrsPage growth attrs + role level table:** replace radar with 2×3 icon+value grid; six growth fields on `RoleStats`+save; §B.21 `role_levels.csv` + catalog apply on create/legacy load; battle hex unchanged; regen prefab. |
 | 3.182 | 2026-07-07 | **公会地图响应区域**：§9.8.9.11 新增 `ResponseAreas/` + `GuildResponseAreaMarker`；靠近显示 NamePlate、走进半径沿边自动触发占位跳转（`navTargetKey` 预留）；扩展 `GuildProximityController`。 / **Guild map response areas:** §9.8.9.11 `ResponseAreas/` + `GuildResponseAreaMarker`; proximity nameplate + edge-triggered enter placeholder; extends `GuildProximityController`. |
 | 3.181 | 2026-07-06 | **嵌入 BOSS 战胜利后返回关卡选择**：§12.11.10——`battle_boss` 嵌入战斗胜利、`EmbeddedResultOverlay/ResultDialog` 点「点击关闭」后：`Hide()` 关闭 `InvasionBattleModal_2` 并打开 §9.8.8.6 `LevelSelectScreenPanel`；`battle_small` 小怪胜利仍恢复常态「下一天」。`MainStoryLineScreenView.ShowLevelSelectPanel()` 懒加载关卡选择层。 / **Embedded BOSS victory returns to level select:** §12.11.10 — after `battle_boss` win and closing the embedded `ResultDialog`, hide `InvasionBattleModal_2` and show `LevelSelectScreenPanel`; small-battle win unchanged. `MainStoryLineScreenView.ShowLevelSelectPanel()` lazy-opens the panel. |
 | 3.180 | 2026-07-06 | **局外六宫属性初始值**：§5 `RoleStats` 新增 `criticalHit/combo/counterattack/stun/evasion/lifeSteal` 整数默认值（3/6/12/2/4/8）；§12.13 六宫 = 局外基线 + 本局老虎机累加；`RoleStatsSave` 同步。 / **Out-of-run hex defaults:** six int fields on `RoleStats` (3/6/12/2/4/8); §12.13 hex = baseline + slot gains; save updated. |
@@ -3156,6 +3414,8 @@ function executeUnifiedAction():
 | 3.178 | 2026-07-07 | **公会镜头即时跟随（修复 scale 滞后）**：§9.8.9.6——`JiaYuanViewportFollowController` 计算跟随位移时将目标在 `worldContent` 局部偏移乘以 `localScale` 再写入 `anchoredPosition`（修复 `WorldContentLocalScale=1.7` 时镜头跟不上角色）；`GuildPlayerController` 位移后同帧 `SnapToTarget`。 / **Guild instant camera follow (scale fix):** §9.8.9.6 — viewport follow multiplies target local offset by `localScale` before setting `anchoredPosition`; same-frame snap after player move. |
 | 3.177 | 2026-07-06 | **`InvasionBattleModal_2` 详细属性弹窗（`DetailAttributeModal`）**：新增 §12.13——`MiddleArea` 最右侧 `DetailAttrButton`（`AirUI/JiNengLiebiao`）打开独立预制体 `DetailAttributeModal`；全屏纯黑半透明遮罩；上/中/下三区（角色待机、`LiuGong_1` 底 + 与主界面一致 HP/攻击/速度、六宫雷达图）；六宫 6 项局外初始 0、仅累加本局老虎机增益至 `runEnhanceBonuses`；动态比例绘制多边形。修订 §12.12.3 / §B.19 `attrId` 映射（`Life`/`Attack` + 六宫项）。 / **`InvasionBattleModal_2` detail-attribute modal:** new §12.13 — `DetailAttrButton` on `MiddleArea` opens `DetailAttributeModal` prefab; semi-transparent black dim; top/middle/bottom (idle character, `LiuGong_1` + same HP/atk/speed as main, hex radar); hex attrs start at 0 outside run, slot gains in `runEnhanceBonuses`; dynamic-scale polygon. §12.12.3 / §B.19 `attrId` mapping updated. |
 | 3.176 | 2026-07-06 | **嵌入结算 `ResultDialog` 文本排版**：§12.11.10.1——`EmbeddedResultOverlay/ResultDialog` 内 `ResultText` `PosY=175`、`fontSize=64`、`FontStyle=Bold`；`HintText` `PosY=-340`、`fontSize=40`、`FontStyle=Bold`；由 `InvasionBattleView.ApplyEmbeddedResultDialogTextLayout` 于嵌入实例化后运行时覆写，§12.3 全屏 prefab 默认不变。 / **Embedded result dialog text layout:** §12.11.10.1 — `ResultText` `PosY=175`, `fontSize=64`, bold; `HintText` `PosY=-340`, `fontSize=40`, bold; applied at runtime via `ApplyEmbeddedResultDialogTextLayout`; §12.3 fullscreen prefab defaults unchanged. |
+| 3.187 | 2026-07-08 | **家园页签角色气泡文字**：§9.14.11 增补 `CharacterZone/SpeechBubble`——九宫格框 `AirUI/DialogBox_1`、文案固定于角色左上方；新增配置表 `Configs/HomeTabBubbles.csv`（§B.20：`entryId/triggerCondition/roleAnim/animPlayCount/bubbleText`，CSV 行序=优先级）；打开 `HomeTabPanel` 即求值并展示首条满足条件条目，点击气泡隐藏并推进下一条；`animPlayCount=0` 循环动作、`>0` 播完回待机；`HomeTabBubbleCatalog` + Layout/View 接线；需重生成 `HomeTabPanel.prefab`。 / **Home-tab speech bubbles:** §9.14.11 adds fixed upper-left `SpeechBubble` (`DialogBox_1` nine-slice) driven by `HomeTabBubbles.csv` (§B.20); show on open, tap advances queue by CSV order; role anim play-count 0=loop; regen prefab. |
+| 3.186 | 2026-07-08 | **创角家园页签 HomeTabPanel**：新增 §9.14.11——`HomeTabButton` 由 `HomeTabPlaceholderPanel` 占位升级为独立预制体 `HomeTabPanel`（屏上 40% Spine+`common_bg_11`、等级 `Lv_bg_003`、经验条 `Lv_bg_004~006` 四层、信息子页签「角色6项属性」六宫雷达 +「当前」占位）；打开时隐藏 `DisplayArea`；`RoleStats` 增 `level/currentExp/expToNextLevel` 并持久化；`HomeTabPanelView`/`HomeTabPanelLayout`/`HomeTabPanelPrefabGenerator`；移除 `HomeTabPlaceholderPanel`；需重生成 `HomeTabPanel.prefab` 与 `CharacterCreationScreen.prefab`。 / **Character-creation home tab HomeTabPanel:** new §9.14.11 — `HomeTabPanel` prefab replaces placeholder; Spine at top 40%, level/exp bar, hex-radar + current placeholder sub-tabs; hides `DisplayArea`; `RoleStats` level/exp fields + save; regen prefabs. |
 | 3.185 | 2026-07-08 | **创角底栏页签全图标化**：§9.14.10 废弃页签 `Label` 文字；5 个页签均由 `CharacterCreationScreenLayout` 加载 `bottom_bar_*` 双态图标（`a/b/c/d/e` 各 `_1` Closed / `_2` Open）；`RefreshBottomTabBarPresentation` 运行时刷新旧 prefab；需重生成 `CharacterCreationScreen.prefab`。 / **Character-creation tab bar all-icon:** §9.14.10 deprecates tab `Label` text; all 5 tabs load `bottom_bar_*` open/closed sprites via layout; `RefreshBottomTabBarPresentation` patches old prefabs; regen prefab. |
 | 3.184 | 2026-07-08 | **创角底栏五页签 + 公会内嵌**：§9.14.10 底栏由 4 等宽扩为 **5 等宽**（`TabSlotWidth = 屏宽/5`）；`DressUpButton` 与 `EnterHomeButton` 之间新增 `HomeTabButton`（家园，图标 `AirUI/bottom_bar_c_1`/`bottom_bar_c_2`，本期占位 `HomeTabPlaceholderPanel`）；`EnterHomeButton` 改为在创角界面内嵌入 `GongHuiScreenView`（`EnterCharacterCreationEmbed`/`ExitCharacterCreationEmbed`），保留创角 `BottomTabBar`、不走 `OnNavigateToBottomNav`；`EnterHomeTopPanel` 保留供任务列表等其它入口；`AirMainMenuRuntimeBuilder.BindEmbeddedGongHui`；需重生成 `CharacterCreationScreen.prefab`。 / **Character-creation 5-tab bar + embedded guild:** §9.14.10 expands to **5 equal tabs**; new `HomeTabButton` (家园, `bottom_bar_c_1/2`, placeholder panel) between dress-up and enter-home; `EnterHomeButton` embeds `GongHuiScreenView` inside character creation while keeping `BottomTabBar`; `EnterHomeTopPanel` kept for other nav flows; regen prefab. |
 | 3.176 | 2026-07-07 | **公会背景切块扩为 3×3**：§9.8.9 背景拼图由 2×2（`2086×3000`）扩为 **3×3**（单块 `1043×1500` → 世界 **`3129×4500`**）；资源命名仍为 `Resources/AirUI/GongHui_0_1_r{row}_c{col}`（`row/col` 均 `0..2`），`GongHuiBackgroundBuilder` 自动扫描矩形网格，`GongHuiScreenView.Awake` 重拼切块并更新 `GongHuiWorldContent.sizeDelta`。 / **Guild background expanded to 3×3 tiles:** §9.8.9 tiled art grows from 2×2 (`2086×3000`) to **3×3** (`1043×1500` per tile → **`3129×4500`** world); same `GongHui_0_1_r{row}_c{col}` naming (`row/col` `0..2`); `GongHuiBackgroundBuilder` auto-scans the rectangular grid; `GongHuiScreenView.Awake` rebuilds tiles and updates world size. |
@@ -4958,6 +5218,217 @@ Seed:fanqie:2;Fertilizer:demo:1;SeedPack:Common:1
 
 **中文：** `AttrEnhanceConfigCatalog.LoadFromCsv()` → `List<AttrEnhanceConfig>`（`CsvTable` 解析，`IndexOfHeader` 按列名取索引，缺必需列或整表非法 → `BuildDefault()`（等价上表），非法行 `Warning` 跳过，缺失的 `value{n}` 补 0）。随机由 `PickDistinct(all, count)` 提供：从全部项中**随机不重复**取 `count` 项（`count` 大于池大小时返回洗牌后的全部）。产出由 `GetGain(count)` 提供。图标展示由 `SlotMachineModalView.LoadAttrEnhanceIcon(icon)`：`Resources.Load<Sprite>(icon)` → 失败且 `icon` 不含 `/` 时再 `Resources.Load<Sprite>("AirUI/" + icon)`。  
 **English:** `AttrEnhanceConfigCatalog.LoadFromCsv()` → `List<AttrEnhanceConfig>` (`CsvTable` + `IndexOfHeader`; missing required columns or all-invalid → `BuildDefault()`, invalid rows warned/skipped, missing `value{n}` default 0). `PickDistinct(all, count)` random-distinct picks `count`; `GetGain(count)` returns the per-count gain. Icon display via `SlotMachineModalView.LoadAttrEnhanceIcon(icon)`: `Resources.Load<Sprite>(icon)` then `Resources.Load<Sprite>("AirUI/" + icon)` when bare filename.
+
+### B.20 家园页签气泡文字表（v3.187）/ Home Tab Speech Bubble Table (v3.187)
+
+**中文：** 供 §9.14.11 `HomeTabPanel` `CharacterZone` 气泡文字使用：打开面板时按 CSV **行序**筛出满足 `triggerCondition` 的条目组成队列，依次展示；点击气泡推进下一条。  
+**English:** Drives §9.14.11 home-tab speech bubbles: on panel open, filter rows whose `triggerCondition` matches (CSV order = priority queue); tap advances.
+
+**路径 / Path：** `Assets/Resources/Configs/HomeTabBubbles.csv`
+
+#### B.20.1 字段定义 / Field Definitions
+
+| 列 / Column | 类型 / Type | 必填 / Required | 说明 / Notes |
+|---|---|---|---|
+| `entryId` | string | 是 / yes | 条目唯一 ID / unique entry id |
+| `triggerCondition` | string | 是 / yes | 触发条件。本期：`Always`=打开面板即满足；其它值视为不满足并 `Warning` / trigger; `Always` matches on open; others fail + warn |
+| `roleAnim` | string | 否 / no | 气泡展示时角色 Spine 动画名；空则保持待机 / Spine clip while bubble shown; empty keeps idle |
+| `animPlayCount` | int | 是 / yes | 动作播放次数：`0`=持续循环；`>0`=连续播放该次数后回待机 / `0`=loop; `>0`=play N times then idle |
+| `bubbleText` | string | 是 / yes | 气泡文案（字段内禁用英文逗号，用全角 `，`；可含换行字面 `\n` 由加载器替换为真实换行）/ bubble copy (no ASCII commas; `\n` → newline) |
+
+**排序 / Order：** CSV 有效行出现顺序即优先级（越靠前越先展示）。不另设 `sortOrder` 列。
+
+#### B.20.2 Demo 默认数据 / Demo Default Data
+
+| entryId | triggerCondition | roleAnim | animPlayCount | bubbleText |
+|---|---|---|---|---|
+| `bubble_welcome` | Always | exclusive_2 | 0 | 欢迎回来！点我继续听我说~ |
+| `bubble_tip_exp` | Always | standby_1 | 2 | 下方可以看到等级和经验哦。 |
+| `bubble_tip_attrs` | Always | | 0 | 信息区可以查看角色六项属性。 |
+
+#### B.20.3 加载与回退 / Loading and Fallback
+
+**中文：** `HomeTabBubbleCatalog.Load()` → `List<HomeTabBubbleConfig>`（`CsvTable` 解析；缺表或非法 → `BuildDefault()` 等价上表；缺 `entryId`/`bubbleText` 的行跳过）。`GetEligible()` 按行序返回当前满足条件的列表（本期条件仅识别 `Always`）。  
+**English:** `HomeTabBubbleCatalog.Load()` → list (`CsvTable`; missing/invalid → `BuildDefault()`). `GetEligible()` returns matching rows in CSV order; this release only `Always`.
+
+### B.21 角色等级成长表（v3.188）/ Role Level Growth Table (v3.188)
+
+**中文：** 供 §9.14.11 `HomeTabPanel` 与 §5 `RoleStats` 使用：按等级配置六项成长属性、升级所需经验（**兼容列**）、基础血量、基础攻击、基础攻击速度；在**新角色默认**、**旧档六成长属性全 0 回填**与**升级**时通过 `RoleLevelConfigCatalog.ApplyToRole` 写入运行时，**不**在每次 UI 刷新时覆盖（避免吃掉收获等加成）。**自 v3.208**：运行时 `expToNextLevel` **优先**取 §B.23 单级经验；本表 `expToNextLevel` 列仅作缺经验表时的回退。  
+**English:** Drives §9.14.11 / §5: per-level growth attrs + exp-to-next (compat) + base HP/atk/atk-speed; applied on new-role default, legacy all-zero growth, and level-up via `ApplyToRole` — **not** on every UI refresh. **Since v3.208:** runtime `expToNextLevel` prefers §B.23; this column is fallback only.
+
+**路径 / Path：** `Assets/Resources/Configs/Farm/role_levels.csv`
+
+#### B.21.1 字段定义 / Field Definitions
+
+| 列 / Column | 类型 / Type | 必填 / Required | 说明 / Notes |
+|---|---|---|---|
+| `level` | int | 是 / yes | 角色等级（≥1）/ role level (≥1) |
+| `intelligence` | int | 是 / yes | 智商 → `RoleStats.intelligence` / → intelligence |
+| `memory` | int | 是 / yes | 记忆 → `memory` |
+| `imagination` | int | 是 / yes | 想象 → `imagination` |
+| `physique` | int | 是 / yes | 体魄 → `physique` |
+| `charm` | int | 是 / yes | 魅力 → `charm` |
+| `emotionalIntelligence` | int | 是 / yes | 情商 → `emotionalIntelligence` |
+| `expToNextLevel` | int | 是 / yes | 升至下一级所需经验（兼容列；运行时优先 §B.23）/ exp to next (compat; runtime prefers §B.23) |
+| `baseHp` | int | 是 / yes | 基础血量 → `maxHp`（应用时若 `currentHp > maxHp` 则 clamp）/ → `maxHp` |
+| `baseAtk` | int | 是 / yes | 基础攻击 → `atk` |
+| `baseAtkSpeed` | int | 是 / yes | 基础攻击速度 → `agility`（同义作攻速展示/出手）/ → `agility` |
+
+#### B.21.2 UI 图标映射（HexAttrsPage）/ UI Icon Mapping
+
+| 顺序（左→右、上→下）/ Order | 字段 / Field | 图标 Resources / Icon |
+|---|---|---|
+| 0 | `intelligence` | `AirUI/SX_1_ZhiShang_B` |
+| 1 | `memory` | `AirUI/SX_2_JiYi_B` |
+| 2 | `imagination` | `AirUI/SX_3_XiangXiang_B` |
+| 3 | `physique` | `AirUI/SX_4_TiPo_B` |
+| 4 | `charm` | `AirUI/SX_5_MeiLi_B` |
+| 5 | `emotionalIntelligence` | `AirUI/SX_6_QingShang_B` |
+
+#### B.21.3 Demo 默认数据（1–10 级占位）/ Demo Default Data (Lv1–10 placeholders)
+
+| level | intelligence | memory | imagination | physique | charm | emotionalIntelligence | expToNextLevel | baseHp | baseAtk | baseAtkSpeed |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 10 | 10 | 10 | 10 | 10 | 10 | 100 | 25 | 12 | 2 |
+| 2 | 12 | 12 | 12 | 12 | 12 | 12 | 150 | 30 | 14 | 3 |
+| 3 | 14 | 14 | 14 | 14 | 14 | 14 | 200 | 36 | 16 | 3 |
+| 4 | 16 | 16 | 16 | 16 | 16 | 16 | 260 | 42 | 18 | 4 |
+| 5 | 18 | 18 | 18 | 18 | 18 | 18 | 330 | 50 | 20 | 4 |
+| 6 | 20 | 20 | 20 | 20 | 20 | 20 | 410 | 58 | 23 | 5 |
+| 7 | 22 | 22 | 22 | 22 | 22 | 22 | 500 | 66 | 26 | 5 |
+| 8 | 24 | 24 | 24 | 24 | 24 | 24 | 600 | 75 | 29 | 6 |
+| 9 | 26 | 26 | 26 | 26 | 26 | 26 | 720 | 85 | 32 | 6 |
+| 10 | 28 | 28 | 28 | 28 | 28 | 28 | 850 | 95 | 36 | 7 |
+
+#### B.21.4 加载与回退 / Loading and Fallback
+
+**中文：** `RoleLevelConfigCatalog.LoadFromCsv()` → 按 `level` 索引的字典（`CsvTable`；缺表/缺列/无有效行 → `BuildDefault()` 等价上表）。`TryGet(level, out RoleLevelConfig)`；`ApplyToRole(RoleStats role)`：取 `role.level`（≤0 视为 1）对应行写入成长与战斗基础字段；`expToNextLevel` **优先** `RoleExpConfigCatalog.GetExpForLevel(level)`，缺则用本表列；缺行时回退 Lv1 或内置默认。`CreateDefault()`、旧档六成长属性全 0 的 `ToModel`、以及升级路径调用 `ApplyToRole`。  
+**English:** `LoadFromCsv()` → level-keyed map. `ApplyToRole` writes growth + combat base; `expToNextLevel` prefers §B.23 catalog.
+
+---
+
+
+### B.22 主角训练课程表 / Role Training Courses (v3.194)
+
+**中文：** 驱动 §9.14.12 训练面板课程列表与结算；缺表/解析失败时 `RoleTrainingCourseCatalog.BuildDefault()`。
+
+**路径 / Path：** `Assets/Resources/Configs/Farm/role_training_courses.csv`
+
+#### B.22.1 字段定义 / Field Definitions
+
+| 列 / Column | 类型 / Type | 必填 | 说明 / Notes |
+|---|---|---|---|
+| `id` | string | 是 | 训练课程 ID |
+| `name` | string | 是 | 课程名称 |
+| `icon` | string | 是 | 课程图标 Resources 路径（无扩展名，如 `AirUI/SX_1_ZhiShang_B`） |
+| `filterTags` | string | 是 | 筛选标签：属性编号 1–6，多值用 `\|`（1=智力…6=情商） |
+| `durationSec` | int | 是 | 训练时长（秒）≥1 |
+| `attrGains` | string | 否 | 增属性：`attrId:delta` 多段 `\|`（如 `1:5\|4:2`） |
+| `penalties` | string | 否 | 惩罚减属性：同上结构 |
+| `rewardPool` | string | 否 | 概率奖励占位（本期不解析结算） |
+| `description` | string | 否 | 文字描述（可空） |
+| `unlockedByDefault` | int | 是 | `0`=不解锁，`1`=初始解锁 |
+| `unlockTip` | string | 否 | 未解锁点击 Tips 文案 |
+
+#### B.22.2 属性编号 / Attribute Index
+
+| 编号 | 字段 | 筛选图标 |
+|---|---|---|
+| 1 | intelligence | `AirUI/SX_1_ZhiShang_A` |
+| 2 | memory | `AirUI/SX_2_JiYi_A` |
+| 3 | imagination | `AirUI/SX_3_XiangXiang_B` |
+| 4 | physique | `AirUI/SX_4_TiPo_A` |
+| 5 | charm | `AirUI/SX_5_MeiLi_A` |
+| 6 | emotionalIntelligence | `AirUI/SX_6_QingShang_A` |
+
+#### B.22.3 Demo 默认数据 / Demo Defaults
+
+| id | name | icon | filterTags | durationSec | attrGains | penalties | rewardPool | description | unlockedByDefault | unlockTip |
+|---|---|---|---|---|---|---|---|---|---|---|
+| train_int_01 | 晨读训练 | AirUI/SX_1_ZhiShang_B | 1 | 30 | 1:3 |  |  | 提升智力 | 1 |  |
+| train_mem_01 | 记忆翻牌 | AirUI/SX_2_JiYi_B | 2 | 30 | 2:3 |  |  |  | 1 |  |
+| train_img_01 | 幻想速写 | AirUI/SX_3_XiangXiang_B | 3 | 45 | 3:4 | 4:1 |  | 耗体力换想象 | 1 |  |
+| train_phy_01 | 耐力跑 | AirUI/SX_4_TiPo_B | 4 | 45 | 4:4 |  |  |  | 1 |  |
+| train_cha_01 | 舞台彩排 | AirUI/SX_5_MeiLi_B | 5 | 60 | 5:5 | 1:1 |  |  | 0 | 完成主线第1章解锁 |
+| train_eq_01 | 倾诉练习 | AirUI/SX_6_QingShang_B | 6 | 60 | 6:5 |  |  |  | 0 | 亲密度达80解锁 |
+| train_mix_01 | 综合脑力 | AirUI/SX_1_ZhiShang_B | 1\|2\|3 | 90 | 1:2\|2:2\|3:2 | 4:1 | item:demo_reward | 多属性训练 | 1 |  |
+
+#### B.22.4 加载与回退 / Loading and Fallback
+
+**中文：** `RoleTrainingCourseCatalog.LoadFromCsv()` → 按 `id` 索引列表；缺表/缺列/无有效行 → `BuildDefault()` 等价上表。`TryGet(id)` / `GetAll()` / `MatchesFilter(course, mask)`（OR；mask=0 全通过）。  
+**English:** Catalog loads CSV or defaults; OR filter match when mask≠0; empty mask shows all.
+
+---
+### B.23 主角经验表（v3.208）/ Role Exp Table (v3.208)
+
+**中文：** 判定升至某目标等级所需的**单级经验**与**累加总经验**；驱动 `TryAddRoleExp` 升级阈值与 `ApplyToRole` 写回 `expToNextLevel`。累加列供配置校验/展示参考，运行时升级以单级经验为准。  
+**English:** Per-target-level single-step and cumulative exp; drives level-up thresholds. Runtime uses single-step; cumulative is reference.
+
+**路径 / Path：** `Assets/Resources/Configs/Farm/role_exp.csv`
+
+#### B.23.1 字段定义 / Field Definitions
+
+| 列 / Column | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `targetLevel` | int | 是 | 目标等级（≥2；表示从 targetLevel-1 升到 targetLevel 的需求挂在「当前等级 = targetLevel-1」的 `expToNextLevel` 上，或按「当前等级行」存单级需求——Demo 约定：`targetLevel` 行的 `expForLevel` = **处于 level=targetLevel 时**升到下一级所需单级经验，与历史 `role_levels.expToNextLevel` 对齐） |
+| `expForLevel` | int | 是 | 需要的单级经验值（≥1） |
+| `cumulativeExp` | int | 是 | 累加总经验值（从 1 级起累加各单级需求的前缀和，供校验） |
+
+**约定（v3.208 Demo）：** 表行 `targetLevel = L` 的 `expForLevel` 写入 `RoleStats.level == L` 时的 `expToNextLevel`（与 §B.21 同级行一致）。满级（无 L+1 成长配置）时不再升级，仍可累加 `currentExp`。
+
+#### B.23.2 Demo 默认数据 / Demo Defaults
+
+| targetLevel | expForLevel | cumulativeExp |
+|---|---|---|
+| 1 | 100 | 100 |
+| 2 | 150 | 250 |
+| 3 | 200 | 450 |
+| 4 | 260 | 710 |
+| 5 | 330 | 1040 |
+| 6 | 410 | 1450 |
+| 7 | 500 | 1950 |
+| 8 | 600 | 2550 |
+| 9 | 720 | 3270 |
+| 10 | 850 | 4120 |
+
+#### B.23.3 加载与回退 / Loading and Fallback
+
+**中文：** `RoleExpConfigCatalog`：`TryGet` / `GetExpForLevel` / `GetCumulative`；缺表 → `BuildDefault()` 等价上表。  
+**English:** Catalog with CSV or defaults.
+
+---
+
+### B.24 解锁说明配置表（v3.208）/ Level Unlock Display Table (v3.208)
+
+**中文：** 供 §9.14.13 升级界面下部展示；**仅展示**，不实现真实解锁。按 `requiredLevel` 过滤，CSV 行序排列。  
+**English:** Display-only unlock rows for the level-up panel.
+
+**路径 / Path：** `Assets/Resources/Configs/Farm/role_level_unlocks.csv`
+
+#### B.24.1 字段定义 / Field Definitions
+
+| 列 / Column | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `unlockId` | string | 是 | 解锁项 ID |
+| `requiredLevel` | int | 是 | 解锁所需等级（展示等级） |
+| `iconPath` | string | 是 | 功能图片 Resources 路径（无扩展名） |
+| `title` | string | 是 | 功能标题 |
+| `description` | string | 是 | 功能描述（禁用英文逗号，用全角 `，`） |
+
+#### B.24.2 Demo 默认数据 / Demo Defaults
+
+| unlockId | requiredLevel | iconPath | title | description |
+|---|---|---|---|---|
+| unlock_lv2_train | 2 | AirUI/Skill_1001 | 训练入门 | 解锁基础训练课程入口（展示） |
+| unlock_lv3_arena | 3 | AirUI/WF_JJC | 竞技场预告 | 解锁竞技场玩法预告（展示） |
+| unlock_lv3_team | 3 | AirUI/WF_ZuDui | 组队预告 | 解锁组队玩法预告（展示） |
+| unlock_lv5_bounty | 5 | AirUI/WF_XuanShang | 悬赏预告 | 解锁悬赏玩法预告（展示） |
+| unlock_lv5_manor | 5 | AirUI/WF_ZhuangYuan | 庄园预告 | 解锁庄园玩法预告（展示） |
+
+#### B.24.4 加载与回退 / Loading and Fallback
+
+**中文：** `RoleLevelUnlockCatalog.GetUnlocksForLevel(level)` 按行序返回 `requiredLevel == level` 的列表；缺表 → `BuildDefault()`。  
+**English:** Filter by requiredLevel; CSV or defaults.
 
 ---
 

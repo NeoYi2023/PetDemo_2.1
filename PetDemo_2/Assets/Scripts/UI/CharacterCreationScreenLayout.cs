@@ -12,7 +12,8 @@ namespace PetDemo.UI
         private static readonly Color PanelColor = new Color(0.13f, 0.15f, 0.21f, 0.98f);
         private static readonly Color ButtonColor = new Color(0.26f, 0.55f, 0.85f, 1f);
         private static readonly Color DimColor = new Color(0f, 0f, 0f, 0.6f);
-        private static readonly Vector2 ScreenCloseButtonSize = new Vector2(72f, 72f);
+        public static readonly Vector2 ScreenCloseButtonSize = new Vector2(72f, 72f);
+        public static readonly Vector2 ScreenCloseButtonAnchoredPos = new Vector2(20f, -20f);
 
         // SPEC §9.14.1（v3.166）：加号按钮精灵与尺寸；加号态全屏纯黑背景。
         private const string AddButtonResource = "AirUI/AddButton";
@@ -20,7 +21,7 @@ namespace PetDemo.UI
         private static readonly Vector2 AddButtonAnchoredPos = new Vector2(0f, 80f);
 
         // SPEC §9.14.10（v3.139 / v3.184）：底部页签栏。
-        private const float BottomTabBarHeight = 160f;
+        public const float BottomTabBarHeight = 160f;
         private const int BottomTabCount = 5;
         private const float BottomTabHorizontalInset = 5f;
         public const string HomeTabIconClosedResource = "AirUI/bottom_bar_c_1";
@@ -108,16 +109,13 @@ namespace PetDemo.UI
             // SPEC §9.14.10（v3.141）：进入家园跳转列表（默认隐藏，供任务列表等入口）。
             BuildEnterHomeTopPanel(rootRt);
 
-            // SPEC §9.14.10（v3.184）：家园页签占位面板。
-            BuildHomeTabPlaceholderPanel(rootRt);
-
             // SPEC §9.14.10（v3.184）：底部常驻页签栏（亲密度 / 装扮 / 家园 / 进入家园 / 加好感）。
             BuildBottomTabBar(rootRt);
 
             // 好友列表弹窗（默认隐藏）。
             BuildFriendListPopup(rootRt);
 
-            // 右上角关闭（回退 §9.15 APP 首页）。
+            // 左上角关闭（回退 §9.15 APP 首页）。
             BuildScreenCloseButton(rootRt);
 
             // SPEC §9.14.1（v3.166）：加号态全屏纯黑背景 + 加号按钮置于根节点最高层级
@@ -204,6 +202,22 @@ namespace PetDemo.UI
             HideTabButtonLabels(bar);
         }
 
+        /// <summary>SPEC §9.8（v3.207）：在 HUD 根下构建与创角同款的 BottomTabBar，供 EnterHomeHud 使用。</summary>
+        public static RectTransform BuildHudBottomTabBar(RectTransform parent)
+        {
+            if (parent == null)
+                return null;
+            var existing = parent.Find("BottomTabBar") as RectTransform;
+            if (existing != null)
+            {
+                RefreshBottomTabBarPresentation(existing);
+                return existing;
+            }
+
+            BuildBottomTabBar(parent);
+            return parent.Find("BottomTabBar") as RectTransform;
+        }
+
         private static void BuildBottomTabBar(RectTransform rootRt)
         {
             var bar = CreateChild(rootRt, "BottomTabBar", new Vector2(0f, 0f), new Vector2(1f, 0f),
@@ -231,21 +245,14 @@ namespace PetDemo.UI
             HideTabButtonLabels(bar);
         }
 
-        /// <summary>旧 prefab 无 HomeTabPlaceholderPanel 时运行时补建。</summary>
+        /// <summary>旧 prefab 无 HomeTabPlaceholderPanel 时移除（v3.186 改由 HomeTabPanel 懒加载）。</summary>
         public static void EnsureHomeTabPlaceholderPanel(RectTransform rootRt)
         {
-            if (rootRt == null || rootRt.Find("HomeTabPlaceholderPanel") != null)
+            if (rootRt == null)
                 return;
-            BuildHomeTabPlaceholderPanel(rootRt);
-        }
-
-        private static void BuildHomeTabPlaceholderPanel(RectTransform rootRt)
-        {
-            var panel = CreateChild(rootRt, "HomeTabPlaceholderPanel", new Vector2(0f, 0f), new Vector2(1f, ContentRegionTopAnchorY),
-                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            panel.offsetMin = new Vector2(ContentRegionSideMargin, ContentRegionBottomOffset);
-            panel.offsetMax = new Vector2(-ContentRegionSideMargin, 0f);
-            panel.gameObject.SetActive(false);
+            var legacy = rootRt.Find("HomeTabPlaceholderPanel");
+            if (legacy != null)
+                UnityEngine.Object.Destroy(legacy.gameObject);
         }
 
         private static void ApplyTabButtonIcons(Button tab, string closedResource, string openResource)
@@ -394,6 +401,63 @@ namespace PetDemo.UI
             scroll.horizontal = false;
             scroll.vertical = true;
             scroll.movementType = ScrollRect.MovementType.Clamped;
+
+            BuildRecommendFriendPanel(panel);
+
+            panel.gameObject.SetActive(false);
+        }
+
+        /// <summary>旧 prefab 无 RecommendFriendPanel 时运行时补建（v3.203）。</summary>
+        public static void EnsureRecommendFriendPanel(RectTransform intimacyTopPanel)
+        {
+            if (intimacyTopPanel == null)
+                return;
+            if (intimacyTopPanel.Find("RecommendFriendPanel") == null)
+                BuildRecommendFriendPanel(intimacyTopPanel);
+            ApplyRecommendFriendPanelPresentation(intimacyTopPanel);
+        }
+
+        /// <summary>SPEC §9.14.8（v3.203）：校正推荐好友空态文案样式（兼容旧 prefab）。</summary>
+        public static void ApplyRecommendFriendPanelPresentation(RectTransform intimacyTopPanel)
+        {
+            if (intimacyTopPanel == null)
+                return;
+
+            var panel = intimacyTopPanel.Find("RecommendFriendPanel");
+            if (panel == null)
+                return;
+
+            var title = panel.Find("TitleText");
+            if (title != null)
+                Object.Destroy(title.gameObject);
+
+            var body = panel.Find("BodyText")?.GetComponent<Text>();
+            if (body != null)
+            {
+                body.text = "你现在还没有好友";
+                body.fontSize = 42;
+                body.color = Color.white;
+            }
+        }
+
+        /// <summary>SPEC §9.14.8（v3.203）：新创角后亲密度页「推荐好友」空态选项框。</summary>
+        private static void BuildRecommendFriendPanel(RectTransform intimacyTopPanel)
+        {
+            var panel = CreateChild(intimacyTopPanel, "RecommendFriendPanel",
+                new Vector2(0f, 0f), new Vector2(1f, 1f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            StretchFull(panel);
+
+            var bodyText = CreateText(panel, "BodyText", "你现在还没有好友",
+                new Vector2(0.5f, 1f), new Vector2(0f, -120f), new Vector2(800f, 80f), 42, TextAnchor.MiddleCenter);
+            bodyText.color = Color.white;
+
+            CreateButton(panel, "OptionGoTownButton", "去小镇寻找",
+                new Vector2(0.5f, 0.5f), new Vector2(0f, 40f), new Vector2(640f, 96f),
+                ButtonColor, 36);
+            CreateButton(panel, "OptionInviteWerewolfButton", "邀请狼人杀好友",
+                new Vector2(0.5f, 0.5f), new Vector2(0f, -80f), new Vector2(640f, 96f),
+                ButtonColor, 36);
 
             panel.gameObject.SetActive(false);
         }
@@ -589,11 +653,22 @@ namespace PetDemo.UI
             cell.gameObject.SetActive(false);
         }
 
-        private static void BuildScreenCloseButton(RectTransform rootRt)
+        /// <summary>SPEC §9.14.6 v3.138 / v3.199：根级左上关闭按钮（缺则补建；已存在则校正位置/尺寸）。</summary>
+        public static RectTransform BuildScreenCloseButton(RectTransform rootRt)
         {
+            if (rootRt == null)
+                return null;
+
+            var existing = rootRt.Find("ScreenCloseButton") as RectTransform;
+            if (existing != null)
+            {
+                ApplyScreenCloseButtonLayout(existing);
+                return existing;
+            }
+
             var closeRt = CreateChild(rootRt, "ScreenCloseButton",
-                new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(1f, 1f), new Vector2(-20f, -20f), ScreenCloseButtonSize);
+                new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(0f, 1f), ScreenCloseButtonAnchoredPos, ScreenCloseButtonSize);
             var closeImg = closeRt.gameObject.AddComponent<Image>();
             closeImg.color = new Color(0.25f, 0.22f, 0.32f, 0.95f);
             closeImg.raycastTarget = true;
@@ -611,6 +686,20 @@ namespace PetDemo.UI
             closeLabel.alignment = TextAnchor.MiddleCenter;
             closeLabel.color = TextColor;
             closeLabel.raycastTarget = false;
+
+            return closeRt;
+        }
+
+        private static void ApplyScreenCloseButtonLayout(RectTransform closeRt)
+        {
+            if (closeRt == null)
+                return;
+            closeRt.anchorMin = new Vector2(0f, 1f);
+            closeRt.anchorMax = new Vector2(0f, 1f);
+            closeRt.pivot = new Vector2(0f, 1f);
+            closeRt.anchoredPosition = ScreenCloseButtonAnchoredPos;
+            closeRt.sizeDelta = ScreenCloseButtonSize;
+            closeRt.SetAsLastSibling();
         }
 
         private static void BuildFriendListPopup(RectTransform rootRt)

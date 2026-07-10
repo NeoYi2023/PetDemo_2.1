@@ -66,6 +66,12 @@ namespace PetDemo.UI
         [SerializeField] private GameObject intimacyTopPanel;
         [SerializeField] private RectTransform topFriendContent;
         [SerializeField] private GameObject topFriendCellTemplate;
+        // SPEC §9.14.8（v3.203）：新创角后亲密度页「推荐好友」空态。
+        [SerializeField] private GameObject topFriendScrollView;
+        [SerializeField] private GameObject recommendFriendPanel;
+        [SerializeField] private Button optionGoTownButton;
+        [SerializeField] private Button optionInviteWerewolfButton;
+        private bool recommendFriendWired;
 
         // SPEC §9.14.10（v3.141）：进入家园跳转列表（预制体编排）。
         [SerializeField] private GameObject enterHomeTopPanel;
@@ -132,8 +138,10 @@ namespace PetDemo.UI
         [SerializeField] private Button dressUpButton;
         [SerializeField] private Button homeTabButton;
         [SerializeField] private Button roleAddFavorButton;
-        [SerializeField] private GameObject homeTabPlaceholderPanel;
+        private HomeTabPanelView homeTabPanel;
+        private TrainingPanelView trainingPanel;
         private DressUpPanelView dressUpPanel;
+        private bool homeTabDailyTaskWired;
 
         // SPEC §9.14.10（v3.184）：创角内嵌公会场景。
         private GongHuiScreenView embeddedGongHui;
@@ -143,10 +151,14 @@ namespace PetDemo.UI
         private const int TabIndexDressUp = 1;
         private const int TabIndexHome = 2;
         private const int TabIndexEnterHomeGongHui = 3;
-        private const int TabIndexAddFavor = 4;
+        /// <summary>SPEC §9.14.12（v3.194）：训练页签（节点名仍为 RoleAddFavorButton）。</summary>
+        private const int TabIndexTraining = 4;
 
         /// <summary>SPEC §9.14.10（v3.141）：进入家园页签某行「跳转」时触发，由装配层恢复 HUD/世界层并切底栏。</summary>
         public event Action<string> OnNavigateToBottomNav;
+
+        /// <summary>SPEC §9.8 / §9.14.10（v3.207）：进入 EnterHomeHud；参数为是否执行小镇寻找 NPC 摆放。</summary>
+        public event Action<bool> OnEnterHomeHudRequested;
 
         /// <summary>SPEC §9.14.6（v3.138）：点击右上角关闭按钮，回退 §9.15 APP 首页。</summary>
         public event Action OnCloseRequested;
@@ -158,10 +170,55 @@ namespace PetDemo.UI
 
         public bool IsShown => gameObject != null && gameObject.activeSelf;
 
-        /// <summary>SPEC §9.14.10（v3.184）：注入主 HUD 公会层，供「进入家园」页签内嵌展示。</summary>
-        public void BindEmbeddedGongHui(GongHuiScreenView gongHui)
+        /// <summary>SPEC §9.14.10（v3.184 / v3.207）：注入公会层，供小镇寻找等引导调用（不再用于创角内嵌）。</summary>
+        public void BindGongHuiForTownSearch(GongHuiScreenView gongHui)
         {
             embeddedGongHui = gongHui;
+        }
+
+        /// <summary>SPEC §9.14.10（v3.184）：兼容旧调用名，等价 <see cref="BindGongHuiForTownSearch"/>。</summary>
+        public void BindEmbeddedGongHui(GongHuiScreenView gongHui)
+        {
+            BindGongHuiForTownSearch(gongHui);
+        }
+
+        /// <summary>SPEC §9.8.9.11（v3.195）：公会响应区进入后切换创角底栏页签。</summary>
+        public void NavigateFromGuild(string tabKey)
+        {
+            if (string.IsNullOrEmpty(tabKey))
+                return;
+
+            if (string.Equals(tabKey, GongHuiScreenView.NavIntimacyTab, StringComparison.Ordinal))
+            {
+                OnIntimacyTabClicked();
+                return;
+            }
+
+            if (string.Equals(tabKey, GongHuiScreenView.NavDressUpTab, StringComparison.Ordinal))
+            {
+                OnDressUpClicked();
+                return;
+            }
+
+            if (string.Equals(tabKey, GongHuiScreenView.NavTrainingTab, StringComparison.Ordinal))
+            {
+                OnRoleAddFavorClicked();
+                return;
+            }
+
+            if (string.Equals(tabKey, GongHuiScreenView.NavHomeTab, StringComparison.Ordinal))
+            {
+                OnHomeTabClicked();
+            }
+        }
+
+        /// <summary>SPEC §9.8.9.13（v3.195）：公会建筑跳转前退出创角并恢复 HUD/底栏。</summary>
+        public void RequestExitToBottomNav(string navKey)
+        {
+            if (string.IsNullOrEmpty(navKey))
+                return;
+            Hide();
+            OnNavigateToBottomNav?.Invoke(navKey);
         }
 
         public static CharacterCreationScreenView BuildInto(RectTransform canvasRect, IPlantingService plantingService)
@@ -232,7 +289,7 @@ namespace PetDemo.UI
         public void Show()
         {
             EnsureEnterHomeTopPanelRuntime();
-            EnsureHomeTabPlaceholderRuntime();
+            EnsureHomeTabLegacyCleanup();
             if (panelRt != null)
             {
                 bool hadHomeTab = panelRt.Find("BottomTabBar/HomeTabButton") != null;
@@ -259,18 +316,20 @@ namespace PetDemo.UI
             HideFriendCharacterPopup();
             HideLegacySideFriends();
             HideEnterHomePanel();
-            HideHomeTabPlaceholder();
+            HideHomeTabPanel();
             HideGongHuiEmbeddedPanel();
             HideDressUpPanel();
-            // SPEC §9.14.10（v3.146）：每次 Show 默认打开「亲密度」页签。
-            SetActiveTab(0);
-            ShowIntimacyPanel();
+            HideTrainingPanel();
+            // SPEC §9.14.10（v3.189）：每次 Show 默认打开「家园」页签。
+            SetActiveTab(TabIndexHome);
+            OpenHomeTabPanel();
             RefreshState();
         }
 
         public void Hide()
         {
             HideGongHuiEmbeddedPanel();
+            HideTrainingPanel();
             gameObject.SetActive(false);
         }
 
@@ -340,6 +399,13 @@ namespace PetDemo.UI
 
         private void OnScreenCloseClicked()
         {
+            // SPEC §9.14.6 / §9.14.10（v3.191）：ZhuanQian 可见时关闭该层并回家园，不离开创角。
+            if (IsZhuanQianPopupShown())
+            {
+                CloseZhuanQianAndOpenHome();
+                return;
+            }
+
             HideFriendListPopup();
             HideQinMiDuPopup();
             HideZhuanQianPopup();
@@ -486,7 +552,7 @@ namespace PetDemo.UI
             ShowNeedFavorState();
         }
 
-        // SPEC §9.14.1（v3.117）：加号直接创角（无伙伴），立即切主角态。
+        // SPEC §9.14.1（v3.117 / v3.203）：加号直接创角后切家园页签（推荐好友引导在亲密度页）。
         private void OnAddButtonClicked()
         {
             if (service == null)
@@ -496,6 +562,8 @@ namespace PetDemo.UI
                 pendingFriendId = null;
                 PersistSave();
                 ShowRoleState();
+                SetActiveTab(TabIndexHome);
+                OpenHomeTabPanel();
             }
         }
 
@@ -523,26 +591,19 @@ namespace PetDemo.UI
 
         private void OnEnterHomeTabClicked()
         {
-            if (activeTabIndex == TabIndexEnterHomeGongHui)
-            {
-                SetActiveTab(-1);
-                HideGongHuiEmbeddedPanel();
-                return;
-            }
-            SetActiveTab(TabIndexEnterHomeGongHui);
-            ShowGongHuiEmbeddedPanel();
+            // SPEC §9.8 / §9.14.10（v3.207）：离开创角，进入 MainHud EnterHomeHud。
+            Hide();
+            OnEnterHomeHudRequested?.Invoke(false);
         }
 
         private void OnHomeTabClicked()
         {
-            if (activeTabIndex == TabIndexHome)
-            {
-                SetActiveTab(-1);
-                HideHomeTabPlaceholder();
+            // SPEC §9.14.10（v3.192）：已 IconOpen 再点无变化（含 ZhuanQian 展示期间）。
+            if (activeTabIndex == TabIndexHome || IsZhuanQianPopupShown())
                 return;
-            }
             SetActiveTab(TabIndexHome);
-            ShowHomeTabPlaceholder();
+            HideTrainingPanel();
+            OpenHomeTabPanel();
         }
 
         // SPEC §9.14.10（v3.142）：内容区嵌入辅助 ——
@@ -589,7 +650,7 @@ namespace PetDemo.UI
             SetTabHighlight(dressUpButton, index == TabIndexDressUp);
             SetTabHighlight(homeTabButton, index == TabIndexHome);
             SetTabHighlight(enterHomeButton, index == TabIndexEnterHomeGongHui);
-            SetTabHighlight(roleAddFavorButton, index == TabIndexAddFavor);
+            SetTabHighlight(roleAddFavorButton, index == TabIndexTraining);
         }
 
         private static void SetTabHighlight(Button button, bool active)
@@ -651,16 +712,14 @@ namespace PetDemo.UI
         /// <summary>「亲密度」页签：切换显示好友列表（隐藏中央展示区）；再次点击恢复展示区。</summary>
         private void OnIntimacyTabClicked()
         {
-            if (activeTabIndex == 0)
-            {
-                SetActiveTab(-1);
-                HideIntimacyPanel();
+            // SPEC §9.14.10（v3.192）：已 IconOpen 再点无变化。
+            if (activeTabIndex == TabIndexIntimacy)
                 return;
-            }
-            SetActiveTab(0);
+            SetActiveTab(TabIndexIntimacy);
             HideEnterHomePanel();
-            HideHomeTabPlaceholder();
+            HideHomeTabPanel();
             HideGongHuiEmbeddedPanel();
+            HideTrainingPanel();
             ShowIntimacyPanel();
         }
 
@@ -668,14 +727,17 @@ namespace PetDemo.UI
         private void ShowIntimacyPanel()
         {
             HideEnterHomePanel();
-            HideHomeTabPlaceholder();
+            HideHomeTabPanel();
             HideGongHuiEmbeddedPanel();
             HideDressUpPanel();
+            HideTrainingPanel();
             HideZhuanQianPopup();
             HideFriendCharacterPopup();
             HideFriendDetailPopup();
             HideQinMiDuPopup();
             HideZhongDuanPopup();
+            EnsureRecommendFriendPanelRuntime();
+            WireRecommendFriendButtons();
             RefreshTopFriendList();
             // 兼容尚未重生成的旧 prefab：运行时强制内容区锚定（下方 60%，位于 BottomTabBar 之上）。
             if (intimacyTopPanel != null)
@@ -693,6 +755,7 @@ namespace PetDemo.UI
         {
             HideIntimacyPanel();
             HideDressUpPanel();
+            HideTrainingPanel();
             HideZhuanQianPopup();
             HideFriendCharacterPopup();
             HideQinMiDuPopup();
@@ -709,28 +772,50 @@ namespace PetDemo.UI
             SetActiveSafe(enterHomeTopPanel, false);
         }
 
-        /// <summary>SPEC §9.14.10（v3.184）：「家园」页签占位面板。</summary>
-        private void ShowHomeTabPlaceholder()
+        /// <summary>SPEC §9.14.11（v3.186）：「家园」页签 — HomeTabPanel 全屏展示并隐藏 DisplayArea。</summary>
+        private void OpenHomeTabPanel()
         {
             HideIntimacyPanel();
             HideEnterHomePanel();
             HideDressUpPanel();
             HideGongHuiEmbeddedPanel();
+            HideTrainingPanel();
             HideZhuanQianPopup();
             HideFriendCharacterPopup();
             HideFriendDetailPopup();
             HideQinMiDuPopup();
             HideZhongDuanPopup();
-            UnityEngine.Debug.Log("[CharacterCreationScreenView] 「家园」页签占位（功能待实现）。");
-            if (homeTabPlaceholderPanel != null)
-                EmbedIntoContentRegion(homeTabPlaceholderPanel.transform as RectTransform, CharacterCreationScreenLayout.ContentRegionSideMargin);
-            SetActiveSafe(homeTabPlaceholderPanel, true);
-            SetActiveSafe(displayArea, true);
+
+            if (panelRt == null)
+                return;
+            if (homeTabPanel == null)
+                homeTabPanel = HomeTabPanelView.GetOrCreate(panelRt);
+            if (homeTabPanel == null)
+                return;
+
+            if (!homeTabDailyTaskWired)
+            {
+                homeTabDailyTaskWired = true;
+                homeTabPanel.OnDailyTaskRequested += OpenAddFavorTab;
+                homeTabPanel.OnCloseRequested += OnScreenCloseClicked;
+            }
+
+            homeTabPanel.Bind(service);
+            homeTabPanel.Show();
+            SetActiveSafe(displayArea, false);
+
+            var homeRt = homeTabPanel.transform as RectTransform;
+            HomeTabPanelLayout.ApplyCharacterCreationEmbedLayout(homeRt);
         }
 
-        private void HideHomeTabPlaceholder()
+        private void HideHomeTabPanel()
         {
-            SetActiveSafe(homeTabPlaceholderPanel, false);
+            if (homeTabPanel != null)
+                homeTabPanel.Hide();
+            if (activeTabIndex != TabIndexDressUp
+                && activeTabIndex != TabIndexEnterHomeGongHui
+                && activeTabIndex != TabIndexTraining)
+                SetActiveSafe(displayArea, true);
         }
 
         /// <summary>SPEC §9.14.10（v3.184）：「进入家园」页签内嵌公会场景。</summary>
@@ -738,8 +823,9 @@ namespace PetDemo.UI
         {
             HideIntimacyPanel();
             HideEnterHomePanel();
-            HideHomeTabPlaceholder();
+            HideHomeTabPanel();
             HideDressUpPanel();
+            HideTrainingPanel();
             HideZhuanQianPopup();
             HideFriendCharacterPopup();
             HideFriendDetailPopup();
@@ -757,7 +843,9 @@ namespace PetDemo.UI
         {
             if (embeddedGongHui != null && embeddedGongHui.IsEmbeddedInCharacterCreation)
                 embeddedGongHui.ExitCharacterCreationEmbed();
-            if (activeTabIndex != TabIndexDressUp)
+            if (activeTabIndex != TabIndexDressUp
+                && activeTabIndex != TabIndexHome
+                && activeTabIndex != TabIndexTraining)
                 SetActiveSafe(displayArea, true);
         }
 
@@ -766,7 +854,10 @@ namespace PetDemo.UI
         {
             if (dressUpPanel != null)
                 dressUpPanel.Hide();
-            SetActiveSafe(displayArea, true);
+            if (activeTabIndex != TabIndexHome
+                && activeTabIndex != TabIndexEnterHomeGongHui
+                && activeTabIndex != TabIndexTraining)
+                SetActiveSafe(displayArea, true);
         }
 
         private void RefreshEnterHomeNavList()
@@ -805,29 +896,77 @@ namespace PetDemo.UI
             }
         }
 
-        // SPEC §9.14.8 第 1 点（v3.158）：列表由 TopFriendCatalog 配置表驱动，单元为独立预制体（双列网格）。
+        // SPEC §9.14.8 第 1 点（v3.158 / v3.203）：列表由 TopFriendCatalog 配置表驱动；RecommendPrompt 显示推荐好友空态。
         private void RefreshTopFriendList()
         {
             if (topFriendContent == null || topFriendCellTemplate == null)
                 return;
 
+            var mode = GetCurrentFriendListMode();
+            bool showRecommendPrompt = mode == FriendListMode.RecommendPrompt;
+            bool showFriendCells = !showRecommendPrompt;
+
+            SetActiveSafe(topFriendScrollView, showFriendCells);
+            SetActiveSafe(recommendFriendPanel, showRecommendPrompt);
+
+            if (showRecommendPrompt)
+            {
+                for (int i = 0; i < topCells.Count; i++)
+                    topCells[i].gameObject.SetActive(false);
+                return;
+            }
+
             EnsureTopFriendGridLayout();
 
             var sorted = GetTopFriendsForList();
             EnsureTopCellCount(sorted.Count);
+            bool useZeroIntimacy = mode == FriendListMode.WerewolfListZero;
 
             for (int i = 0; i < topCells.Count; i++)
             {
                 if (i < sorted.Count)
                 {
                     topCells[i].gameObject.SetActive(true);
-                    topCells[i].Bind(sorted[i], OpenFriendDetailPopup, HandleIntimacyBgClick);
+                    topCells[i].Bind(
+                        sorted[i],
+                        OpenFriendDetailPopup,
+                        HandleIntimacyBgClick,
+                        useZeroIntimacy ? 0 : (int?)null);
                 }
                 else
                 {
                     topCells[i].gameObject.SetActive(false);
                 }
             }
+        }
+
+        private FriendListMode GetCurrentFriendListMode()
+        {
+            var state = service != null ? service.GetCharacterCreation() : null;
+            return state != null ? state.friendListMode : FriendListMode.Normal;
+        }
+
+        // SPEC §9.14.8（v3.203）/ §9.8（v3.207）：推荐好友空态 — 选项 1「去小镇寻找」。
+        private void OnRecommendGoTownClicked()
+        {
+            if (service == null)
+                return;
+
+            service.SetFriendListMode(FriendListMode.TownSearch);
+            PersistSave();
+            Hide();
+            OnEnterHomeHudRequested?.Invoke(true);
+        }
+
+        // SPEC §9.14.8（v3.203）：推荐好友空态 — 选项 2「邀请狼人杀好友」。
+        private void OnRecommendInviteWerewolfClicked()
+        {
+            if (service == null)
+                return;
+
+            service.SetFriendListMode(FriendListMode.WerewolfListZero);
+            PersistSave();
+            RefreshTopFriendList();
         }
 
         // SPEC §9.14.8：点击 IntimacyBg 区域。
@@ -937,17 +1076,15 @@ namespace PetDemo.UI
 
         private void OnDressUpClicked()
         {
+            // SPEC §9.14.10（v3.192）：已 IconOpen 再点无变化。
             if (activeTabIndex == TabIndexDressUp)
-            {
-                SetActiveTab(-1);
-                HideDressUpPanel();
                 return;
-            }
             SetActiveTab(TabIndexDressUp);
             HideIntimacyPanel();
             HideEnterHomePanel();
-            HideHomeTabPlaceholder();
+            HideHomeTabPanel();
             HideGongHuiEmbeddedPanel();
+            HideTrainingPanel();
             HideZhuanQianPopup();
             HideFriendCharacterPopup();
             HideQinMiDuPopup();
@@ -975,24 +1112,83 @@ namespace PetDemo.UI
             DisableChildByName(dressRt, "CloseButton");
         }
 
-        /// <summary>SPEC §9.14.10（v3.142）：在内容区切换赚钱介绍图 ZhuanQian（底部对齐，无关闭按钮）。</summary>
-        private void OnRoleAddFavorClicked()
+        /// <summary>
+        /// SPEC §9.14.10 / §9.14.11（v3.190/v3.194）：打开 ZhuanQianPopup。
+        /// 仅供家园「每日任务」；底栏保持家园高亮（Home IconOpen、训练 IconClosed）。
+        /// </summary>
+        public void OpenAddFavorTab()
         {
-            if (activeTabIndex == TabIndexAddFavor)
-            {
-                SetActiveTab(-1);
-                HideZhuanQianPopup();
-                return;
-            }
-            SetActiveTab(TabIndexAddFavor);
+            SetActiveTab(TabIndexHome);
             HideIntimacyPanel();
             HideEnterHomePanel();
-            HideHomeTabPlaceholder();
+            HideHomeTabPanel();
             HideGongHuiEmbeddedPanel();
             HideDressUpPanel();
+            HideTrainingPanel();
             HideFriendCharacterPopup();
             HideQinMiDuPopup();
             ShowZhuanQianPopup();
+        }
+
+        /// <summary>SPEC §9.14.12（v3.194）：底栏训练页签 — 打开 TrainingPanel。</summary>
+        private void OnRoleAddFavorClicked()
+        {
+            if (activeTabIndex == TabIndexTraining)
+                return;
+            SetActiveTab(TabIndexTraining);
+            OpenTrainingPanel();
+        }
+
+        /// <summary>SPEC §9.14.12：训练面板全屏展示并隐藏 DisplayArea。</summary>
+        private void OpenTrainingPanel()
+        {
+            HideIntimacyPanel();
+            HideEnterHomePanel();
+            HideHomeTabPanel();
+            HideGongHuiEmbeddedPanel();
+            HideDressUpPanel();
+            HideZhuanQianPopup();
+            HideFriendCharacterPopup();
+            HideFriendDetailPopup();
+            HideQinMiDuPopup();
+            HideZhongDuanPopup();
+
+            if (panelRt == null)
+                return;
+            if (trainingPanel == null)
+                trainingPanel = TrainingPanelView.GetOrCreate(panelRt);
+            if (trainingPanel == null)
+                return;
+
+            trainingPanel.Bind(service);
+            trainingPanel.Show();
+            SetActiveSafe(displayArea, false);
+
+            var trainRt = trainingPanel.transform as RectTransform;
+            TrainingPanelLayout.ApplyCharacterCreationEmbedLayout(trainRt);
+        }
+
+        private void HideTrainingPanel()
+        {
+            if (trainingPanel != null)
+                trainingPanel.Hide();
+            if (activeTabIndex != TabIndexDressUp
+                && activeTabIndex != TabIndexHome
+                && activeTabIndex != TabIndexEnterHomeGongHui)
+                SetActiveSafe(displayArea, true);
+        }
+
+        /// <summary>SPEC §9.14.10（v3.191）：关闭 ZhuanQian 并打开家园页签面板。</summary>
+        private void CloseZhuanQianAndOpenHome()
+        {
+            HideZhuanQianPopup();
+            SetActiveTab(TabIndexHome);
+            OpenHomeTabPanel();
+        }
+
+        private bool IsZhuanQianPopupShown()
+        {
+            return zhuanQianPopup != null && zhuanQianPopup.activeSelf;
         }
 
         // ---- 主角 Spine（SPEC §9.14.1，复用 Hero_Role_cunmin） ----
@@ -1717,12 +1913,26 @@ namespace PetDemo.UI
                 dressUpButton = FindButton("DressUpButton");
             if (homeTabButton == null)
                 homeTabButton = FindButton("HomeTabButton");
+            if (enterHomeButton == null)
+                enterHomeButton = FindButton("EnterHomeButton");
             if (roleAddFavorButton == null)
                 roleAddFavorButton = FindButton("RoleAddFavorButton");
-            if (homeTabPlaceholderPanel == null)
-                homeTabPlaceholderPanel = FindGo("HomeTabPlaceholderPanel");
             if (intimacyTopPanel == null)
                 intimacyTopPanel = FindGo("IntimacyTopPanel");
+            if (topFriendScrollView == null && intimacyTopPanel != null)
+            {
+                var scrollTr = intimacyTopPanel.transform.Find("TopFriendScrollView");
+                topFriendScrollView = scrollTr != null ? scrollTr.gameObject : null;
+            }
+            if (recommendFriendPanel == null && intimacyTopPanel != null)
+            {
+                var panelTr = intimacyTopPanel.transform.Find("RecommendFriendPanel");
+                recommendFriendPanel = panelTr != null ? panelTr.gameObject : null;
+            }
+            if (optionGoTownButton == null)
+                optionGoTownButton = FindButton("OptionGoTownButton");
+            if (optionInviteWerewolfButton == null)
+                optionInviteWerewolfButton = FindButton("OptionInviteWerewolfButton");
             if (topFriendContent == null)
                 topFriendContent = FindRect("TopFriendContent");
             if (topFriendCellTemplate == null)
@@ -1764,13 +1974,58 @@ namespace PetDemo.UI
             CharacterCreationScreenLayout.EnsureEnterHomeTopPanel(panelRt);
         }
 
-        /// <summary>旧 prefab 无 HomeTabPlaceholderPanel 时运行时补建。</summary>
-        private void EnsureHomeTabPlaceholderRuntime()
+        /// <summary>旧 prefab 无 RecommendFriendPanel 时运行时补建（v3.203）。</summary>
+        private void EnsureRecommendFriendPanelRuntime()
         {
-            if (homeTabPlaceholderPanel != null || panelRt == null)
+            if (intimacyTopPanel == null)
+                return;
+
+            var intimacyRt = intimacyTopPanel.transform as RectTransform;
+            if (intimacyRt == null)
+                return;
+
+            CharacterCreationScreenLayout.EnsureRecommendFriendPanel(intimacyRt);
+            if (recommendFriendPanel == null)
+            {
+                var panelTr = intimacyTopPanel.transform.Find("RecommendFriendPanel");
+                recommendFriendPanel = panelTr != null ? panelTr.gameObject : null;
+            }
+            if (topFriendScrollView == null)
+            {
+                var scrollTr = intimacyTopPanel.transform.Find("TopFriendScrollView");
+                topFriendScrollView = scrollTr != null ? scrollTr.gameObject : null;
+            }
+            if (optionGoTownButton == null)
+                optionGoTownButton = FindButton("OptionGoTownButton");
+            if (optionInviteWerewolfButton == null)
+                optionInviteWerewolfButton = FindButton("OptionInviteWerewolfButton");
+        }
+
+        private void WireRecommendFriendButtons()
+        {
+            if (recommendFriendWired)
+                return;
+
+            if (optionGoTownButton != null)
+            {
+                optionGoTownButton.onClick.RemoveAllListeners();
+                optionGoTownButton.onClick.AddListener(OnRecommendGoTownClicked);
+            }
+            if (optionInviteWerewolfButton != null)
+            {
+                optionInviteWerewolfButton.onClick.RemoveAllListeners();
+                optionInviteWerewolfButton.onClick.AddListener(OnRecommendInviteWerewolfClicked);
+            }
+
+            recommendFriendWired = true;
+        }
+
+        /// <summary>旧 prefab 遗留 HomeTabPlaceholderPanel 时运行时移除（v3.186）。</summary>
+        private void EnsureHomeTabLegacyCleanup()
+        {
+            if (panelRt == null)
                 return;
             CharacterCreationScreenLayout.EnsureHomeTabPlaceholderPanel(panelRt);
-            homeTabPlaceholderPanel = FindGo("HomeTabPlaceholderPanel");
         }
 
         /// <summary>SPEC §9.14.10（v3.184）：公会内嵌挂点，位于 BottomTabBar 之下（渲染顺序）。</summary>
@@ -1796,41 +2051,25 @@ namespace PetDemo.UI
                 gongHuiEmbedMount.SetSiblingIndex(bottomTabBar.GetSiblingIndex());
         }
 
-        /// <summary>旧版 prefab 无 ScreenCloseButton 时运行时补建（与 Layout 一致）。</summary>
+        /// <summary>旧版 prefab 无 ScreenCloseButton 时运行时补建（与 Layout 一致）；已存在则校正左上角布局。</summary>
         private void EnsureScreenCloseButton()
         {
-            if (screenCloseButton != null || screenCloseButtonBuilt || panelRt == null)
+            if (screenCloseButtonBuilt || panelRt == null)
                 return;
 
-            var existing = panelRt.Find("ScreenCloseButton");
-            if (existing != null)
-            {
-                screenCloseButton = existing.GetComponent<Button>();
+            var closeRt = CharacterCreationScreenLayout.BuildScreenCloseButton(panelRt);
+            if (closeRt == null)
                 return;
-            }
 
-            var closeRt = CreateRect(panelRt, "ScreenCloseButton",
-                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-20f, -20f), PopupCloseButtonSize);
-            var closeImg = closeRt.gameObject.AddComponent<Image>();
-            closeImg.color = new Color(0.25f, 0.22f, 0.32f, 0.95f);
-            closeImg.raycastTarget = true;
-            screenCloseButton = closeRt.gameObject.AddComponent<Button>();
-            screenCloseButton.transition = Selectable.Transition.None;
-            screenCloseButton.targetGraphic = closeImg;
-
-            var labelRt = CreateStretchRect(closeRt, "Label");
-            var closeLabel = labelRt.gameObject.AddComponent<Text>();
-            closeLabel.text = "×";
-            closeLabel.font = FarmGridView.LoadBuiltinFont();
-            closeLabel.fontSize = 44;
-            closeLabel.alignment = TextAnchor.MiddleCenter;
-            closeLabel.color = Color.black;
-            closeLabel.raycastTarget = false;
+            if (screenCloseButton == null)
+                screenCloseButton = closeRt.GetComponent<Button>();
 
             screenCloseButtonBuilt = true;
-            screenCloseButton.onClick.RemoveAllListeners();
-            screenCloseButton.onClick.AddListener(OnScreenCloseClicked);
+            if (screenCloseButton != null)
+            {
+                screenCloseButton.onClick.RemoveAllListeners();
+                screenCloseButton.onClick.AddListener(OnScreenCloseClicked);
+            }
         }
 
         /// <summary>
@@ -1917,6 +2156,12 @@ namespace PetDemo.UI
 
         private void OnDestroy()
         {
+            if (homeTabPanel != null && homeTabDailyTaskWired)
+            {
+                homeTabPanel.OnDailyTaskRequested -= OpenAddFavorTab;
+                homeTabPanel.OnCloseRequested -= OnScreenCloseClicked;
+                homeTabDailyTaskWired = false;
+            }
             if (instance == this)
                 instance = null;
         }

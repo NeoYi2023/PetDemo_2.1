@@ -197,7 +197,10 @@ namespace PetDemo.Farm
 
                 // SPEC §9.14：新存档初始化创角好友目录；创角状态默认未创建。
                 session.friends = FriendCatalog.BuildDefault();
-                session.characterCreation = new CharacterCreationState();
+                session.characterCreation = new CharacterCreationState
+                {
+                    openingRescuePending = true,
+                };
 
                 // SPEC §B.8：开局引导性农田预置。必须在 Instance 暴露之前完成写入，
                 // 因为本路径不触发任何 §6 事件，UI 后续通过 RefreshAllSlots() 主动拉取快照。
@@ -742,6 +745,155 @@ namespace PetDemo.Farm
             var state = GetCharacterCreation();
             state.created = true;
             state.partnerFriendId = string.Empty;
+            // SPEC §9.14.2（v3.203）：创角后进入亲密度「推荐好友」引导。
+            state.friendListMode = FriendListMode.RecommendPrompt;
+            return true;
+        }
+
+        public void SetFriendListMode(FriendListMode mode)
+        {
+            var state = GetCharacterCreation();
+            state.friendListMode = mode;
+        }
+
+        // SPEC §9.14.11（v3.206）：开局营救。
+
+        public bool IsOpeningRescuePending()
+        {
+            var state = GetCharacterCreation();
+            return state != null && state.openingRescuePending;
+        }
+
+        public void CompleteOpeningRescue()
+        {
+            if (!IsOpeningRescuePending())
+                return;
+
+            if (session?.role != null)
+            {
+                int max = session.role.staminaMax > 0 ? session.role.staminaMax : 100;
+                session.role.stamina = max;
+                OnStaminaChanged?.Invoke(session.role.stamina, max);
+            }
+
+            var state = GetCharacterCreation();
+            state.openingRescuePending = false;
+            GameSaveCoordinator.TrySaveActiveSlot();
+        }
+
+        // SPEC §9.14.13 / §B.23 (v3.208)：加经验；升级不扣减 currentExp。
+        public bool TryAddRoleExp(int amount, out List<int> leveledToLevels)
+        {
+            leveledToLevels = new List<int>();
+            if (amount <= 0)
+                return false;
+
+            if (session.role == null)
+                session.role = RoleStats.CreateDefault();
+
+            var role = session.role;
+            if (role.level <= 0)
+                role.level = 1;
+            if (role.currentExp < 0)
+                role.currentExp = 0;
+            if (role.expToNextLevel <= 0)
+            {
+                int fromTable = RoleExpConfigCatalog.GetExpForLevel(role.level);
+                role.expToNextLevel = fromTable > 0 ? fromTable : 100;
+            }
+
+            role.currentExp += amount;
+
+            // 升级循环：currentExp 不扣减；满级（无下一级成长配置）停止。
+            const int maxLevelUpsPerGrant = 50;
+            int safety = 0;
+            while (safety++ < maxLevelUpsPerGrant
+                   && role.expToNextLevel > 0
+                   && role.currentExp >= role.expToNextLevel
+                   && RoleLevelConfigCatalog.TryGet(role.level + 1, out _))
+            {
+                role.level += 1;
+                RoleLevelConfigCatalog.ApplyToRole(role);
+                leveledToLevels.Add(role.level);
+            }
+
+            OnRoleStatsChanged?.Invoke();
+            GameSaveCoordinator.TrySaveActiveSlot();
+            return true;
+        }
+
+        // ---- SPEC §9.14.12 (v3.194)：挂机训练 ----
+
+        public TrainingSession GetTrainingSession()
+        {
+            if (session.trainingSession == null)
+                session.trainingSession = new TrainingSession();
+            return session.trainingSession;
+        }
+
+        public void SetTrainingFilterMask(int mask)
+        {
+            var ts = GetTrainingSession();
+            ts.activeFilterMask = mask & 0x3F;
+            GameSaveCoordinator.TrySaveActiveSlot();
+        }
+
+        public bool TryStartTraining(string courseId)
+        {
+            if (string.IsNullOrEmpty(courseId))
+                return false;
+
+            var ts = GetTrainingSession();
+            if (ts.HasActiveCourse)
+                return false;
+
+            if (!RoleTrainingCourseCatalog.TryGet(courseId, out var course) || course == null)
+                return false;
+            if (!course.unlockedByDefault)
+                return false;
+
+            long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            ts.courseId = course.id;
+            ts.endUnixMs = nowMs + Math.Max(1, course.durationSec) * 1000L;
+            GameSaveCoordinator.TrySaveActiveSlot();
+            return true;
+        }
+
+        public bool IsTrainingReadyToComplete()
+        {
+            var ts = GetTrainingSession();
+            if (!ts.HasActiveCourse)
+                return false;
+            long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            return nowMs >= ts.endUnixMs;
+        }
+
+        public bool TryCompleteTraining(out AttrDeltaEntry[] appliedGains)
+        {
+            appliedGains = Array.Empty<AttrDeltaEntry>();
+            var ts = GetTrainingSession();
+            if (!ts.HasActiveCourse || !IsTrainingReadyToComplete())
+                return false;
+
+            if (!RoleTrainingCourseCatalog.TryGet(ts.courseId, out var course) || course == null)
+            {
+                ts.courseId = string.Empty;
+                ts.endUnixMs = 0;
+                GameSaveCoordinator.TrySaveActiveSlot();
+                return false;
+            }
+
+            if (session.role == null)
+                session.role = RoleStats.CreateDefault();
+
+            RoleTrainingCourseCatalog.ApplyDeltaToRole(session.role, course.attrGains, isPenalty: false);
+            RoleTrainingCourseCatalog.ApplyDeltaToRole(session.role, course.penalties, isPenalty: true);
+            appliedGains = course.attrGains ?? Array.Empty<AttrDeltaEntry>();
+
+            ts.courseId = string.Empty;
+            ts.endUnixMs = 0;
+            OnRoleStatsChanged?.Invoke();
+            GameSaveCoordinator.TrySaveActiveSlot();
             return true;
         }
 

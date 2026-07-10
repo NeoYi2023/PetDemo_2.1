@@ -97,8 +97,9 @@ namespace PetDemo.UI
         }
 
         /// <param name="intimacyBgClickHandler">点击 IntimacyBg 区域时的回调（可为 null）。</param>
+        /// <param name="intimacyDisplayOverride">SPEC §9.14.8（v3.203）：非 null 时覆盖 IntimacyText 展示值。</param>
         public void Bind(FriendProfile friend, Action<FriendProfile> clickHandler,
-            Action<FriendProfile> intimacyBgClickHandler = null)
+            Action<FriendProfile> intimacyBgClickHandler = null, int? intimacyDisplayOverride = null)
         {
             AutoWire();
             bound = friend;
@@ -109,7 +110,14 @@ namespace PetDemo.UI
                 nameText.text = friend != null ? friend.displayName : "";
 
             if (intimacyText != null)
-                intimacyText.text = friend != null ? ("亲密度 " + friend.intimacy) : "";
+            {
+                if (friend == null)
+                    intimacyText.text = "";
+                else if (intimacyDisplayOverride.HasValue)
+                    intimacyText.text = "亲密度 " + intimacyDisplayOverride.Value;
+                else
+                    intimacyText.text = "亲密度 " + friend.intimacy;
+            }
 
             SetSpriteOrFallback(avatarImage, friend != null ? friend.avatarResource : null, AvatarFallback, true);
 

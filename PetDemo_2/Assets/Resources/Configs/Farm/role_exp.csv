@@ -1,0 +1,14 @@
+# SPEC §B.23：主角经验表（v3.208）
+# 列：targetLevel,expForLevel,cumulativeExp
+# targetLevel=L 的 expForLevel = 处于 level=L 时升到下一级所需单级经验
+targetLevel,expForLevel,cumulativeExp
+1,100,100
+2,150,250
+3,200,450
+4,260,710
+5,330,1040
+6,410,1450
+7,500,1950
+8,600,2550
+9,720,3270
+10,850,4120

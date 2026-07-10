@@ -1,7 +1,8 @@
-// SPEC §9.8.9 (v3.123；背景分块 v3.133；3×3 v3.176；全景 v3.183)：公会场景层 — 预制体优先（Resources/Prefabs/Farm/GongHuiScreenPanel）
-// + 运行时回退；大图世界 + 视口跟随（复用 JiaYuanViewportFollowController）、透明摇杆移动主角、
-// 碰撞阻挡、建筑/NPC/响应区接近名牌、右下角全景切换；OpenKey == "GongHui" 时显示，否则隐藏。
+// SPEC §9.8.9 (v3.123；背景分块 v3.133；3×3 v3.176；全景 v3.183；跳转 v3.195；建筑跳转 v3.196；右上玩法按钮 v3.198)：公会场景层
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using PetDemo.UI.Friend;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,6 +17,18 @@ namespace PetDemo.UI
         /// <summary>公会世界内容缩放（镜头拉近）；与预制体 GongHuiWorldContent.localScale 一致。</summary>
         public static readonly Vector3 WorldContentLocalScale = new Vector3(1.7f, 1.7f, 1f);
 
+        /// <summary>SPEC §9.8.9.11（v3.195）：响应区跳转创角底栏页签。</summary>
+        public const string NavIntimacyTab = "IntimacyTab";
+        public const string NavDressUpTab = "DressUpButton";
+        public const string NavTrainingTab = "RoleAddFavorButton";
+        public const string NavHomeTab = "HomeTabButton";
+        /// <summary>SPEC §9.8.9.13（v3.196）：建筑跳转主线界面。</summary>
+        public const string NavMainStoryLine = "MainStoryLine";
+        /// <summary>SPEC §9.8.9.13（v3.196）：建筑跳转好友列表弹窗。</summary>
+        public const string NavFriendListPanel = "FriendListPanel";
+        /// <summary>SPEC §9.8.9.13（v3.196）：建筑跳转家园世界层。</summary>
+        public const string NavJiaYuanWorld = JiaYuanHomeFeatureEntriesView.JiaYuanNavKey;
+
         private static readonly Vector2 MinWorldSize = new Vector2(1620f, 2880f);
 
         [SerializeField] private RectTransform viewportRt;
@@ -27,9 +40,21 @@ namespace PetDemo.UI
         [SerializeField] private RectTransform responseAreasRootRt;
         [SerializeField] private VirtualJoystickView joystick;
         [SerializeField] private Button panoramaButton;
+        [SerializeField] private Button wfXuanShangButton;
+        [SerializeField] private Button wfZuDuiButton;
+        [SerializeField] private Button wfJjcButton;
+        [SerializeField] private Button wfZhuangYuanButton;
+
+        private GameObject tipsToast;
+        private Text tipsText;
+        private Coroutine tipsRoutine;
+        private const float TipsDurationSec = 2.2f;
 
         private BottomNavBarView bottomNav;
         private TopDingBarView topDingBar;
+        private CharacterCreationScreenView characterCreationHost;
+        private Action onRequestOpenCharacterCreation;
+        private FriendListPanelView friendListPanel;
         private JiaYuanViewportFollowController followController;
         private GuildPlayerController playerController;
         private GuildProximityController proximityController;
@@ -37,6 +62,10 @@ namespace PetDemo.UI
         private GuildNpcFollowController npcFollowController;
         private RectTransform playerRt;
         private bool sceneSpawned;
+        // SPEC §9.14.8（v3.203）：「去小镇寻找」一次性 NPC 就近摆放。
+        private bool townSearchNpcBootstrapped;
+        private const string TownSearchInteractButtonLabel = "打招呼";
+        private static readonly string[] TownSearchNpcNames = { "Npc_1", "Npc_2", "Npc_3" };
 
         // SPEC §9.14.10（v3.184）：创角界面内嵌公会（保留创角 BottomTabBar）。
         private bool embeddedInCharacterCreation;
@@ -52,8 +81,12 @@ namespace PetDemo.UI
         private void Awake()
         {
             EnsureTiledBackground();
+            var screenRoot = (RectTransform)transform;
             if (panoramaButton == null)
-                BuildPanoramaButton((RectTransform)transform, this);
+                BuildPanoramaButton(screenRoot, this);
+            GongHuiScreenLayout.EnsureTopRightWorkflowActions(screenRoot);
+            GongHuiScreenLayout.EnsureTipsToast(screenRoot);
+            WireTopRightWorkflowButtons();
         }
 
         /// <summary>v3.133：预制体若仍挂旧单图 Background，Awake 时重拼切块。</summary>
@@ -147,6 +180,24 @@ namespace PetDemo.UI
             TryWireTopDingBar();
         }
 
+        /// <summary>SPEC §9.8.9.11（v3.195）：注入创角界面，供响应区/建筑跳转。</summary>
+        public void BindCharacterCreationHost(CharacterCreationScreenView host)
+        {
+            characterCreationHost = host;
+        }
+
+        /// <summary>SPEC §9.8.9.11（v3.195）：主 HUD 公会模式下，跳转创角页签前先打开创角界面。</summary>
+        public void BindOpenCharacterCreationRequest(Action openCharacterCreation)
+        {
+            onRequestOpenCharacterCreation = openCharacterCreation;
+        }
+
+        /// <summary>SPEC §9.8.9.13（v3.196）：注入好友列表弹窗，供 Building_2 跳转。</summary>
+        public void BindFriendListPanel(FriendListPanelView panel)
+        {
+            friendListPanel = panel;
+        }
+
         private void TryWireTopDingBar()
         {
             if (topDingBar == null || npcFollowController == null)
@@ -168,7 +219,27 @@ namespace PetDemo.UI
                 HideGuildScreen();
         }
 
-        /// <summary>SPEC §9.14.10（v3.184）：在创角界面内嵌展示公会场景，复用创角 BottomTabBar。</summary>
+        /// <summary>SPEC §9.8（v3.207）：EnterHomeHud 下为底栏留出底部 inset。</summary>
+        public void ApplyEnterHomeHudBottomInset(float bottomInset)
+        {
+            var rt = (RectTransform)transform;
+            rt.offsetMin = new Vector2(rt.offsetMin.x, bottomInset);
+        }
+
+        /// <summary>SPEC §9.8（v3.207）：离开 EnterHomeHud 时清除底栏 inset。</summary>
+        public void ClearEnterHomeHudBottomInset()
+        {
+            var rt = (RectTransform)transform;
+            rt.offsetMin = new Vector2(rt.offsetMin.x, 0f);
+        }
+
+        /// <summary>SPEC §9.8（v3.207）：EnterHomeHud 强制显示公会（避免 SetOpenKey 同 key 不触发）。</summary>
+        public void ForceShowForEnterHomeHud()
+        {
+            ShowGuildScreen();
+        }
+
+        /// <summary>SPEC §9.14.10（v3.184）：在创角界面内嵌展示公会场景（v3.207 主路径已废弃，保留 API）。</summary>
         public void EnterCharacterCreationEmbed(RectTransform mount, float bottomInset)
         {
             if (mount == null)
@@ -237,6 +308,69 @@ namespace PetDemo.UI
             gameObject.SetActive(false);
         }
 
+        /// <summary>SPEC §9.14.8（v3.203）：「去小镇寻找」— Npc_1~3 移至主角附近并改互动文案。</summary>
+        public void ApplyTownSearchNpcBootstrap()
+        {
+            if (townSearchNpcBootstrapped)
+                return;
+
+            EnsureSceneSpawned();
+            if (playerRt == null || npcsRootRt == null)
+            {
+                UnityEngine.Debug.LogWarning("[GongHuiScreenView] 无法执行小镇寻找 NPC 摆放：主角或 Npcs 根节点缺失。");
+                return;
+            }
+
+            townSearchNpcBootstrapped = true;
+            var playerPos = playerRt.anchoredPosition;
+            var placed = new List<Vector2>(TownSearchNpcNames.Length);
+
+            for (int i = 0; i < TownSearchNpcNames.Length; i++)
+            {
+                var npcTr = npcsRootRt.Find(TownSearchNpcNames[i]) as RectTransform;
+                if (npcTr == null)
+                    continue;
+
+                var pos = SampleNpcPositionNearPlayer(playerPos, placed);
+                npcTr.anchoredPosition = pos;
+                placed.Add(pos);
+
+                var plateRt = npcTr.Find("NamePlate") as RectTransform;
+                if (plateRt != null)
+                    GuildSceneUiFactory.SetNpcInteractButtonLabel(plateRt, TownSearchInteractButtonLabel);
+            }
+        }
+
+        private static Vector2 SampleNpcPositionNearPlayer(
+            Vector2 playerPos, List<Vector2> placed,
+            float minRadius = 150f, float maxRadius = 350f, float minSeparation = 80f)
+        {
+            const int maxAttempts = 24;
+            for (int attempt = 0; attempt < maxAttempts; attempt++)
+            {
+                float angle = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+                float radius = UnityEngine.Random.Range(minRadius, maxRadius);
+                var candidate = playerPos + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+
+                bool tooClose = false;
+                for (int i = 0; i < placed.Count; i++)
+                {
+                    if (Vector2.Distance(candidate, placed[i]) < minSeparation)
+                    {
+                        tooClose = true;
+                        break;
+                    }
+                }
+
+                if (!tooClose)
+                    return candidate;
+            }
+
+            float fallbackAngle = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+            float fallbackRadius = UnityEngine.Random.Range(minRadius, maxRadius);
+            return playerPos + new Vector2(Mathf.Cos(fallbackAngle), Mathf.Sin(fallbackAngle)) * fallbackRadius;
+        }
+
         // 首次显示时懒生成主角/NPC Spine 与各控制器（SPEC §9.8.9.4）。
         private void EnsureSceneSpawned()
         {
@@ -296,6 +430,13 @@ namespace PetDemo.UI
             var buildings = buildingsRootRt != null
                 ? buildingsRootRt.GetComponentsInChildren<GuildBuildingMarker>(true)
                 : Array.Empty<GuildBuildingMarker>();
+            for (int i = 0; i < buildings.Length; i++)
+            {
+                if (buildings[i] == null)
+                    continue;
+                buildings[i].WireActionButton();
+                buildings[i].ActionClicked += HandleBuildingActionClicked;
+            }
 
             var responseAreas = responseAreasRootRt != null
                 ? responseAreasRootRt.GetComponentsInChildren<GuildResponseAreaMarker>(true)
@@ -308,7 +449,7 @@ namespace PetDemo.UI
             }
 
             proximityController = gameObject.AddComponent<GuildProximityController>();
-            proximityController.Initialize(playerRt, worldContentRt, buildings, npcs, responseAreas);
+            proximityController.Initialize(playerRt, worldContentRt, buildings, npcs, responseAreas, joystick);
 
             panoramaController = gameObject.AddComponent<GuildPanoramaController>();
             panoramaController.Initialize(
@@ -336,15 +477,208 @@ namespace PetDemo.UI
             panoramaController?.TogglePanorama();
         }
 
-        // SPEC §9.8.9.11：响应区域进入占位跳转；后续按 navTargetKey 对接底栏/全屏面板。
+        // SPEC §9.8.9.14（v3.198）：右上玩法入口按钮。
+        private void WireTopRightWorkflowButtons()
+        {
+            EnsureWorkflowButtonRefs();
+
+            if (wfXuanShangButton != null)
+            {
+                wfXuanShangButton.onClick.RemoveListener(OnWfXuanShangClicked);
+                wfXuanShangButton.onClick.AddListener(OnWfXuanShangClicked);
+            }
+
+            if (wfZuDuiButton != null)
+            {
+                wfZuDuiButton.onClick.RemoveListener(OnWfZuDuiClicked);
+                wfZuDuiButton.onClick.AddListener(OnWfZuDuiClicked);
+            }
+
+            if (wfJjcButton != null)
+            {
+                wfJjcButton.onClick.RemoveListener(OnWfJjcClicked);
+                wfJjcButton.onClick.AddListener(OnWfJjcClicked);
+            }
+
+            if (wfZhuangYuanButton != null)
+            {
+                wfZhuangYuanButton.onClick.RemoveListener(OnWfZhuangYuanClicked);
+                wfZhuangYuanButton.onClick.AddListener(OnWfZhuangYuanClicked);
+            }
+        }
+
+        private void EnsureWorkflowButtonRefs()
+        {
+            var actions = transform.Find(
+                GongHuiScreenLayout.LayerName + "/" + GongHuiScreenLayout.ActionsName);
+            if (wfXuanShangButton == null)
+                wfXuanShangButton = actions?.Find(GongHuiScreenLayout.WfXuanShangButtonName)?.GetComponent<Button>();
+            if (wfZuDuiButton == null)
+                wfZuDuiButton = actions?.Find(GongHuiScreenLayout.WfZuDuiButtonName)?.GetComponent<Button>();
+            if (wfJjcButton == null)
+                wfJjcButton = actions?.Find(GongHuiScreenLayout.WfJjcButtonName)?.GetComponent<Button>();
+            if (wfZhuangYuanButton == null)
+                wfZhuangYuanButton = actions?.Find(GongHuiScreenLayout.WfZhuangYuanButtonName)?.GetComponent<Button>();
+
+            if (tipsToast == null)
+            {
+                var tips = transform.Find("TipsToast");
+                if (tips != null)
+                    tipsToast = tips.gameObject;
+            }
+
+            if (tipsText == null)
+                tipsText = transform.Find("TipsToast/TipsText")?.GetComponent<Text>();
+        }
+
+        private void OnWfXuanShangClicked() => NavigateByKey(NavMainStoryLine);
+
+        private void OnWfZuDuiClicked() => NavigateByKey(NavFriendListPanel);
+
+        private void OnWfJjcClicked() => ShowTips("敬请期待");
+
+        private void OnWfZhuangYuanClicked() => NavigateByKey(NavJiaYuanWorld);
+
+        private void ShowTips(string message)
+        {
+            EnsureWorkflowButtonRefs();
+            if (tipsToast == null || tipsText == null)
+                return;
+
+            tipsText.text = message ?? string.Empty;
+            tipsToast.SetActive(true);
+            tipsToast.transform.SetAsLastSibling();
+            if (tipsRoutine != null)
+                StopCoroutine(tipsRoutine);
+            tipsRoutine = StartCoroutine(TipsRoutine());
+        }
+
+        private IEnumerator TipsRoutine()
+        {
+            yield return new WaitForSeconds(TipsDurationSec);
+            HideTipsImmediate();
+        }
+
+        private void HideTipsImmediate()
+        {
+            if (tipsRoutine != null)
+            {
+                StopCoroutine(tipsRoutine);
+                tipsRoutine = null;
+            }
+
+            if (tipsToast != null)
+                tipsToast.SetActive(false);
+        }
+
+        // SPEC §9.8.9.11（v3.197）：响应区域区域内静止 2s 后按 navTargetKey 跳转。
         private void HandleResponseAreaEntered(GuildResponseAreaMarker marker)
         {
             if (marker == null)
                 return;
-            UnityEngine.Debug.Log(
-                "[GongHuiScreen] 响应区域进入（占位跳转）: id=" + marker.AreaId
-                + ", name=" + marker.DisplayName
-                + ", navKey=" + marker.NavTargetKey);
+            NavigateByKey(marker.NavTargetKey);
+        }
+
+        private void HandleBuildingActionClicked(GuildBuildingMarker marker)
+        {
+            if (marker == null)
+                return;
+            NavigateByKey(marker.NavTargetKey);
+        }
+
+        private void NavigateByKey(string key)
+        {
+            if (string.IsNullOrEmpty(key))
+                return;
+
+            if (string.Equals(key, NavIntimacyTab, StringComparison.Ordinal)
+                || string.Equals(key, NavDressUpTab, StringComparison.Ordinal)
+                || string.Equals(key, NavTrainingTab, StringComparison.Ordinal)
+                || string.Equals(key, NavHomeTab, StringComparison.Ordinal))
+            {
+                NavigateToCharacterCreationTab(key);
+                return;
+            }
+
+            if (string.Equals(key, NavMainStoryLine, StringComparison.Ordinal))
+            {
+                OpenMainStoryLineFromGuild();
+                return;
+            }
+
+            if (string.Equals(key, NavFriendListPanel, StringComparison.Ordinal))
+            {
+                OpenFriendListFromGuild();
+                return;
+            }
+
+            if (string.Equals(key, NavJiaYuanWorld, StringComparison.Ordinal))
+            {
+                OpenJiaYuanWorldFromGuild();
+            }
+        }
+
+        private void NavigateToCharacterCreationTab(string tabKey)
+        {
+            if (characterCreationHost == null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[GongHuiScreenView] 未注入 CharacterCreationScreenView，无法跳转页签：" + tabKey);
+                return;
+            }
+
+            if (!characterCreationHost.IsShown)
+            {
+                onRequestOpenCharacterCreation?.Invoke();
+                if (!characterCreationHost.IsShown)
+                {
+                    UnityEngine.Debug.LogWarning(
+                        "[GongHuiScreenView] 创角界面未打开，无法跳转页签：" + tabKey);
+                    return;
+                }
+            }
+
+            characterCreationHost.NavigateFromGuild(tabKey);
+        }
+
+        private void OpenMainStoryLineFromGuild()
+        {
+            SwitchToBottomNav(MainStoryLineScreenView.ZhuXianNavKey);
+        }
+
+        private void OpenFriendListFromGuild()
+        {
+            if (friendListPanel == null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[GongHuiScreenView] 未注入 FriendListPanelView，无法打开好友列表。");
+                return;
+            }
+
+            friendListPanel.Show();
+        }
+
+        private void OpenJiaYuanWorldFromGuild()
+        {
+            SwitchToBottomNav(NavJiaYuanWorld);
+        }
+
+        private void SwitchToBottomNav(string navKey)
+        {
+            if (string.IsNullOrEmpty(navKey))
+                return;
+
+            // SPEC §9.8（v3.207）：EnterHomeHud / 主 HUD 均直接切 BottomNavBar（可处于 inactive）。
+            if (bottomNav != null)
+            {
+                if (!bottomNav.gameObject.activeSelf)
+                    bottomNav.gameObject.SetActive(true);
+                bottomNav.SetOpenKey(navKey);
+                return;
+            }
+
+            if (characterCreationHost != null)
+                characterCreationHost.RequestExitToBottomNav(navKey);
         }
 
         // SPEC §9.8.9.4：缺预制体时以代码搭建等价骨架（空 Obstacles/Buildings/Npcs），仅保 Play 不空跑。
@@ -416,6 +750,8 @@ namespace PetDemo.UI
                 obstaclesRoot, buildingsRoot, npcsRoot, joystickView, responseAreasRoot);
 
             BuildPanoramaButton(root, view);
+            GongHuiScreenLayout.EnsureTopRightWorkflowActions(root);
+            GongHuiScreenLayout.EnsureTipsToast(root);
         }
 
         /// <summary>SPEC §9.8.9.12：右下角「全景」切换按钮（图片 ShouHuo_2）；预制体生成器与运行时回退共用。</summary>

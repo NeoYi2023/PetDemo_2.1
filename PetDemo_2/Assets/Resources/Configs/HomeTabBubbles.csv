@@ -1,0 +1,10 @@
+# SPEC §9.14.11 / §B.20 家园页签气泡文字表（行序 = 展示优先级）
+# 列序：entryId,triggerCondition,roleAnim,animPlayCount,bubbleText
+# triggerCondition：Always=打开面板即满足；其它值本期视为不满足
+# roleAnim：气泡展示时角色 Spine 动画名，可空（保持待机）
+# animPlayCount：0=持续循环；>0=连续播放该次数后回待机
+# bubbleText：禁用英文逗号（用全角，）；字面 \n 会被替换为换行
+entryId,triggerCondition,roleAnim,animPlayCount,bubbleText
+bubble_welcome,Always,exclusive_2,0,欢迎回来！点我继续听我说~
+bubble_tip_exp,Always,standby_1,2,下方可以看到等级和经验哦。
+bubble_tip_attrs,Always,,0,信息区可以查看角色六项属性。

@@ -10,7 +10,7 @@ using UnityEngine.UI;
 namespace PetDemo.EditorTools
 {
     /// <summary>
-    /// SPEC §9.8.9.2 (v3.123；全景按钮 v3.183)：公会场景层预制体生成器。
+    /// SPEC §9.8.9.2 (v3.123；全景按钮 v3.183；右上玩法按钮 v3.198)：公会场景层预制体生成器。
     /// 产出 Assets/Resources/Prefabs/Farm/GongHuiScreenPanel.prefab，
     /// 内置示例碰撞体×3 / 建筑×2 / NPC×3，位置供人工在 Inspector 中调整。
     /// </summary>
@@ -21,6 +21,17 @@ namespace PetDemo.EditorTools
 
         [MenuItem("Tools/PetDemo/Generate GongHui Screen Prefab")]
         public static void Generate()
+        {
+            GenerateInternal();
+        }
+
+        /// <summary>供 Unity 批处理调用：Unity.exe -batchmode -quit -executeMethod PetDemo.EditorTools.GongHuiScreenPrefabGenerator.GenerateFromCommandLine</summary>
+        public static void GenerateFromCommandLine()
+        {
+            GenerateInternal();
+        }
+
+        private static void GenerateInternal()
         {
             EnsureDir(PrefabDir);
             BuildPrefab();
@@ -59,20 +70,29 @@ namespace PetDemo.EditorTools
             BuildObstacle(obstaclesRoot, "Obstacle_2", new Vector2(330f, 120f), new Vector2(260f, 260f));
             BuildObstacle(obstaclesRoot, "Obstacle_3", new Vector2(-60f, -520f), new Vector2(420f, 180f));
 
-            // 示例建筑（占位色块 + 名称）。
-            BuildBuilding(buildingsRoot, "Building_1", "公会大厅", new Vector2(-280f, 640f));
-            BuildBuilding(buildingsRoot, "Building_2", "任务板", new Vector2(300f, 360f));
+            // 示例建筑（占位色块 + 名称 + 跳转 key）。
+            BuildBuilding(buildingsRoot, "Building_1", "悬赏", GongHuiScreenView.NavMainStoryLine,
+                new Vector2(-280f, 640f));
+            BuildBuilding(buildingsRoot, "Building_2", "组队冒险", GongHuiScreenView.NavFriendListPanel,
+                new Vector2(300f, 360f));
+            BuildBuilding(buildingsRoot, "Building_3", "我的庄园", GongHuiScreenView.NavJiaYuanWorld,
+                new Vector2(-1132f, -301f));
 
             // 示例 NPC（固定出生点，头像/名字默认取 FriendCatalog）。
             BuildNpc(npcsRoot, "Npc_1", "friend-01", GuildNpcSkeletonKind.LangMeiRen, true, new Vector2(-330f, -120f));
             BuildNpc(npcsRoot, "Npc_2", "friend-02", GuildNpcSkeletonKind.LangRen, false, new Vector2(280f, -320f));
             BuildNpc(npcsRoot, "Npc_3", "friend-03", GuildNpcSkeletonKind.LangRen, false, new Vector2(40f, 180f));
 
-            // 示例响应区域（靠近显示名牌，走进半径自动触发占位跳转）。
-            BuildResponseArea(responseAreasRoot, "ResponseArea_1", "portal_shop", "商店入口",
-                "ShangDian", new Vector2(-120f, 520f));
-            BuildResponseArea(responseAreasRoot, "ResponseArea_2", "portal_adventure", "冒险传送",
-                "ZhuXian", new Vector2(420f, -180f));
+            // 示例响应区域（靠近显示名牌，走进半径自动触发跳转）。
+            BuildResponseArea(responseAreasRoot, "ResponseArea_1", "portal_dress_up", "装扮入口",
+                GongHuiScreenView.NavDressUpTab, new Vector2(-120f, 520f));
+            BuildResponseArea(responseAreasRoot, "ResponseArea_2", "portal_training", "训练入口",
+                GongHuiScreenView.NavTrainingTab, new Vector2(420f, -180f));
+            BuildResponseArea(responseAreasRoot, "ResponseArea_3", "portal_home", "家园入口",
+                GongHuiScreenView.NavHomeTab, new Vector2(-200f, 80f));
+
+            GongHuiScreenLayout.EnsureTopRightWorkflowActions(rootRt);
+            GongHuiScreenLayout.EnsureTipsToast(rootRt);
 
             var prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
             Object.DestroyImmediate(root);
@@ -88,7 +108,11 @@ namespace PetDemo.EditorTools
         }
 
         private static void BuildBuilding(
-            RectTransform parent, string name, string buildingName, Vector2 anchoredPosition)
+            RectTransform parent,
+            string name,
+            string buildingName,
+            string navTargetKey,
+            Vector2 anchoredPosition)
         {
             var rt = CreateCentered(parent, name, anchoredPosition, new Vector2(240f, 240f));
             var img = rt.gameObject.AddComponent<Image>();
@@ -97,6 +121,7 @@ namespace PetDemo.EditorTools
 
             var marker = rt.gameObject.AddComponent<GuildBuildingMarker>();
             marker.SetBuildingName(buildingName);
+            marker.SetNavTargetKey(navTargetKey);
 
             // 编辑器内可辨识的占位文字（运行时名牌另行懒创建）。
             var labelRt = CreateCentered(rt, "EditorLabel", Vector2.zero, new Vector2(220f, 60f));

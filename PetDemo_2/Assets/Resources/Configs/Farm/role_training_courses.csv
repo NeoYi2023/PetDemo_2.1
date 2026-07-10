@@ -1,0 +1,10 @@
+﻿# SPEC §B.22：主角训练课程表（v3.194）,,,,,,,,,,
+# filterTags/attrGains/penalties 多值用 |；attrGains/penalties 格式 attrId:delta,,,,,,,,,,
+id,name,icon,filterTags,durationSec,attrGains,penalties,rewardPool,description,unlockedByDefault,unlockTip
+train_int_01,晨读训练,AirUI/Skill_1001,1,30,1:03,,,提升智力,1,
+train_mem_01,记忆翻牌,AirUI/Skill_1002,2,30,2:03,,,,1,
+train_img_01,幻想速写,AirUI/Skill_1003,3,45,3:04,4:01,,耗体力换想象,1,
+train_phy_01,耐力跑,AirUI/Skill_1004,4,45,4:04,,,,1,
+train_cha_01,舞台彩排,AirUI/Skill_1001,5,60,5:05,1:01,,,0,完成主线第1章解锁
+train_eq_01,倾诉练习,AirUI/Skill_1002,6,60,6:05,,,,0,亲密度达80解锁
+train_mix_01,综合脑力,AirUI/Skill_1003,1|2|3,90,1:2|2:2|3:2,4:01,item:demo_reward,多属性训练,1,

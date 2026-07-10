@@ -1,4 +1,6 @@
-// SPEC §9.8.9.3 / §9.8.9.4：公会场景建筑标记 — 人工摆放；主角进入半径时显示「建筑名 + 功能按钮（占位）」名牌。
+// SPEC §9.8.9.3 / §9.8.9.4 / §9.8.9.13：公会场景建筑标记 — 人工摆放；主角进入半径时显示「建筑名 + 功能按钮」名牌；
+// 点击功能按钮按 navTargetKey 跳转（由 GongHuiScreenView 装配）。
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,21 +13,38 @@ namespace PetDemo.UI
         [SerializeField] private string buildingName = "公会建筑";
         [SerializeField] private float interactRadius = 260f;
         [SerializeField] private float plateOffsetY = 140f;
+        [SerializeField] private string navTargetKey = "";
 
         private RectTransform plateRt;
         private int savedNameFontSize = -1;
+        private bool actionButtonWired;
+
+        public event Action<GuildBuildingMarker> ActionClicked;
 
         public RectTransform Rt => (RectTransform)transform;
         public float InteractRadius => interactRadius;
         public string BuildingName => buildingName;
+        public string NavTargetKey => navTargetKey;
+
+        private void Awake()
+        {
+            TryAcquirePlateFromHierarchy();
+        }
 
         public void SetBuildingName(string value)
         {
             buildingName = value;
         }
 
+        public void SetNavTargetKey(string value)
+        {
+            navTargetKey = value;
+        }
+
         public void SetPlateVisible(bool visible, bool panoramaOverride = false)
         {
+            if (visible && plateRt == null)
+                TryAcquirePlateFromHierarchy();
             if (visible && plateRt == null)
                 plateRt = BuildPlate();
             if (plateRt != null && plateRt.gameObject.activeSelf != visible)
@@ -64,6 +83,39 @@ namespace PetDemo.UI
             }
         }
 
+        public void WireActionButton()
+        {
+            if (actionButtonWired)
+                return;
+            if (plateRt == null)
+                TryAcquirePlateFromHierarchy();
+            if (plateRt == null)
+                return;
+
+            var btn = plateRt.Find("ActionButton")?.GetComponent<Button>();
+            if (btn == null)
+                return;
+
+            btn.onClick.RemoveListener(OnActionButtonClicked);
+            btn.onClick.AddListener(OnActionButtonClicked);
+            actionButtonWired = true;
+        }
+
+        private void OnActionButtonClicked()
+        {
+            ActionClicked?.Invoke(this);
+        }
+
+        private void TryAcquirePlateFromHierarchy()
+        {
+            if (plateRt != null)
+                return;
+            var existing = Rt.Find("NamePlate") as RectTransform;
+            if (existing == null)
+                return;
+            plateRt = existing;
+        }
+
         // 名牌运行时懒创建（SPEC §9.8.9.6），底部枢轴贴在建筑上方。
         private RectTransform BuildPlate()
         {
@@ -74,12 +126,10 @@ namespace PetDemo.UI
                 new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -14f), new Vector2(300f, 48f));
 
-            var btn = GuildSceneUiFactory.AddButton(rt, "ActionButton", "功能",
+            GuildSceneUiFactory.AddButton(rt, "ActionButton", "功能",
                 new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, 14f), new Vector2(140f, 56f));
-            string captured = buildingName;
-            btn.onClick.AddListener(() =>
-                UnityEngine.Debug.Log("[GongHuiScreen] 建筑功能按钮（占位）：" + captured));
+            WireActionButton();
             return rt;
         }
     }
