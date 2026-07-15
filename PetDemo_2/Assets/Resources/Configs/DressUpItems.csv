@@ -1,30 +1,35 @@
-﻿# SPEC §9.14.9 装扮商店道具配置表（仅用于演示，不做真实购买/校验/存储）,,,,,,
-# 列序固定：itemId,tabIndex,icon,intimacyRequire,price,sortOrder,description
-# tabIndex: 0=装扮 1=幻化 2=动作 3=聊天,,,,,,
-# icon: Resources 相对路径（演示期为占位，缺图回退纯色，后续替换为真实图标路径）,,,,,,
-# intimacyRequire: 使用亲密度条件数值，留空表示无条件,,,,,,
-# sortOrder: Tab 内由大到小排序，相同则按本表行序,,,,,,
-itemId,tabIndex,icon,intimacyRequire,price,sortOrder,description
-zb_001,0,AirUI/WanJia_1,,0,10,经典学院风套装，清爽百搭。
-zb_002,0,AirUI/WanJia_2,,260,9,夏日海滩限定装扮，需达成一定亲密度。
-zb_003,0,AirUI/WanJia_3,,80,8,基础休闲装，新手友好。
-zb_004,0,AirUI/WanJia_4,,520,7,星河礼服，华丽登场。
-zb_005,0,AirUI/WanJia_5,,150,6,街头潮流外套。
-hh_001,1,AirUI/WanJia_6,,648,12,初级幻化形态，灵动可爱。
-hh_002,1,AirUI/WanJia_7,,68,7,御风幻化，需较高亲密度解锁。
-hh_003,1,AirUI/WanJia_8,,128,9,森林精灵幻化。
-hh_004,1,AirUI/WanJia_9,,648,11,凤凰涅槃幻化，顶级稀有。
-hh_005,1,AirUI/WanJia_10,,328,10,星辉幻化形态。
-hh_006,1,AirUI/WanJia_11,,32,5,
-hh_007,1,AirUI/WanJia_12,,32,5,
-hh_008,1,AirUI/WanJia_13,,64,6,
-hh_009,1,AirUI/WanJia_14,,128,8,
-dz_001,2,AirUI/DongZuo_1,,128,90,你的飞吻，Ta的玫瑰
-dz_002,2,AirUI/DongZuo_2,,2,100,手拉手一起走
-dz_003,2,AirUI/DongZuo_3,,64,80,吓吓Ta
-lt_001,3,AirUI/emoji_bg_1,,16,100,常用问候语气泡。
-lt_002,3,AirUI/emoji_bg_2,,16,100,常用问候语气泡。
-lt_003,3,AirUI/emoji_bg_3,,16,100,常用问候语气泡。
-lt_004,3,AirUI/emoji_bg_4,,16,100,常用问候语气泡。
-lt_005,3,AirUI/emoji_bg_5,,16,100,常用问候语气泡。
-lt_006,3,AirUI/emoji_bg_6,,16,100,常用问候语气泡。
+﻿# SPEC §9.14.9 装扮商店道具配置表（仅用于演示，不做真实购买/校验/存储）,,,,,,,,
+# 列序固定：itemId,tabIndex,icon,intimacyRequire,price,sortOrder,description,useButtonLabel,applyResource
+# tabIndex: 0=装扮 1=幻化 2=动作 3=聊天,,,,,,,,
+# icon: Resources 相对路径（演示期为占位，缺图回退纯色，后续替换为真实图标路径）,,,,,,,,
+# intimacyRequire: 使用亲密度条件数值，留空表示无条件,,,,,,,,
+# sortOrder: Tab 内由大到小排序，相同则按本表行序,,,,,,,,
+# useButtonLabel: 选中后「使用」按钮文案，留空回退「使用」（v3.244）,,,,,,,,
+# applyResource: Spine SkeletonData 路径；留空=点击「使用」无效果（v3.244）,,,,,,,,
+#   - Resources 相对路径（无扩展名）：例 Spines/Foo/Foo_SkeletonData,,,,,,,,
+#   - 或工程 Assets/ 路径（Editor，可带 .asset）：例 Assets/Scenes/Air/Role_cslieren/.../Role_cslieren_SkeletonData.asset,,,,,,,,
+#   - 必须指向 SkeletonDataAsset，不能填 Atlas/材质/预制体,,,,,,,,
+itemId,tabIndex,icon,intimacyRequire,price,sortOrder,description,useButtonLabel,applyResource
+zb_001,0,AirUI/WanJia_1,,0,10,经典学院风套装，清爽百搭。,使用,
+zb_002,0,AirUI/WanJia_2,,260,9,夏日海滩限定装扮，需达成一定亲密度。,使用,
+zb_003,0,AirUI/WanJia_3,,80,8,基础休闲装，新手友好。,使用,
+zb_004,0,AirUI/WanJia_4,,520,7,星河礼服，华丽登场。,使用,
+zb_005,0,AirUI/WanJia_5,,150,6,街头潮流外套。,使用,
+hh_001,1,AirUI/WanJia_6,,648,12,初级幻化形态，灵动可爱。,使用,Assets/Scenes/Air/LangMeiRen/Role_langmeiren/Role_langmeiren_SkeletonData.asset
+hh_002,1,AirUI/WanJia_7,,68,7,御风幻化，需较高亲密度解锁。,使用,
+hh_003,1,AirUI/WanJia_8,,128,9,森林精灵幻化。,使用,Assets/Scenes/Air/Role_cslieren/Role_cslieren/Role_cslieren_SkeletonData.asset
+hh_004,1,AirUI/WanJia_9,,648,11,凤凰涅槃幻化，顶级稀有。,使用,
+hh_005,1,AirUI/WanJia_10,,328,10,星辉幻化形态。,使用,Assets/Scenes/Air/Role_csnvhai/Role_csnvhai/Role_csnvhai_SkeletonData.asset
+hh_006,1,AirUI/WanJia_11,,32,5,,使用,
+hh_007,1,AirUI/WanJia_12,,32,5,,使用,
+hh_008,1,AirUI/WanJia_13,,64,6,,使用,
+hh_009,1,AirUI/WanJia_14,,128,8,,使用,
+dz_001,2,AirUI/DongZuo_1,,128,90,你的飞吻，Ta的玫瑰,使用,
+dz_002,2,AirUI/DongZuo_2,,2,100,手拉手一起走,使用,
+dz_003,2,AirUI/DongZuo_3,,64,80,吓吓Ta,使用,
+lt_001,3,AirUI/emoji_bg_1,,16,100,常用问候语气泡。,使用,
+lt_002,3,AirUI/emoji_bg_2,,16,100,常用问候语气泡。,使用,
+lt_003,3,AirUI/emoji_bg_3,,16,100,常用问候语气泡。,使用,
+lt_004,3,AirUI/emoji_bg_4,,16,100,常用问候语气泡。,使用,
+lt_005,3,AirUI/emoji_bg_5,,16,100,常用问候语气泡。,使用,
+lt_006,3,AirUI/emoji_bg_6,,16,100,常用问候语气泡。,使用,

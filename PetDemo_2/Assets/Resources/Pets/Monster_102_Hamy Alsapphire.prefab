@@ -81,7 +81,7 @@ MeshRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 1811959561
-  m_SortingLayer: 2
+  m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!114 &8134309479966706978
@@ -97,7 +97,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   skeletonDataAsset: {fileID: 11400000, guid: 23265225acf1b604a97f755d1781db9d, type: 2}
-  initialSkinName: V3
+  initialSkinName: V1
   fixPrefabOverrideViaMeshFilter: 2
   initialFlipX: 0
   initialFlipY: 0

@@ -17,6 +17,15 @@ namespace PetDemo.Core
         public int sortOrder;
         public string description;
 
+        /// <summary>SPEC §9.14.9（v3.244）：「使用」按钮文案；空则 UI 回退「使用」。</summary>
+        public string useButtonLabel;
+
+        /// <summary>
+        /// SPEC §9.14.9（v3.244）：点击「使用」后装备的 Spine 资源（Resources 相对路径 → SkeletonDataAsset）。
+        /// 空字符串表示点击无效果。
+        /// </summary>
+        public string applyResource;
+
         /// <summary>解析时记录的 CSV 行序，用于 sortOrder 并列时的稳定排序。</summary>
         public int rowOrder;
     }
@@ -94,6 +103,22 @@ namespace PetDemo.Core
             return result;
         }
 
+        /// <summary>按 itemId 查找配置（未找到返回 null）。</summary>
+        public static DressUpItemConfig GetById(string itemId)
+        {
+            if (string.IsNullOrEmpty(itemId))
+                return null;
+
+            var all = Load();
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (all[i] != null && all[i].itemId == itemId)
+                    return all[i];
+            }
+
+            return null;
+        }
+
         /// <summary>清空缓存（便于编辑器下重载配置）。</summary>
         public static void ClearCache()
         {
@@ -102,7 +127,8 @@ namespace PetDemo.Core
 
         private static DressUpItemConfig Parse(string line, int rowOrder)
         {
-            // 列序：itemId,tabIndex,icon,intimacyRequire,price,sortOrder,description
+            // 列序：itemId,tabIndex,icon,intimacyRequire,price,sortOrder,description[,useButtonLabel,applyResource]
+            // 兼容旧 7 列行：新字段视为空。
             var cols = line.Split(',');
             if (cols.Length < 7)
             {
@@ -115,6 +141,8 @@ namespace PetDemo.Core
                 itemId = cols[0].Trim(),
                 icon = cols[2].Trim(),
                 description = cols[6].Trim(),
+                useButtonLabel = cols.Length > 7 ? cols[7].Trim() : string.Empty,
+                applyResource = cols.Length > 8 ? cols[8].Trim() : string.Empty,
                 rowOrder = rowOrder,
             };
 

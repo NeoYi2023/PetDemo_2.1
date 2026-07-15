@@ -2,6 +2,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using PetDemo.Battle;
+using PetDemo.Core;
+using PetDemo.Farm;
 using PetDemo.UI;
 using PetDemo.UI.Farm;
 using Spine;
@@ -167,17 +169,32 @@ namespace PetDemo.UI.Battle
                 Vector2.zero, GridCharacterSize);
 
             bool isAlly = unit.side == BattleSide.Ally;
+            // SPEC §12.14.9 (v3.226)：在基底 GridCharacterScale 上再乘单位 displayScale（怪物/BOSS 临时放大）。
+            float s = GridCharacterScale * Mathf.Max(0.01f, unit.displayScale);
             unitRt.localScale = isAlly
-                ? new Vector3(-GridCharacterScale, GridCharacterScale, 1f)
-                : FantaziaMonsterDisplay.BoostedMirroredUniform(GridCharacterScale);
+                ? new Vector3(-s, s, 1f)
+                : FantaziaMonsterDisplay.BoostedMirroredUniform(s);
 
             // SPEC §12.14.9 (v3.223)：先挂嵌套 Canvas（含 Spine 通道与相对 sortingOrder），再构建 SkeletonGraphic。
             ApplyGridUnitDepthSorting(unitRt, unit.gridPos.row, unit.gridPos.col);
 
-            string prefabPath = string.IsNullOrEmpty(unit.skeletonPrefab)
-                ? (isAlly ? ResPlayerPrefab : ResEnemyPrefab)
-                : unit.skeletonPrefab;
-            var skeleton = TryBuildSkeletonGraphic(prefabPath, unitRt);
+            // SPEC §12.11.4（v3.251 / v3.252）：仅我方 Role 走装扮装备；敌方用配置表 skeletonPrefab。
+            SkeletonGraphic skeleton;
+            if (unit.side == BattleSide.Ally && unit.kind == BattleUnitKind.Role)
+            {
+                string equipped = PlantingService.Instance != null
+                    ? PlantingService.Instance.GetEquippedPlayerSpineResource()
+                    : null;
+                var dataAsset = PlayerSpineAppearanceResolver.Resolve(equipped);
+                skeleton = TryBuildSkeletonGraphicFromData(dataAsset, unitRt);
+            }
+            else
+            {
+                string prefabPath = string.IsNullOrEmpty(unit.skeletonPrefab)
+                    ? (isAlly ? ResPlayerPrefab : ResEnemyPrefab)
+                    : unit.skeletonPrefab;
+                skeleton = TryBuildSkeletonGraphic(prefabPath, unitRt);
+            }
 
             var hpFill = BuildGridHpBar(slotRt, out var hpText);
 
@@ -517,6 +534,18 @@ namespace PetDemo.UI.Battle
         private IEnumerator ShowEmbeddedResultDialog(bool playerWon)
         {
             if (resultDialogView == null || resultDialogRt == null)
+            {
+                onEmbeddedEnded?.Invoke(playerWon);
+                yield break;
+            }
+
+            // SPEC §12.11.10.1 (v3.234)：仅 BOSS 战胜利弹出结算弹窗；效果/小怪战胜利直接进入战后流程。
+            bool isBoss = gridSession != null
+                && string.Equals(
+                    gridSession.pendingEventId,
+                    GridEncounterBuilder.EventFightBoss,
+                    System.StringComparison.Ordinal);
+            if (playerWon && !isBoss)
             {
                 onEmbeddedEnded?.Invoke(playerWon);
                 yield break;

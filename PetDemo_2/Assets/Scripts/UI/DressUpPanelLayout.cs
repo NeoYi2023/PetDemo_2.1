@@ -19,6 +19,12 @@ namespace PetDemo.UI
         public static readonly Vector2 PlayerRoleSoloMax = new Vector2(0.71f, 0.9f);
         public const int ActionTabIndex = 2;
 
+        // SPEC §9.14.9（v3.244 / v3.246 / v3.249）：「使用」按钮锚在 PlayerRole 底边中心，PosY=-100。
+        public const string UseButtonDefaultLabel = "使用";
+        public static readonly Vector2 UseButtonSize = new Vector2(220f, 72f);
+        public const float UseButtonPosY = -100f;
+        private static readonly Color UseButtonBgColor = new Color(0.35f, 0.42f, 0.62f, 1f);
+
         // SPEC §9.14.9：道具单元统一背景、选中叠加与价格/亲密度图标。
         public const string ItemCellBackgroundResource = "AirUI/ZhuangBan_sheetBJ2";
         public const string ItemCellSelectionOverlayResource = "AirUI/common_bg_2";
@@ -60,6 +66,9 @@ namespace PetDemo.UI
             playerRoleImg.color = PortraitFallback;
             playerRoleImg.raycastTarget = false;
             playerRoleImg.preserveAspect = true;
+
+            // SPEC §9.14.9（v3.244）：PlayerRole 下方「使用」按钮（默认隐藏）。
+            BuildUseButton(playerRole);
 
             // 亲密度最高好友的角色立绘（右）。
             var friendRole = CreateRect(topHalf, "FriendRole", FriendRoleDualMin, FriendRoleDualMax);
@@ -197,6 +206,78 @@ namespace PetDemo.UI
 
             if (intimacyPanel != null)
                 intimacyPanel.gameObject.SetActive(dualMode);
+        }
+
+        /// <summary>
+        /// SPEC §9.14.9（v3.244 / v3.246 / v3.249）：在 PlayerRole 底边构建「使用」按钮（默认隐藏）。
+        /// </summary>
+        public static RectTransform BuildUseButton(RectTransform playerRole)
+        {
+            if (playerRole == null)
+                return null;
+
+            var existing = playerRole.Find("UseButton") as RectTransform;
+            if (existing != null)
+            {
+                ApplyUseButtonRect(existing);
+                return existing;
+            }
+
+            var go = new GameObject("UseButton", typeof(RectTransform));
+            var rt = go.GetComponent<RectTransform>();
+            rt.SetParent(playerRole, false);
+            ApplyUseButtonRect(rt);
+
+            var img = go.AddComponent<Image>();
+            img.color = UseButtonBgColor;
+            img.raycastTarget = true;
+
+            var btn = go.AddComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+            btn.targetGraphic = img;
+
+            CreateText(rt, "Label", UseButtonDefaultLabel, new Vector2(0.5f, 0.5f),
+                Vector2.zero, UseButtonSize, 36, TextAnchor.MiddleCenter);
+
+            go.SetActive(false);
+            return rt;
+        }
+
+        /// <summary>将 UseButton 锚定到 PlayerRole 底边中心，PosY=-100（SPEC §9.14.9 v3.249）。</summary>
+        public static void ApplyUseButtonRect(RectTransform useButtonRt)
+        {
+            if (useButtonRt == null)
+                return;
+
+            useButtonRt.anchorMin = new Vector2(0.5f, 0f);
+            useButtonRt.anchorMax = new Vector2(0.5f, 0f);
+            useButtonRt.pivot = new Vector2(0.5f, 0f);
+            useButtonRt.anchoredPosition = new Vector2(0f, UseButtonPosY);
+            useButtonRt.sizeDelta = UseButtonSize;
+            useButtonRt.SetAsLastSibling();
+        }
+
+        /// <summary>
+        /// SPEC §9.14.9（v3.249）：装备 Spine 预览时将 PlayerRole Top 设为 inset（Inspector Top）。
+        /// </summary>
+        public const float EquippedPlayerRoleTop = 95f;
+
+        public static void ApplyPlayerRoleTopInset(RectTransform playerRole, float topInset)
+        {
+            if (playerRole == null)
+                return;
+
+            var max = playerRole.offsetMax;
+            playerRole.offsetMax = new Vector2(max.x, -topInset);
+        }
+
+        public static void ClearPlayerRoleTopInset(RectTransform playerRole)
+        {
+            if (playerRole == null)
+                return;
+
+            var max = playerRole.offsetMax;
+            playerRole.offsetMax = new Vector2(max.x, 0f);
         }
 
         // ---- 道具网格（SPEC §9.14.9 v3.148） ----

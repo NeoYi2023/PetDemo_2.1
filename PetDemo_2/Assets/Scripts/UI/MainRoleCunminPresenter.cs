@@ -101,6 +101,7 @@ namespace PetDemo.UI
         private Action<string, ActionType> _unifiedHandler;
         private Action _roleStatsHandler;
         private Action<string, string> _fertilizeAppliedHandler;
+        private Action _appearanceHandler;
 
         public void Build(RectTransform parent, IPlantingService service)
         {
@@ -115,7 +116,8 @@ namespace PetDemo.UI
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 Vector2.zero, Vector2.zero);
 
-            if (villagerPrefab == null || !TryBuildSkeletonGraphic(villagerPrefab, _villagerRootRt))
+            if (!TryBuildSkeletonGraphic(_villagerRootRt) &&
+                (villagerPrefab == null || !TryBuildSkeletonGraphicFromPrefab(villagerPrefab, _villagerRootRt)))
             {
                 Destroy(_villagerRootRt.gameObject);
                 _villagerRootRt = null;
@@ -131,9 +133,11 @@ namespace PetDemo.UI
                 _unifiedHandler = OnUnifiedActionExecuted;
                 _roleStatsHandler = OnRoleStatsChanged;
                 _fertilizeAppliedHandler = OnFertilizeApplied;
+                _appearanceHandler = OnPlayerAppearanceChanged;
                 _service.OnUnifiedActionExecuted += _unifiedHandler;
                 _service.OnRoleStatsChanged += _roleStatsHandler;
                 _service.OnFertilizeApplied += _fertilizeAppliedHandler;
+                _service.OnPlayerAppearanceChanged += _appearanceHandler;
             }
 
             AttachDragHitbox();
@@ -296,6 +300,42 @@ namespace PetDemo.UI
             if (_unifiedHandler != null) _service.OnUnifiedActionExecuted -= _unifiedHandler;
             if (_roleStatsHandler != null) _service.OnRoleStatsChanged -= _roleStatsHandler;
             if (_fertilizeAppliedHandler != null) _service.OnFertilizeApplied -= _fertilizeAppliedHandler;
+            if (_appearanceHandler != null) _service.OnPlayerAppearanceChanged -= _appearanceHandler;
+        }
+
+        private void OnPlayerAppearanceChanged()
+        {
+            RebuildVillagerAppearance();
+        }
+
+        /// <summary>SPEC §9.14.9（v3.244）：装备 Spine 变更后重建家园主角。</summary>
+        private void RebuildVillagerAppearance()
+        {
+            if (!_built || _villagerRootRt == null)
+                return;
+
+            if (_villagerRoleRt != null)
+            {
+                Destroy(_villagerRoleRt.gameObject);
+                _villagerRoleRt = null;
+            }
+            _skeletonGraphic = null;
+
+            if (!TryBuildSkeletonGraphic(_villagerRootRt))
+            {
+                var prefab = ResolveVillagerPrefab();
+                if (prefab == null || !TryBuildSkeletonGraphicFromPrefab(prefab, _villagerRootRt))
+                {
+                    UnityEngine.Debug.LogWarning("[MainRoleCunminPresenter] 外观重建失败。");
+                    return;
+                }
+            }
+
+            if (_skeletonGraphic != null)
+            {
+                _skeletonGraphic.raycastTarget = false;
+                PlayIdleLoop();
+            }
         }
 
         private GameObject ResolveVillagerPrefab()
@@ -315,7 +355,17 @@ namespace PetDemo.UI
 #endif
         }
 
-        private bool TryBuildSkeletonGraphic(GameObject prefab, RectTransform parent)
+        /// <summary>SPEC §9.14.9（v3.244）：优先从会话装备路径解析 SkeletonData 并构建。</summary>
+        private bool TryBuildSkeletonGraphic(RectTransform parent)
+        {
+            string equipped = _service != null ? _service.GetEquippedPlayerSpineResource() : null;
+            var dataAsset = PetDemo.Core.PlayerSpineAppearanceResolver.Resolve(equipped);
+            if (dataAsset == null)
+                return false;
+            return BuildSkeletonGraphicFromData(dataAsset, parent);
+        }
+
+        private bool TryBuildSkeletonGraphicFromPrefab(GameObject prefab, RectTransform parent)
         {
             GameObject probe = Instantiate(prefab);
             probe.SetActive(false);
@@ -336,6 +386,14 @@ namespace PetDemo.UI
                 UnityEngine.Debug.LogWarning("MainRoleCunminPresenter: could not resolve SkeletonDataAsset from villager prefab.");
                 return false;
             }
+
+            return BuildSkeletonGraphicFromData(dataAsset, parent);
+        }
+
+        private bool BuildSkeletonGraphicFromData(SkeletonDataAsset dataAsset, RectTransform parent)
+        {
+            if (dataAsset == null || parent == null)
+                return false;
 
             var shader = Shader.Find(SkeletonGraphicShaderName);
             if (shader == null)

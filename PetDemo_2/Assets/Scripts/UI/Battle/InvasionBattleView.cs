@@ -996,12 +996,28 @@ namespace PetDemo.UI.Battle
             var srcAnim = probe.GetComponent<SkeletonAnimation>()
                 ?? probe.GetComponentInChildren<SkeletonAnimation>(true);
             var dataAsset = srcAnim != null ? srcAnim.skeletonDataAsset : null;
+            // SPEC §12.14.9 (v3.225)：探针阶段缓存预制体权威皮肤名，构建后运行时应用，避免变体皮肤未生效导致「有节点无外形」。
+            string initialSkinName = srcAnim != null ? srcAnim.initialSkinName : null;
             Destroy(probe);
 
             if (dataAsset == null)
             {
                 UnityEngine.Debug.LogWarning("[InvasionBattleView] 预制体 " + resourcesPath
                     + " 未找到 SkeletonDataAsset，回退为占位色块。");
+                BuildFallbackBlock(parent);
+                return null;
+            }
+
+            return TryBuildSkeletonGraphicFromData(dataAsset, parent, initialSkinName);
+        }
+
+        /// <summary>SPEC §12.11.4（v3.251）：已解析 SkeletonDataAsset 时直接构建（装扮装备 Role）。</summary>
+        private SkeletonGraphic TryBuildSkeletonGraphicFromData(
+            SkeletonDataAsset dataAsset, RectTransform parent, string initialSkinName = null)
+        {
+            if (dataAsset == null)
+            {
+                UnityEngine.Debug.LogWarning("[InvasionBattleView] SkeletonDataAsset 为空，回退为占位色块。");
                 BuildFallbackBlock(parent);
                 return null;
             }
@@ -1034,8 +1050,28 @@ namespace PetDemo.UI.Battle
                 return null;
             }
             skel.raycastTarget = false;
+            ApplyInitialSkin(skel, initialSkinName);
             TryPlayFirstLoopAnimation(skel);
             return skel;
+        }
+
+        // SPEC §12.14.9 / §9.5.1.3 (v3.225)：SkeletonGraphic 构建后同步预制体权威 initialSkinName。
+        // 若模型把可见附件挂在变体皮肤（如 V3）上而默认皮肤为空，不应用皮肤会渲染为空（有节点无外形）。
+        private static void ApplyInitialSkin(SkeletonGraphic skel, string skinName)
+        {
+            if (skel == null || string.IsNullOrEmpty(skinName))
+                return;
+            var skeleton = skel.Skeleton;
+            if (skeleton == null || skeleton.Data == null)
+                return;
+            if (skeleton.Data.FindSkin(skinName) == null)
+            {
+                UnityEngine.Debug.LogWarning("[InvasionBattleView] 皮肤不存在，保留默认皮肤：" + skinName);
+                return;
+            }
+            skeleton.SetSkin(skinName);
+            skeleton.SetSlotsToSetupPose();
+            skel.LateUpdate();
         }
 
         private static void TryPlayFirstLoopAnimation(SkeletonGraphic skel)

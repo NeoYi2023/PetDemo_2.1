@@ -17,25 +17,26 @@ namespace PetDemo.Core
 
         /// <summary>
         /// SPEC §9.14.2：构建内置静态好友目录（混合在线/离线，亲密度跨越 80 阈值）。
+        /// 缺 TopFriends.csv 时的回退；种子 gender/hasPartner 与演示 CSV 对齐（v3.258）。
         /// </summary>
         public static List<FriendProfile> BuildDefault()
         {
-            // (displayName, online, intimacy)
-            var seed = new (string name, bool online, int intimacy)[]
+            // (displayName, online, intimacy, isFemale, hasPartner)
+            var seed = new (string name, bool online, int intimacy, bool isFemale, bool hasPartner)[]
             {
-                ("林小满", true, 92),
-                ("苏晚晴", true, 88),
-                ("陆既明", true, 81),
-                ("江清欢", true, 67),
-                ("顾行舟", true, 54),
-                ("沈星河", true, 33),
-                ("白鹿", true, 12),
-                ("温野", false, 95),
-                ("叶知秋", false, 83),
-                ("陈默", false, 72),
-                ("许嵩", false, 49),
-                ("罗夏", false, 26),
-                ("孟婆", false, 8),
+                ("林小满", true, 92, true, false),
+                ("苏晚晴", true, 88, true, true),
+                ("陆既明", true, 81, false, false),
+                ("江清欢", true, 67, true, false),
+                ("顾行舟", true, 54, false, true),
+                ("沈星河", true, 33, false, false),
+                ("白鹿", true, 12, true, false),
+                ("温野", false, 95, false, true),
+                ("叶知秋", false, 83, true, false),
+                ("陈默", false, 72, false, false),
+                ("许嵩", false, 49, false, true),
+                ("罗夏", false, 26, true, false),
+                ("孟婆", false, 8, true, false),
             };
 
             var list = new List<FriendProfile>(seed.Length);
@@ -49,6 +50,8 @@ namespace PetDemo.Core
                     avatarResource = "AirUI/WanJia_icon_" + ((i % AvatarVariantCount) + 1),
                     online = seed[i].online,
                     intimacy = intimacy,
+                    isFemale = seed[i].isFemale,
+                    hasPartner = seed[i].hasPartner,
                 });
             }
 

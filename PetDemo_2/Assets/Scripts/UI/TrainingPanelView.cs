@@ -49,8 +49,17 @@ namespace PetDemo.UI
 
         private readonly Image[] filterIcons = new Image[TrainingPanelLayout.FilterAttrCount];
         private readonly GameObject[] filterBadges = new GameObject[TrainingPanelLayout.FilterAttrCount];
+        private readonly GameObject[] filterHighlights = new GameObject[TrainingPanelLayout.FilterAttrCount];
         private readonly Button[] filterButtons = new Button[TrainingPanelLayout.FilterAttrCount];
         private readonly List<CourseCell> courseCells = new List<CourseCell>();
+
+        // SPEC §9.14.12 (v3.233)：筛选行首「All」项 + 空状态提示。allFilterActive 仅视图层，不持久化。
+        private Image filterAllIcon;
+        private GameObject filterAllBadge;
+        private GameObject filterAllHighlight;
+        private Button filterAllButton;
+        private Text emptyFilterHint;
+        private bool allFilterActive;
 
         private RectTransform panelRt;
         private IPlantingService service;
@@ -127,10 +136,16 @@ namespace PetDemo.UI
         public void Bind(IPlantingService plantingService)
         {
             if (service != null)
+            {
                 service.OnRoleStatsChanged -= OnRoleStatsChanged;
+                service.OnPlayerAppearanceChanged -= OnPlayerAppearanceChanged;
+            }
             service = plantingService;
             if (service != null)
+            {
                 service.OnRoleStatsChanged += OnRoleStatsChanged;
+                service.OnPlayerAppearanceChanged += OnPlayerAppearanceChanged;
+            }
         }
 
         public void Show()
@@ -141,6 +156,12 @@ namespace PetDemo.UI
             transform.SetAsLastSibling();
             EnsureRoleSpine();
             RebuildCourseCells();
+
+            // SPEC §9.14.12 (v3.233)：每次打开默认激活「All」（不记忆上次筛选）。
+            allFilterActive = true;
+            if (service != null)
+                service.SetTrainingFilterMask(0);
+
             RefreshAll();
         }
 
@@ -168,9 +189,30 @@ namespace PetDemo.UI
         {
             HideTipsImmediate();
             if (service != null)
+            {
                 service.OnRoleStatsChanged -= OnRoleStatsChanged;
+                service.OnPlayerAppearanceChanged -= OnPlayerAppearanceChanged;
+            }
             if (instance == this)
                 instance = null;
+        }
+
+        private void OnPlayerAppearanceChanged()
+        {
+            RebuildRoleSpineForAppearance();
+        }
+
+        private void RebuildRoleSpineForAppearance()
+        {
+            if (roleMount == null)
+                return;
+
+            for (int i = roleMount.childCount - 1; i >= 0; i--)
+                Destroy(roleMount.GetChild(i).gameObject);
+
+            roleSkeletonGraphic = null;
+            roleBuilt = false;
+            EnsureRoleSpine();
         }
 
         private void OnRoleStatsChanged()
@@ -194,6 +236,12 @@ namespace PetDemo.UI
                 }
             }
 
+            if (filterAllButton != null)
+            {
+                filterAllButton.onClick.RemoveAllListeners();
+                filterAllButton.onClick.AddListener(OnAllClicked);
+            }
+
             if (completeButton != null)
             {
                 completeButton.onClick.RemoveAllListeners();
@@ -201,13 +249,32 @@ namespace PetDemo.UI
             }
         }
 
+        private void OnAllClicked()
+        {
+            if (service == null)
+                return;
+            allFilterActive = true;
+            service.SetTrainingFilterMask(0);
+            RefreshAll();
+        }
+
         private void OnFilterClicked(int attrIndex0)
         {
             if (service == null || attrIndex0 < 0 || attrIndex0 >= 6)
                 return;
+            int bit = 1 << attrIndex0;
+
+            // SPEC §9.14.12 (v3.233)：All 激活时点击属性 → 仅该属性激活。
+            if (allFilterActive)
+            {
+                allFilterActive = false;
+                service.SetTrainingFilterMask(bit);
+                RefreshAll();
+                return;
+            }
+
             var ts = service.GetTrainingSession();
             int mask = ts != null ? ts.activeFilterMask : 0;
-            int bit = 1 << attrIndex0;
             if ((mask & bit) != 0)
                 mask &= ~bit;
             else
@@ -264,13 +331,23 @@ namespace PetDemo.UI
                     mask = ts.activeFilterMask;
             }
 
+            // SPEC §9.14.12 (v3.233)：All 激活时仅 All 显示选中样式，6 项属性全部变暗。
+            if (filterAllIcon != null)
+                filterAllIcon.color = allFilterActive ? FilterActiveColor : FilterDimColor;
+            if (filterAllBadge != null)
+                filterAllBadge.SetActive(allFilterActive);
+            if (filterAllHighlight != null)
+                filterAllHighlight.SetActive(allFilterActive);
+
             for (int i = 0; i < TrainingPanelLayout.FilterAttrCount; i++)
             {
-                bool selected = (mask & (1 << i)) != 0;
+                bool selected = !allFilterActive && (mask & (1 << i)) != 0;
                 if (filterIcons[i] != null)
                     filterIcons[i].color = selected ? FilterActiveColor : FilterDimColor;
                 if (filterBadges[i] != null)
                     filterBadges[i].SetActive(selected);
+                if (filterHighlights[i] != null)
+                    filterHighlights[i].SetActive(selected);
             }
         }
 
@@ -421,17 +498,28 @@ namespace PetDemo.UI
                     mask = ts.activeFilterMask;
             }
 
+            // SPEC §9.14.12 (v3.233)：非 All 且未选任何属性 → 隐藏全部课程 + 显示空状态文字。
+            bool empty = !allFilterActive && mask == 0;
+            if (emptyFilterHint != null)
+                emptyFilterHint.gameObject.SetActive(empty);
+
             for (int i = 0; i < courseCells.Count; i++)
             {
                 var cell = courseCells[i];
                 if (cell == null || cell.root == null)
                     continue;
+                if (empty)
+                {
+                    cell.root.SetActive(false);
+                    continue;
+                }
                 if (!RoleTrainingCourseCatalog.TryGet(cell.courseId, out var cfg) || cfg == null)
                 {
                     cell.root.SetActive(false);
                     continue;
                 }
-                cell.root.SetActive(RoleTrainingCourseCatalog.MatchesFilter(cfg, mask));
+                // All 激活 → 显示全部课程；否则按 OR 匹配。
+                cell.root.SetActive(allFilterActive || RoleTrainingCourseCatalog.MatchesFilter(cfg, mask));
             }
         }
 
@@ -586,6 +674,17 @@ namespace PetDemo.UI
             if (tipsText == null)
                 tipsText = FindText("TipsText");
 
+            // SPEC §9.14.12 (v3.233)：补齐并重排筛选行「All + 6 属性」；补齐空状态提示。
+            var filterSection = FindDescendant("FilterSection") as RectTransform;
+            if (filterSection != null)
+                TrainingPanelLayout.EnsureFilterRow(filterSection);
+            if (emptyFilterHint == null)
+            {
+                var courseSection = FindDescendant("CourseSection") as RectTransform;
+                if (courseSection != null)
+                    emptyFilterHint = TrainingPanelLayout.EnsureEmptyFilterHint(courseSection);
+            }
+
             for (int i = 0; i < TrainingPanelLayout.FilterAttrCount; i++)
             {
                 if (filterIcons[i] != null)
@@ -597,6 +696,20 @@ namespace PetDemo.UI
                 filterButtons[i] = item.GetComponent<Button>();
                 var badge = item.Find("SelectedBadge");
                 filterBadges[i] = badge != null ? badge.gameObject : null;
+                filterHighlights[i] = TrainingPanelLayout.EnsureFilterHighlight(item as RectTransform);
+            }
+
+            if (filterAllIcon == null)
+            {
+                var allItem = FindDescendant(TrainingPanelLayout.FilterAllObjectName);
+                if (allItem != null)
+                {
+                    filterAllIcon = allItem.GetComponent<Image>();
+                    filterAllButton = allItem.GetComponent<Button>();
+                    var allBadge = allItem.Find("SelectedBadge");
+                    filterAllBadge = allBadge != null ? allBadge.gameObject : null;
+                    filterAllHighlight = TrainingPanelLayout.EnsureFilterHighlight(allItem as RectTransform);
+                }
             }
         }
 
@@ -655,49 +768,11 @@ namespace PetDemo.UI
             return true;
         }
 
-        private SkeletonDataAsset cachedRoleDataAsset;
-        private bool roleDataAssetResolved;
-
         private SkeletonDataAsset ResolveRoleSkeletonDataAsset()
         {
-            if (roleDataAssetResolved)
-                return cachedRoleDataAsset;
-            roleDataAssetResolved = true;
-
-            var prefab = Resources.Load<GameObject>(RoleResourcesPrefabPath);
-            if (prefab != null)
-            {
-                var sg = prefab.GetComponentInChildren<SkeletonGraphic>(true);
-                if (sg != null && sg.skeletonDataAsset != null)
-                {
-                    cachedRoleDataAsset = sg.skeletonDataAsset;
-                    return cachedRoleDataAsset;
-                }
-                var anim = prefab.GetComponentInChildren<SkeletonAnimation>(true);
-                if (anim != null && anim.skeletonDataAsset != null)
-                {
-                    cachedRoleDataAsset = anim.skeletonDataAsset;
-                    return cachedRoleDataAsset;
-                }
-            }
-
-#if UNITY_EDITOR
-            var editorPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
-                "Assets/Scenes/Air/Role/Hero_Role_cunmin.prefab");
-            if (editorPrefab != null)
-            {
-                var sg = editorPrefab.GetComponentInChildren<SkeletonGraphic>(true);
-                if (sg != null && sg.skeletonDataAsset != null)
-                    cachedRoleDataAsset = sg.skeletonDataAsset;
-                else
-                {
-                    var anim = editorPrefab.GetComponentInChildren<SkeletonAnimation>(true);
-                    if (anim != null)
-                        cachedRoleDataAsset = anim.skeletonDataAsset;
-                }
-            }
-#endif
-            return cachedRoleDataAsset;
+            // SPEC §9.14.9（v3.244）：优先装备路径，否则默认主角骨骼。
+            string equipped = service != null ? service.GetEquippedPlayerSpineResource() : null;
+            return PlayerSpineAppearanceResolver.Resolve(equipped);
         }
 
         private void PlayIdleLoop()

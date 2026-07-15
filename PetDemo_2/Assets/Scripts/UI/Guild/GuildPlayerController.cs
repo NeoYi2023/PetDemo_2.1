@@ -32,6 +32,9 @@ namespace PetDemo.UI
         public SkeletonGraphic PlayerSkeleton => skeletonGraphic;
         public bool IsAnimationLocked => animationLocked;
 
+        /// <summary>SPEC §9.8.9.15：主角移动速度只读访问器（NPC 游走速度 = MoveSpeed × 0.85）。</summary>
+        public float MoveSpeed => moveSpeed;
+
         public void SetAnimationLocked(bool locked)
         {
             animationLocked = locked;
@@ -65,6 +68,16 @@ namespace PetDemo.UI
                 PlayMove();
             else
                 PlayIdle();
+        }
+
+        /// <summary>SPEC §9.8.9.4（v3.247）：装扮换 Spine 后换绑 SkeletonGraphic 并恢复动画。</summary>
+        public void RebindSkeleton(SkeletonGraphic playerSkeleton)
+        {
+            skeletonGraphic = playerSkeleton;
+            if (!initialized)
+                return;
+            if (!animationLocked)
+                RefreshAnimation();
         }
 
         public void Initialize(

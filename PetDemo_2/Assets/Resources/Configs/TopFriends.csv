@@ -1,21 +1,23 @@
-# SPEC §9.14.8 第 1 点 创角界面「亲密度」页签好友列表配置表（驱动 TopFriendCell 双列网格列表）
-# 列序固定：id,displayName,avatar,gender,intimacy,intimacyInterrupted,online,avatarFrame,spinePrefab
-# gender: male=friends_icon_man  female=friends_icon_woman
-# intimacyInterrupted: true=Xing_2_1（中断）  false=Xing_2（未中断）
-# online: true=friends_ing_1（在线）  false=friends_ing_2（离线）
-# avatarFrame: 头像框 Resources 路径，留空=无头像框
-# spinePrefab: 模型 Spine 预制体 Resources 路径（探针取 SkeletonDataAsset，缺资源回退占位）
-id,displayName,avatar,gender,intimacy,intimacyInterrupted,online,avatarFrame,spinePrefab
-friend-01,林小满,AirUI/WanJia_icon_1,female,92,false,true,AirUI/friends_Avatar_frame_1,Prefabs/Air/Hero_Role_langmeiren
-friend-02,苏晚晴,AirUI/WanJia_icon_2,female,88,false,true,AirUI/friends_Avatar_frame_1,Prefabs/Air/Hero_Role_langmeiren
-friend-03,陆既明,AirUI/WanJia_icon_3,male,81,true,true,,Prefabs/Air/Hero_Role_cunmin
-friend-04,江清欢,AirUI/WanJia_icon_4,female,67,false,true,,Prefabs/Air/Hero_Role_langmeiren
-friend-05,顾行舟,AirUI/WanJia_icon_5,male,54,false,true,,Prefabs/Air/Hero_Role_cunmin
-friend-06,沈星河,AirUI/WanJia_icon_6,male,33,true,true,,Prefabs/Air/Hero_Role_cunmin
-friend-07,白鹿,AirUI/WanJia_icon_7,female,12,false,true,,Prefabs/Air/Hero_Role_langmeiren
-friend-08,温野,AirUI/WanJia_icon_8,male,95,false,false,AirUI/friends_Avatar_frame_1,Prefabs/Air/Hero_Role_cunmin
-friend-09,叶知秋,AirUI/WanJia_icon_9,female,83,true,false,,Prefabs/Air/Hero_Role_langmeiren
-friend-10,陈默,AirUI/WanJia_icon_10,male,72,false,false,,Prefabs/Air/Hero_Role_cunmin
-friend-11,许嵩,AirUI/WanJia_icon_1,male,49,false,false,,Prefabs/Air/Hero_Role_cunmin
-friend-12,罗夏,AirUI/WanJia_icon_2,female,26,true,false,,Prefabs/Air/Hero_Role_langmeiren
-friend-13,孟婆,AirUI/WanJia_icon_3,female,8,false,false,,Prefabs/Air/Hero_Role_langmeiren
+﻿# SPEC §9.14.8 第 1 点 创角界面「亲密度」页签好友列表配置表（驱动 TopFriendCell 双列网格列表）,,,,,,,,,
+# 列序固定：id,displayName,avatar,gender,intimacy,intimacyInterrupted,online,avatarFrame,spinePrefab,hasPartner
+# gender: male=friends_icon_man  female=friends_icon_woman,,,,,,,,,
+# intimacyInterrupted: true=Xing_2_1（中断）  false=Xing_2（未中断）,,,,,,,,,
+# online: true=friends_ing_1（在线）  false=friends_ing_2（离线）,,,,,,,,,
+# avatarFrame: 头像框 Resources 路径，留空=无头像框,,,,,,,,,
+# spinePrefab: 模型 Spine 预制体 Resources 路径（探针取 SkeletonDataAsset，缺资源回退占位）,,,,,,,,,
+# hasPartner: SPEC §9.8.18 是否已有伴侣，true=伴侣小屋不可邀请（置灰）,,,,,,,,,
+id,displayName,avatar,gender,intimacy,intimacyInterrupted,online,avatarFrame,spinePrefab,hasPartner
+friend-01,林小满,AirUI/WanJia_icon_1,female,92,FALSE,TRUE,AirUI/friends_Avatar_frame_1,Prefabs/Air/Hero_Role_langmeiren,FALSE
+friend-02,苏晚晴,AirUI/WanJia_icon_2,female,88,FALSE,TRUE,AirUI/friends_Avatar_frame_1,Prefabs/Air/Hero_Role_csnvhai,TRUE
+friend-03,陆既明,AirUI/WanJia_icon_3,male,81,TRUE,TRUE,,Prefabs/Air/Hero_Role_cunmin,FALSE
+friend-04,江清欢,AirUI/WanJia_icon_4,female,67,FALSE,TRUE,,Prefabs/Air/Hero_Role_cslieren,FALSE
+friend-05,顾行舟,AirUI/WanJia_icon_5,male,54,FALSE,TRUE,,Prefabs/Air/Hero_Role_cunmin,TRUE
+friend-06,沈星河,AirUI/WanJia_icon_6,male,33,TRUE,TRUE,,Prefabs/Air/Hero_Role_langmeiren,FALSE
+friend-07,白鹿,AirUI/WanJia_icon_7,female,12,FALSE,TRUE,,Prefabs/Air/Hero_Role_csnvhai,FALSE
+friend-08,温野,AirUI/WanJia_icon_8,male,95,FALSE,FALSE,AirUI/friends_Avatar_frame_1,Prefabs/Air/Hero_Role_cunmin,TRUE
+friend-09,叶知秋,AirUI/WanJia_icon_9,female,83,TRUE,FALSE,,Prefabs/Air/Hero_Role_cslieren,FALSE
+friend-10,陈默,AirUI/WanJia_icon_10,male,72,FALSE,FALSE,,Prefabs/Air/Hero_Role_cunmin,FALSE
+friend-11,许嵩,AirUI/WanJia_icon_1,male,49,FALSE,FALSE,,Prefabs/Air/Hero_Role_langmeiren,TRUE
+friend-12,罗夏,AirUI/WanJia_icon_2,female,26,TRUE,FALSE,,Prefabs/Air/Hero_Role_csnvhai,FALSE
+friend-13,孟婆,AirUI/WanJia_icon_3,female,8,FALSE,FALSE,,Prefabs/Air/Hero_Role_cunmin,FALSE
+,,,,,,,,,

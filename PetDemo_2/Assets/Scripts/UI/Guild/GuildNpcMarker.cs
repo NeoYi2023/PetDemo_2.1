@@ -1,9 +1,10 @@
-// SPEC §9.8.9.3 / §9.8.9.4 / §9.8.9.9：公会场景 NPC 标记 — 人工摆放出生点；主角进入半径时头顶显示
-// 「头像 + 名字 + 互动按钮」；头像/名字默认取 §9.14.2 FriendCatalog，可被 Inspector 覆盖。
+// SPEC §9.8.9.3 / §9.8.9.4 / §9.8.9.9（v3.257）：公会场景 NPC 标记 — 人工摆放出生点；主角进入半径时头顶显示
+// 「头像 + 名字 + 互动按钮」；头像/名字默认取 TopFriends.csv，可被 Inspector 覆盖。
+// Spine 运行时按 npcId→TopFriends.spinePrefab 构建（缺配置回退 skeletonKind）。
 // v3.124：互动按钮点击触发 OnInteract 回调（接 GuildNpcFollowController 跟随主角）。
 // SPEC §9.8.9.8：互动进入跟随后 NamePlate 永久隐藏（同 Tab 会话内），改为 NPC 正上方常驻
 // 独立 Avatar（84×84，资源与名牌 Avatar 一致）；离开公会 Tab 退出跟随 UI 模式，接近检测名牌恢复。
-// v3.156：按 skeletonKind 区分 LangRen/LangMeiRen；Npc_1 名牌上方显示 HuDong_DongZuo_1 动作图标。
+// v3.156：skeletonKind 作缺省回退；Npc_1 名牌上方显示 HuDong_DongZuo_1 动作图标。
 using System;
 using System.Collections.Generic;
 using PetDemo.Core;
@@ -60,6 +61,9 @@ namespace PetDemo.UI
         public float InteractRadius => interactRadius;
         public string NpcId => npcId;
         public bool IsFollowing => isFollowing;
+
+        /// <summary>SPEC §9.8.9.15：名牌当前是否显示中（供随机游走暂停判定）。</summary>
+        public bool IsPlateVisible => plateRt != null && plateRt.gameObject.activeSelf;
         public GuildNpcSkeletonKind SkeletonKind => skeletonKind;
         public bool ShowActionIcon => showActionIcon;
 

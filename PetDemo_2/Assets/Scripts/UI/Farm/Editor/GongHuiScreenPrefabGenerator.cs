@@ -12,7 +12,7 @@ namespace PetDemo.EditorTools
     /// <summary>
     /// SPEC §9.8.9.2 (v3.123；全景按钮 v3.183；右上玩法按钮 v3.198)：公会场景层预制体生成器。
     /// 产出 Assets/Resources/Prefabs/Farm/GongHuiScreenPanel.prefab，
-    /// 内置示例碰撞体×3 / 建筑×2 / NPC×3，位置供人工在 Inspector 中调整。
+    /// 内置示例碰撞体×3 / 建筑×3 / NPC×3 / 响应区×3 / 游走目标点×4，位置供人工在 Inspector 中调整。
     /// </summary>
     public static class GongHuiScreenPrefabGenerator
     {
@@ -64,6 +64,7 @@ namespace PetDemo.EditorTools
             var buildingsRoot = worldContent.Find("Buildings") as RectTransform;
             var npcsRoot = worldContent.Find("Npcs") as RectTransform;
             var responseAreasRoot = worldContent.Find("ResponseAreas") as RectTransform;
+            var waypointsRoot = worldContent.Find("Waypoints") as RectTransform;
 
             // 示例碰撞体（无视觉，人工调整位置/大小）。
             BuildObstacle(obstaclesRoot, "Obstacle_1", new Vector2(-320f, 420f), new Vector2(360f, 220f));
@@ -91,6 +92,12 @@ namespace PetDemo.EditorTools
             BuildResponseArea(responseAreasRoot, "ResponseArea_3", "portal_home", "家园入口",
                 GongHuiScreenView.NavHomeTab, new Vector2(-200f, 80f));
 
+            // 示例游走目标点（无视觉，人工在 Inspector 中增删/调整坐标；SPEC §9.8.9.15 v3.230）。
+            BuildWaypoint(waypointsRoot, "Waypoint_1", new Vector2(-480f, -80f));
+            BuildWaypoint(waypointsRoot, "Waypoint_2", new Vector2(120f, -60f));
+            BuildWaypoint(waypointsRoot, "Waypoint_3", new Vector2(480f, 220f));
+            BuildWaypoint(waypointsRoot, "Waypoint_4", new Vector2(-120f, 300f));
+
             GongHuiScreenLayout.EnsureTopRightWorkflowActions(rootRt);
             GongHuiScreenLayout.EnsureTipsToast(rootRt);
 
@@ -105,6 +112,13 @@ namespace PetDemo.EditorTools
         {
             var rt = CreateCentered(parent, name, anchoredPosition, size);
             rt.gameObject.AddComponent<GuildObstacleArea>();
+        }
+
+        private static void BuildWaypoint(
+            RectTransform parent, string name, Vector2 anchoredPosition)
+        {
+            var rt = CreateCentered(parent, name, anchoredPosition, new Vector2(10f, 10f));
+            rt.gameObject.AddComponent<GuildWaypointMarker>();
         }
 
         private static void BuildBuilding(

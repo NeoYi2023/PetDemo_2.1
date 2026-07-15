@@ -1,7 +1,7 @@
 // SPEC §9.8.13 (v3.41)：统一仓库预制体运行时组件。
 // 合并 FoodWarehouseModal（中心子模态）与 JiaYuanWarehouseFullscreen（家园全屏背景）。
 // 入口 A：MainStoryLine 「前往 → 确定」 → FoodWarehouseModalView.Show 桥接到本组件；
-// 入口 B：底部导航家园 → 仓库按钮 → JiaYuanHomeFeatureEntriesView 直接调用。
+// 入口 B（自 v3.253）：创角 HomeTabPanel TopRightActions 仓库按钮 → CharacterCreationScreenView 调用。
 // 数据：果实槽绑 PlayerFruitBag；体力条绑 RoleStats.stamina；
 // 底部「吃 / 一键吃饱」消耗 PlayerFruitBag.activeId 的果实 → RoleStats.stamina（§9.8.13.6 换算）；
 // 「开始」在体力 ≥ WarehouseHubPanelView.StartButtonVisibleMinStamina（§9.8.13.5）时显示；

@@ -68,6 +68,8 @@ namespace PetDemo.Battle
         public bool isBattleDead;
         public string displayName;
         public string skeletonPrefab;
+        // SPEC §12.14.9 (v3.226)：战斗展示比例（来自 InvasionUnitConfig.displayScale）；默认 1。
+        public float displayScale = 1f;
     }
 
     /// <summary>SPEC §12.5：多单位阵型战运行时状态。</summary>

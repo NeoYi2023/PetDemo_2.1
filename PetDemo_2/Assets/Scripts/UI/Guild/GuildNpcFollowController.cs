@@ -3,8 +3,10 @@
 // ≤ 40px 停步待机；无碰撞/边界检测；离开公会界面（OnDisable）时全部复位回出生点并恢复待机。
 // SPEC §9.8.9.8：StartFollow 时切换 marker 为头顶 Avatar 模式；OnDisable 时退出跟随 UI 模式。
 // SPEC §9.8.15.1 (v3.159)：StartFollow 成功后触发 FollowerAdded，供 TopDingBar 左下角登记头像。
+// SPEC §9.8.9.7 (v3.257)：跟随快照 skeletonPrefab 优先写 TopFriends.csv spinePrefab。
 using System;
 using System.Collections.Generic;
+using PetDemo.Core;
 using Spine.Unity;
 using UnityEngine;
 
@@ -123,7 +125,7 @@ namespace PetDemo.UI
             PlayAnimation(marker.NpcSkeleton, false);
         }
 
-        // SPEC §9.8.9.7 (v3.222)：用当前 entries 重建跨 Tab 跟随快照（id + skeletonPrefab）。
+        // SPEC §9.8.9.7 (v3.222 / v3.257)：用当前 entries 重建跨 Tab 跟随快照（id + skeletonPrefab）。
         private void PublishVisitSnapshot()
         {
             var snapshots = new List<GuildFollowerSnapshot>(entries.Count);
@@ -135,10 +137,24 @@ namespace PetDemo.UI
                 snapshots.Add(new GuildFollowerSnapshot
                 {
                     npcId = marker.NpcId,
-                    skeletonPrefab = ResolveSkeletonPrefabForKind(marker.SkeletonKind),
+                    skeletonPrefab = ResolveSkeletonPrefabForMarker(marker),
                 });
             }
             GuildHomeVisitState.SetFollowers(snapshots);
+        }
+
+        /// <summary>优先 CSV spinePrefab；空则回退 skeletonKind 探针路径。</summary>
+        private static string ResolveSkeletonPrefabForMarker(GuildNpcMarker marker)
+        {
+            if (marker != null
+                && TopFriendCatalog.TryGetById(marker.NpcId, out var profile)
+                && profile != null
+                && !string.IsNullOrEmpty(profile.spinePrefabPath))
+            {
+                return profile.spinePrefabPath;
+            }
+
+            return ResolveSkeletonPrefabForKind(marker != null ? marker.SkeletonKind : GuildNpcSkeletonKind.LangRen);
         }
 
         private static string ResolveSkeletonPrefabForKind(GuildNpcSkeletonKind kind)

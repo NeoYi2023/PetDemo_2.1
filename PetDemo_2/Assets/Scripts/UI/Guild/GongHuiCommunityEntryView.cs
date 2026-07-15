@@ -1,4 +1,4 @@
-// SPEC §9.8.9.10：公会 Tab 下 TopDingBar 左下方「打开社区」入口。
+// SPEC §9.8.9.10：公会 Tab 下 TopDingBar 左下方「乐园社区」「更多游戏」入口。
 using System;
 using PetDemo.UI.Farm;
 using UnityEngine;
@@ -10,9 +10,11 @@ namespace PetDemo.UI
     public sealed class GongHuiCommunityEntryView : MonoBehaviour
     {
         public const string ResEntryIcon = "AirUI/SheQu_Icon_1";
+        public const string ResMoreGamesIcon = "AirUI/MoreGames_1";
 
         private const float EntryPosX = 16f;
         private const float GapBelowDingUi = 12f;
+        private const float GapBetweenButtons = 12f;
         private const float IconSize = 100f;
         private const int LabelFontSize = 36;
         private const float FallbackPosY = -12f;
@@ -20,6 +22,7 @@ namespace PetDemo.UI
         private BottomNavBarView bottomNav;
         private RectTransform rootRt;
         private RectTransform canvasRectCache;
+        private Action onOpenMoreGames;
 
         public static GongHuiCommunityEntryView BuildInto(
             RectTransform hudRoot,
@@ -34,10 +37,44 @@ namespace PetDemo.UI
             root.SetParent(hudRoot, false);
             StretchFull(root);
 
-            float posY = ComputePosYBelowDingUi();
-            var buttonRt = CreateChildRect(root, "OpenCommunityButton",
+            float communityPosY = ComputePosYBelowDingUi();
+            float moreGamesPosY = communityPosY - IconSize - GapBetweenButtons;
+
+            var communityBtn = CreateEntryButton(
+                root, "OpenCommunityButton", ResEntryIcon, "乐园社区",
+                new Vector2(EntryPosX, communityPosY));
+            var moreGamesBtn = CreateEntryButton(
+                root, "MoreGamesButton", ResMoreGamesIcon, "更多游戏",
+                new Vector2(EntryPosX, moreGamesPosY));
+
+            var view = rootGo.AddComponent<GongHuiCommunityEntryView>();
+            view.rootRt = root;
+            view.bottomNav = barView;
+            view.canvasRectCache = canvasRect;
+            communityBtn.onClick.AddListener(view.OnEntryClicked);
+            moreGamesBtn.onClick.AddListener(view.OnMoreGamesClicked);
+
+            barView.OnOpenChanged += view.OnBottomNavOpenChanged;
+            view.OnBottomNavOpenChanged(barView.OpenIndex, barView.OpenKey);
+
+            return view;
+        }
+
+        public void BindOpenMoreGames(Action open)
+        {
+            onOpenMoreGames = open;
+        }
+
+        private static Button CreateEntryButton(
+            RectTransform parent,
+            string name,
+            string iconResource,
+            string labelText,
+            Vector2 anchoredPosition)
+        {
+            var buttonRt = CreateChildRect(parent, name,
                 new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(EntryPosX, posY), Vector2.zero);
+                anchoredPosition, Vector2.zero);
             buttonRt.pivot = new Vector2(0f, 1f);
 
             var buttonBg = buttonRt.gameObject.AddComponent<Image>();
@@ -56,7 +93,7 @@ namespace PetDemo.UI
                 new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
                 Vector2.zero, new Vector2(IconSize, IconSize));
             var iconImg = iconRt.gameObject.AddComponent<Image>();
-            var iconSprite = Resources.Load<Sprite>(ResEntryIcon);
+            var iconSprite = Resources.Load<Sprite>(iconResource);
             if (iconSprite != null)
             {
                 iconImg.sprite = iconSprite;
@@ -67,7 +104,7 @@ namespace PetDemo.UI
             {
                 iconImg.color = new Color(0.25f, 0.22f, 0.3f, 0.9f);
                 UnityEngine.Debug.LogWarning(
-                    "[GongHuiCommunityEntryView] 缺少图标 Resources/" + ResEntryIcon + "。");
+                    "[GongHuiCommunityEntryView] 缺少图标 Resources/" + iconResource + "。");
             }
             iconImg.raycastTarget = false;
             var iconLe = iconRt.gameObject.AddComponent<LayoutElement>();
@@ -78,7 +115,7 @@ namespace PetDemo.UI
                 new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
                 Vector2.zero, new Vector2(200f, IconSize));
             var label = labelRt.gameObject.AddComponent<Text>();
-            label.text = "乐园社区";
+            label.text = labelText;
             label.font = FarmGridView.LoadBuiltinFont();
             label.fontSize = LabelFontSize;
             label.alignment = TextAnchor.MiddleLeft;
@@ -96,16 +133,7 @@ namespace PetDemo.UI
             fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            var view = rootGo.AddComponent<GongHuiCommunityEntryView>();
-            view.rootRt = root;
-            view.bottomNav = barView;
-            view.canvasRectCache = canvasRect;
-            entryBtn.onClick.AddListener(view.OnEntryClicked);
-
-            barView.OnOpenChanged += view.OnBottomNavOpenChanged;
-            view.OnBottomNavOpenChanged(barView.OpenIndex, barView.OpenKey);
-
-            return view;
+            return entryBtn;
         }
 
         private static float ComputePosYBelowDingUi()
@@ -122,6 +150,20 @@ namespace PetDemo.UI
                 return;
             var overlay = GongHuiCommunityOverlayView.GetOrCreate(canvasRectCache);
             overlay?.Show();
+        }
+
+        private void OnMoreGamesClicked()
+        {
+            if (onOpenMoreGames != null)
+            {
+                onOpenMoreGames.Invoke();
+                return;
+            }
+
+            if (canvasRectCache == null)
+                return;
+            var screen = CharacterCreationScreenView.GetOrCreate(canvasRectCache);
+            screen?.ShowMoreGames();
         }
 
         private void OnBottomNavOpenChanged(int index, string key)

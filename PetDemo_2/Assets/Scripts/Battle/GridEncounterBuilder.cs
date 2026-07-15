@@ -112,6 +112,7 @@ namespace PetDemo.Battle
                 isBattleDead = false,
                 displayName = template.displayName,
                 skeletonPrefab = template.skeletonPrefab,
+                displayScale = template.displayScale <= 0f ? 1f : template.displayScale,
             };
         }
     }

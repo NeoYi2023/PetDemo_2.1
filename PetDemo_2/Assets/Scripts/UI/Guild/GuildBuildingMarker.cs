@@ -1,5 +1,5 @@
-// SPEC §9.8.9.3 / §9.8.9.4 / §9.8.9.13：公会场景建筑标记 — 人工摆放；主角进入半径时显示「建筑名 + 功能按钮」名牌；
-// 点击功能按钮按 navTargetKey 跳转（由 GongHuiScreenView 装配）。
+// SPEC §9.8.9.3 / §9.8.9.4 / §9.8.9.13：公会场景建筑标记 — 人工摆放；主角进入半径时显示「建筑名 + 前往按钮」名牌；
+// 点击前往按钮按 navTargetKey 跳转（由 GongHuiScreenView 装配）。
 using System;
 using UnityEngine;
 using UnityEngine.UI;
@@ -47,6 +47,8 @@ namespace PetDemo.UI
                 TryAcquirePlateFromHierarchy();
             if (visible && plateRt == null)
                 plateRt = BuildPlate();
+            if (plateRt != null)
+                GuildSceneUiFactory.SetBuildingActionButtonLabel(plateRt);
             if (plateRt != null && plateRt.gameObject.activeSelf != visible)
                 plateRt.gameObject.SetActive(visible);
         }
@@ -92,6 +94,8 @@ namespace PetDemo.UI
             if (plateRt == null)
                 return;
 
+            GuildSceneUiFactory.SetBuildingActionButtonLabel(plateRt);
+
             var btn = plateRt.Find("ActionButton")?.GetComponent<Button>();
             if (btn == null)
                 return;
@@ -114,6 +118,7 @@ namespace PetDemo.UI
             if (existing == null)
                 return;
             plateRt = existing;
+            GuildSceneUiFactory.SetBuildingActionButtonLabel(plateRt);
         }
 
         // 名牌运行时懒创建（SPEC §9.8.9.6），底部枢轴贴在建筑上方。
@@ -126,7 +131,7 @@ namespace PetDemo.UI
                 new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -14f), new Vector2(300f, 48f));
 
-            GuildSceneUiFactory.AddButton(rt, "ActionButton", "功能",
+            GuildSceneUiFactory.AddButton(rt, "ActionButton", GuildSceneUiFactory.BuildingActionButtonLabel,
                 new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, 14f), new Vector2(140f, 56f));
             WireActionButton();

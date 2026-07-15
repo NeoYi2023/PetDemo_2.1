@@ -53,6 +53,7 @@ namespace PetDemo.UI
         [SerializeField] private Button speechBubbleButton;
         [SerializeField] private Button rankingButton;
         [SerializeField] private Button dailyTaskButton;
+        [SerializeField] private Button warehouseEntryButton;
         [SerializeField] private Button screenCloseButton;
         [SerializeField] private RectTransform staminaBarSlot;
         [SerializeField] private StaminaBarView staminaBar;
@@ -76,6 +77,9 @@ namespace PetDemo.UI
 
         /// <summary>SPEC §9.14.11 v3.190：每日任务按钮请求打开创角加好感 / ZhuanQianPopup。</summary>
         public event Action OnDailyTaskRequested;
+
+        /// <summary>SPEC §9.14.11 v3.253：仓库按钮请求打开 §9.8.13 WarehouseHubPanel。</summary>
+        public event Action OnWarehouseRequested;
 
         /// <summary>SPEC §9.14.11 v3.193：关闭按钮请求离开创角回 APP PageHome。</summary>
         public event Action OnCloseRequested;
@@ -135,12 +139,14 @@ namespace PetDemo.UI
             {
                 service.OnRoleStatsChanged -= OnRoleStatsChanged;
                 service.OnStaminaChanged -= OnStaminaChanged;
+                service.OnPlayerAppearanceChanged -= OnPlayerAppearanceChanged;
             }
             service = plantingService;
             if (service != null)
             {
                 service.OnRoleStatsChanged += OnRoleStatsChanged;
                 service.OnStaminaChanged += OnStaminaChanged;
+                service.OnPlayerAppearanceChanged += OnPlayerAppearanceChanged;
             }
         }
 
@@ -148,12 +154,15 @@ namespace PetDemo.UI
         {
             EnsureFieldsFromHierarchy();
             WireOnce();
+            WireWarehouseEntryButton();
+            WireScreenCloseButton();
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
             EnsureRoleSpine();
             RefreshAll();
             SelectInfoTab(0);
             BeginSpeechBubbleQueue();
+            ElevateScreenCloseButton();
         }
 
         public void Hide()
@@ -182,9 +191,28 @@ namespace PetDemo.UI
             {
                 service.OnRoleStatsChanged -= OnRoleStatsChanged;
                 service.OnStaminaChanged -= OnStaminaChanged;
+                service.OnPlayerAppearanceChanged -= OnPlayerAppearanceChanged;
             }
             if (instance == this)
                 instance = null;
+        }
+
+        private void OnPlayerAppearanceChanged()
+        {
+            RebuildRoleSpineForAppearance();
+        }
+
+        private void RebuildRoleSpineForAppearance()
+        {
+            if (roleMount == null)
+                return;
+
+            for (int i = roleMount.childCount - 1; i >= 0; i--)
+                Destroy(roleMount.GetChild(i).gameObject);
+
+            roleSkeletonGraphic = null;
+            roleBuilt = false;
+            EnsureRoleSpine();
         }
 
         private void OnRoleStatsChanged()
@@ -237,11 +265,13 @@ namespace PetDemo.UI
                 dailyTaskButton.onClick.AddListener(OnDailyTaskClicked);
             }
 
-            if (screenCloseButton != null)
+            if (warehouseEntryButton != null)
             {
-                screenCloseButton.onClick.RemoveAllListeners();
-                screenCloseButton.onClick.AddListener(OnScreenCloseClicked);
+                warehouseEntryButton.onClick.RemoveAllListeners();
+                warehouseEntryButton.onClick.AddListener(OnWarehouseClicked);
             }
+
+            WireScreenCloseButton();
 
             EnsureAddExpButtonRef();
             if (addExpButton != null)
@@ -251,9 +281,50 @@ namespace PetDemo.UI
             }
         }
 
+        private void WireWarehouseEntryButton()
+        {
+            EnsureTopRightActionRefs();
+            if (warehouseEntryButton == null)
+                return;
+            warehouseEntryButton.onClick.RemoveAllListeners();
+            warehouseEntryButton.onClick.AddListener(OnWarehouseClicked);
+            if (warehouseEntryButton.targetGraphic != null)
+                warehouseEntryButton.targetGraphic.raycastTarget = true;
+            warehouseEntryButton.interactable = true;
+        }
+
+        private void WireScreenCloseButton()
+        {
+            if (screenCloseButton == null)
+                return;
+            screenCloseButton.onClick.RemoveAllListeners();
+            screenCloseButton.onClick.AddListener(OnScreenCloseClicked);
+            if (screenCloseButton.targetGraphic != null)
+                screenCloseButton.targetGraphic.raycastTarget = true;
+            screenCloseButton.interactable = true;
+        }
+
+        /// <summary>SPEC §9.14.11（v3.241）：面板内关闭钮置于体力 HUD 之下、其余内容之上，保证可点。</summary>
+        private void ElevateScreenCloseButton()
+        {
+            EnsureScreenCloseButtonRef();
+            WireScreenCloseButton();
+            if (screenCloseButton == null)
+                return;
+
+            // BuildScreenCloseButton 对已有节点会校正布局并 SetAsLastSibling。
+            HomeTabPanelLayout.BuildScreenCloseButton(panelRt);
+            EnsureTopLeftStaminaHudRef();
+        }
+
         private void OnDailyTaskClicked()
         {
             OnDailyTaskRequested?.Invoke();
+        }
+
+        private void OnWarehouseClicked()
+        {
+            OnWarehouseRequested?.Invoke();
         }
 
         private void OnScreenCloseClicked()
@@ -452,26 +523,11 @@ namespace PetDemo.UI
             return true;
         }
 
-        private SkeletonDataAsset cachedRoleDataAsset;
-        private bool roleDataAssetResolved;
-
         private SkeletonDataAsset ResolveRoleSkeletonDataAsset()
         {
-            if (roleDataAssetResolved)
-                return cachedRoleDataAsset;
-            roleDataAssetResolved = true;
-
-            var prefab = ResolveRolePrefab();
-            if (prefab == null)
-                return null;
-
-            var probe = Instantiate(prefab);
-            probe.SetActive(false);
-            var srcAnim = probe.GetComponent<SkeletonAnimation>()
-                ?? probe.GetComponentInChildren<SkeletonAnimation>(true);
-            cachedRoleDataAsset = srcAnim != null ? srcAnim.skeletonDataAsset : null;
-            Destroy(probe);
-            return cachedRoleDataAsset;
+            // SPEC §9.14.9（v3.244）：优先装备路径，否则默认主角骨骼。
+            string equipped = service != null ? service.GetEquippedPlayerSpineResource() : null;
+            return PlayerSpineAppearanceResolver.Resolve(equipped);
         }
 
         private static void PlaySpineIdleLoop(SkeletonGraphic skeletonGraphic)
@@ -847,9 +903,9 @@ namespace PetDemo.UI
             if (panelRt == null)
                 panelRt = transform as RectTransform;
 
-            var actions = panelRt != null ? panelRt.Find("TopRightActions") as RectTransform : null;
-            if (actions == null && panelRt != null)
-                actions = HomeTabPanelLayout.BuildTopRightActions(panelRt);
+            var actions = panelRt != null
+                ? HomeTabPanelLayout.EnsureTopRightActions(panelRt)
+                : null;
 
             if (rankingButton == null && actions != null)
             {
@@ -863,6 +919,13 @@ namespace PetDemo.UI
                 var t = actions.Find("DailyTaskButton");
                 if (t != null)
                     dailyTaskButton = t.GetComponent<Button>();
+            }
+
+            if (warehouseEntryButton == null && actions != null)
+            {
+                var t = actions.Find("WarehouseEntryButton");
+                if (t != null)
+                    warehouseEntryButton = t.GetComponent<Button>();
             }
         }
 

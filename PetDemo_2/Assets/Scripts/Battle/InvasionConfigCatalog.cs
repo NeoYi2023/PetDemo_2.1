@@ -34,6 +34,8 @@ namespace PetDemo.Battle
             int idxHp = table.IndexOfHeader("maxHp");
             // SPEC §B.9 (v3.172)：skeletonPrefab 为可选列，缺列兼容旧表。
             int idxPrefab = table.IndexOfHeader("skeletonPrefab");
+            // SPEC §B.9 (v3.226)：displayScale 为可选列，缺列兼容旧表。
+            int idxScale = table.IndexOfHeader("displayScale");
             if (idxId < 0 || idxName < 0 || idxAtk < 0 || idxHp < 0)
             {
                 UnityEngine.Debug.LogWarning("[InvasionConfigCatalog] invasion_units.csv 缺少必需列，回退到 BuildDefaultInvasionUnits。");
@@ -65,6 +67,20 @@ namespace PetDemo.Battle
 
                 string prefab = idxPrefab >= 0 ? row.Get(idxPrefab) : null;
 
+                // SPEC §B.9 (v3.226)：displayScale 缺列/空/非法（<=0）回退 1.0。
+                float displayScale = 1f;
+                if (idxScale >= 0)
+                {
+                    string scaleRaw = row.Get(idxScale);
+                    if (!string.IsNullOrEmpty(scaleRaw))
+                    {
+                        if (float.TryParse(scaleRaw, out float s) && s > 0f)
+                            displayScale = s;
+                        else
+                            UnityEngine.Debug.LogWarning($"[InvasionConfigCatalog] invasion_units.csv 第 {row.lineNumber} 行 displayScale='{scaleRaw}' 非法（须 > 0），回退 1.0。");
+                    }
+                }
+
                 list.Add(new InvasionUnitConfig
                 {
                     unitId = id,
@@ -72,6 +88,7 @@ namespace PetDemo.Battle
                     attack = atk,
                     maxHp = hp,
                     skeletonPrefab = string.IsNullOrEmpty(prefab) ? null : prefab,
+                    displayScale = displayScale,
                 });
             }
 

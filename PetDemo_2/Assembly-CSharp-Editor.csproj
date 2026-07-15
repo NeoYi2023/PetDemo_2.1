@@ -58,8 +58,10 @@
     <Analyzer Include="C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\Common7\IDE\Extensions\Microsoft\Visual Studio Tools for Unity\Analyzers\Microsoft.Unity.Analyzers.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\RoleLevelUpPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\InvasionBattleModal2PrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\BottomNavBarPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase2SelfTest.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\DressUpItemCellPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\TaskListRowPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\FertilizerWarehousePrefabGenerator.cs" />
@@ -72,13 +74,17 @@
     <Compile Include="Assets\Scripts\UI\Farm\Editor\LevelSelectScreenPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\WarehouseBackgroundPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\DressUpPanelPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase4SelfTest.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\ArenaScreenPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\FarmGridPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase5SelfTest.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\InvasionBattleResultDialogPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\AppSingleChatPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\DetailAttributeModalPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase1SelfTest.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\RoleGrowthPetBagPagePrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\GongHuiScreenPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase3SelfTest.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\AppScreenPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\SowActionButtonPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\TrainingPanelPrefabGenerator.cs" />
@@ -86,14 +92,10 @@
     <Compile Include="Assets\Scripts\UI\Farm\Editor\RoleGrowthPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\SlotMachineModalPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\HeroStatsRowPrefabGenerator.cs" />
-    <Compile Include="Assets\Scripts\UI\Farm\Editor\StaminaBarPrefabGenerator.cs" />
-    <Compile Include="Assets\Scripts\UI\Farm\Editor\RoleLevelUpPanelPrefabGenerator.cs" />
-    <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase1SelfTest.cs" />
-    <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase2SelfTest.cs" />
-    <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase4SelfTest.cs" />
-    <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase5SelfTest.cs" />
-    <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase3SelfTest.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\GridBattleFieldPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\StaminaBarPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\CompanionManorScreenPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\InvitePartnerModalPrefabGenerator.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">

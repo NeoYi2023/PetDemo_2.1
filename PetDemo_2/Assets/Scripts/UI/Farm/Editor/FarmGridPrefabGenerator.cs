@@ -201,7 +201,7 @@ namespace PetDemo.EditorTools
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = new Vector2(0f, -660f);
+            rt.anchoredPosition = new Vector2(0f, -820f);
             rt.sizeDelta = new Vector2(282f, 193f);
 
             var image = go.GetComponent<Image>();

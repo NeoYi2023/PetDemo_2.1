@@ -45,6 +45,8 @@ namespace PetDemo.UI
         [SerializeField] private GameObject itemCellTemplate;
         [SerializeField] private SkeletonDataAsset playerActionSkeletonData;
         [SerializeField] private SkeletonDataAsset friendActionSkeletonData;
+        [SerializeField] private Button useButton;
+        [SerializeField] private Text useButtonLabel;
         private readonly List<Button> tabButtons = new List<Button>();
         private readonly List<Image> tabImages = new List<Image>();
         private readonly List<Text> tabLabels = new List<Text>();
@@ -60,6 +62,18 @@ namespace PetDemo.UI
         private DressUpActionSpinePresenter actionSpinePresenter;
         private readonly Dictionary<string, DressUpItemCellView> itemCells = new Dictionary<string, DressUpItemCellView>();
         private string selectedItemId;
+        private DressUpItemConfig selectedConfig;
+        private SkeletonGraphic equippedPreviewSpine;
+        private const string EquippedSpineChildName = "EquippedSpine";
+        private const string SkeletonGraphicShaderName = "Spine/SkeletonGraphic";
+        // SPEC §9.14.9（v3.249 / v3.250）：装备预览 Scale=0.75、PosY=-200；PlayerRole Top=95。
+        private static readonly Vector2 EquippedSpineSize = new Vector2(720f, 1200f);
+        private static readonly Vector2 EquippedSpineAnchoredPos = new Vector2(0f, -215f);
+        private static readonly Vector3 EquippedSpineScale = new Vector3(0.8f, 0.8f, 1f);
+        private static readonly string[] EquippedIdleFallbacks =
+        {
+            "exclusive_2", "standby_1", "animation", "idle",
+        };
 
         public bool IsShown => gameObject != null && gameObject.activeSelf;
 
@@ -127,6 +141,8 @@ namespace PetDemo.UI
 
         public void Show()
         {
+            // CSV 可能在 Play 中被改过；清缓存避免 applyResource 仍是旧空值。
+            DressUpItemCatalog.ClearCache();
             EnsureFieldsFromHierarchy();
             WireOnce();
             gameObject.SetActive(true);
@@ -137,6 +153,8 @@ namespace PetDemo.UI
         public void Hide()
         {
             TeardownActionSpine();
+            TeardownEquippedSpinePreview();
+            HideUseButton();
             gameObject.SetActive(false);
         }
 
@@ -162,6 +180,12 @@ namespace PetDemo.UI
                     continue;
                 tabButtons[i].onClick.RemoveAllListeners();
                 tabButtons[i].onClick.AddListener(() => SelectTab(index));
+            }
+
+            if (useButton != null)
+            {
+                useButton.onClick.RemoveAllListeners();
+                useButton.onClick.AddListener(OnUseClicked);
             }
 
             wired = true;
@@ -214,6 +238,7 @@ namespace PetDemo.UI
 
         private void RefreshPlayerRolePortrait(string resource)
         {
+            TeardownEquippedSpinePreview();
             SetSpriteOrFallback(playerRole, resource, PortraitFallback);
         }
 
@@ -252,6 +277,8 @@ namespace PetDemo.UI
 
             if (activeTab == DressUpPanelLayout.ActionTabIndex && index != DressUpPanelLayout.ActionTabIndex)
                 TeardownActionSpine();
+
+            TeardownEquippedSpinePreview();
 
             int previousTab = activeTab;
             activeTab = index;
@@ -341,6 +368,8 @@ namespace PetDemo.UI
 
             itemCells.Clear();
             selectedItemId = null;
+            selectedConfig = null;
+            HideUseButton();
 
             for (int i = itemContent.childCount - 1; i >= 0; i--)
                 Destroy(itemContent.GetChild(i).gameObject);
@@ -353,7 +382,10 @@ namespace PetDemo.UI
 
             // SPEC §9.14.9（v3.160）：Tab0 默认选中排序后第一个道具。
             if (tabIndex == 0 && items.Count > 0)
+            {
                 SelectItemCell(items[0].itemId);
+                ShowUseButton(items[0]);
+            }
         }
 
         /// <summary>按视口实际宽度等分 3 列计算单元尺寸（强制刷新一次布局以拿到有效宽度）。</summary>
@@ -396,7 +428,7 @@ namespace PetDemo.UI
             itemCells[config.itemId] = cell;
         }
 
-        /// <summary>SPEC §9.14.9：点击道具 → Tab0/Tab1 预览立绘；Tab2 Spine 动作预览；Tab0/1/2 选中叠加；介绍界面暂未实现。</summary>
+        /// <summary>SPEC §9.14.9：点击道具 → Tab0/Tab1 预览立绘；Tab2 Spine 动作预览；Tab0/1/2 选中叠加；显示「使用」按钮。</summary>
         private void OnItemClicked(DressUpItemConfig config)
         {
             if (config == null)
@@ -404,11 +436,19 @@ namespace PetDemo.UI
 
             if (activeTab == 0 || activeTab == 1 || activeTab == DressUpPanelLayout.ActionTabIndex)
                 SelectItemCell(config.itemId);
+            else
+            {
+                ClearItemSelection();
+                selectedItemId = config.itemId;
+                selectedConfig = config;
+            }
 
             if ((activeTab == 0 || activeTab == 1) && !string.IsNullOrEmpty(config.icon))
                 RefreshPlayerRolePortrait(config.icon);
             else if (activeTab == DressUpPanelLayout.ActionTabIndex)
                 PlayActionTabPreview(config);
+
+            ShowUseButton(config);
 
             UnityEngine.Debug.Log("[DressUpPanelView] 点击道具 " + config.itemId + "（介绍界面后续补充）：" + config.description);
         }
@@ -422,6 +462,7 @@ namespace PetDemo.UI
                 cell.SetSelected(false);
 
             selectedItemId = null;
+            selectedConfig = null;
         }
 
         private void SelectItemCell(string itemId)
@@ -435,7 +476,175 @@ namespace PetDemo.UI
                 return;
 
             selectedItemId = itemId;
+            selectedConfig = DressUpItemCatalog.GetById(itemId);
             cell.SetSelected(true);
+        }
+
+        /// <summary>SPEC §9.14.9（v3.244）：选中道具后显示 PlayerRole 下方「使用」按钮。</summary>
+        private void ShowUseButton(DressUpItemConfig config)
+        {
+            EnsureUseButton();
+            if (useButton == null)
+                return;
+
+            selectedConfig = config;
+            if (config != null)
+                selectedItemId = config.itemId;
+
+            string label = config != null ? config.useButtonLabel : null;
+            if (string.IsNullOrEmpty(label))
+                label = DressUpPanelLayout.UseButtonDefaultLabel;
+
+            if (useButtonLabel != null)
+                useButtonLabel.text = label;
+
+            useButton.gameObject.SetActive(true);
+        }
+
+        private void HideUseButton()
+        {
+            if (useButton != null)
+                useButton.gameObject.SetActive(false);
+        }
+
+        /// <summary>SPEC §9.14.9（v3.244 / v3.246）：点击「使用」——applyResource 有效则装备 Spine 并在本面板预览。</summary>
+        private void OnUseClicked()
+        {
+            if (selectedConfig == null && !string.IsNullOrEmpty(selectedItemId))
+                selectedConfig = DressUpItemCatalog.GetById(selectedItemId);
+
+            if (selectedConfig == null)
+            {
+                UnityEngine.Debug.LogWarning("[DressUpPanelView] OnUseClicked：无选中道具。");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(selectedConfig.applyResource))
+            {
+                UnityEngine.Debug.Log(
+                    "[DressUpPanelView] OnUseClicked：" + selectedConfig.itemId + " 的 applyResource 为空，无效果。");
+                return;
+            }
+
+            if (service == null)
+            {
+                UnityEngine.Debug.LogWarning("[DressUpPanelView] OnUseClicked：未绑定 IPlantingService。");
+                return;
+            }
+
+            bool ok = service.TryEquipPlayerSpine(selectedConfig.applyResource);
+            if (!ok)
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[DressUpPanelView] OnUseClicked：装备失败 itemId=" + selectedConfig.itemId +
+                    " path=" + selectedConfig.applyResource);
+                return;
+            }
+
+            UnityEngine.Debug.Log(
+                "[DressUpPanelView] OnUseClicked：已装备 itemId=" + selectedConfig.itemId +
+                " path=" + selectedConfig.applyResource);
+            ShowEquippedSpinePreview(selectedConfig.applyResource);
+        }
+
+        /// <summary>装备成功后在 PlayerRole 上预览 Spine（创角 DisplayArea 在装扮打开时是隐藏的）。</summary>
+        private void ShowEquippedSpinePreview(string spinePath)
+        {
+            if (playerRole == null)
+                return;
+
+            TeardownEquippedSpinePreview();
+
+            var dataAsset = PlayerSpineAppearanceResolver.TryLoadSkeletonData(spinePath);
+            if (dataAsset == null)
+                return;
+
+            var shader = Shader.Find(SkeletonGraphicShaderName);
+            if (shader == null)
+            {
+                UnityEngine.Debug.LogWarning("[DressUpPanelView] Shader 未找到：" + SkeletonGraphicShaderName);
+                return;
+            }
+
+            var mount = playerRole.rectTransform;
+            var uiMaterial = SkeletonGraphicUiMaterialFactory.CreateForPmaVertexColors(shader);
+            var spineGo = new GameObject(EquippedSpineChildName, typeof(RectTransform));
+            var spineRt = spineGo.GetComponent<RectTransform>();
+            spineRt.SetParent(mount, false);
+            spineRt.anchorMin = spineRt.anchorMax = new Vector2(0.5f, 0.5f);
+            spineRt.pivot = new Vector2(0.5f, 0.5f);
+            spineRt.anchoredPosition = EquippedSpineAnchoredPos;
+            spineRt.sizeDelta = EquippedSpineSize;
+            spineRt.localScale = EquippedSpineScale;
+
+            var sg = SkeletonGraphic.AddSkeletonGraphicComponent(spineGo, dataAsset, uiMaterial);
+            if (sg == null || !sg.IsValid)
+            {
+                Destroy(spineGo);
+                UnityEngine.Debug.LogWarning("[DressUpPanelView] EquippedSpine 构建失败。");
+                return;
+            }
+
+            sg.raycastTarget = false;
+            equippedPreviewSpine = sg;
+            playerRole.enabled = false;
+            DressUpPanelLayout.ApplyPlayerRoleTopInset(
+                playerRole.rectTransform, DressUpPanelLayout.EquippedPlayerRoleTop);
+
+            // 使用按钮保持在最上层可点。
+            if (useButton != null)
+                useButton.transform.SetAsLastSibling();
+
+            PlayEquippedIdleLoop(sg);
+        }
+
+        private void TeardownEquippedSpinePreview()
+        {
+            if (equippedPreviewSpine != null)
+            {
+                Destroy(equippedPreviewSpine.gameObject);
+                equippedPreviewSpine = null;
+            }
+
+            if (playerRole != null)
+            {
+                var leftover = playerRole.transform.Find(EquippedSpineChildName);
+                if (leftover != null)
+                    Destroy(leftover.gameObject);
+                playerRole.enabled = true;
+                DressUpPanelLayout.ClearPlayerRoleTopInset(playerRole.rectTransform);
+            }
+        }
+
+        private static void PlayEquippedIdleLoop(SkeletonGraphic sg)
+        {
+            if (sg == null || sg.Skeleton == null || sg.Skeleton.Data == null)
+                return;
+
+            string clip = null;
+            for (int i = 0; i < EquippedIdleFallbacks.Length; i++)
+            {
+                if (sg.Skeleton.Data.FindAnimation(EquippedIdleFallbacks[i]) != null)
+                {
+                    clip = EquippedIdleFallbacks[i];
+                    break;
+                }
+            }
+
+            if (string.IsNullOrEmpty(clip) && sg.Skeleton.Data.Animations.Count > 0)
+                clip = sg.Skeleton.Data.Animations.Items[0].Name;
+
+            if (string.IsNullOrEmpty(clip))
+                return;
+
+            try
+            {
+                sg.AnimationState.SetAnimation(0, clip, true);
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogWarning("[DressUpPanelView] 装备预览待机失败: " + e.Message);
+            }
         }
 
         private void ApplySelectedItemPortraitPreview()
@@ -542,6 +751,7 @@ namespace PetDemo.UI
                 playerRole = FindImage("PlayerRole");
             if (friendRole == null)
                 friendRole = FindImage("FriendRole");
+            EnsureUseButton();
             if (intimacyPanel == null)
             {
                 var t = FindDescendantByName(transform, "IntimacyPanel");
@@ -575,6 +785,41 @@ namespace PetDemo.UI
                     var labelT = FindDescendantByName(t, "Label");
                     tabLabels.Add(labelT != null ? labelT.GetComponent<Text>() : null);
                 }
+            }
+        }
+
+        /// <summary>SPEC §9.14.9（v3.244 / v3.246 / v3.249）：缺 UseButton 时创建；并校正为 PosY=-100。</summary>
+        private void EnsureUseButton()
+        {
+            if (useButton == null)
+                useButton = FindButton("UseButton");
+
+            if (useButton == null && playerRole != null)
+            {
+                var built = DressUpPanelLayout.BuildUseButton(playerRole.rectTransform);
+                if (built != null)
+                    useButton = built.GetComponent<Button>();
+            }
+
+            if (useButton != null && playerRole != null)
+            {
+                var btnRt = useButton.transform as RectTransform;
+                // 预制体旧布局可能把按钮挂在 PlayerRole 外；强制挂回并应用 PosY=-100。
+                if (btnRt != null && btnRt.parent != playerRole.rectTransform)
+                    btnRt.SetParent(playerRole.rectTransform, false);
+                DressUpPanelLayout.ApplyUseButtonRect(btnRt);
+            }
+
+            if (useButtonLabel == null && useButton != null)
+            {
+                var labelT = FindDescendantByName(useButton.transform, "Label");
+                useButtonLabel = labelT != null ? labelT.GetComponent<Text>() : null;
+            }
+
+            if (useButton != null)
+            {
+                useButton.onClick.RemoveAllListeners();
+                useButton.onClick.AddListener(OnUseClicked);
             }
         }
 

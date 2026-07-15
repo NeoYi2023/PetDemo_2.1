@@ -237,13 +237,16 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
 
         var jiaYuanWorld = JiaYuanWorldScreenView.BuildWorldInto(canvasRect, bgRt);
         var jiaYuanWorldContent = jiaYuanWorld != null ? jiaYuanWorld.WorldContent : null;
+        // SPEC §9.8.18 (v3.236)：伴侣小屋改挂公会屏，见底栏构建后装配。
+        PetDemo.UI.Companion.CompanionCottageView companionCottage = null;
 
         BuildHeroStatsDisplay(hudRoot, out var atkText, out var defText, out var hpText, out var agilityText,
             out var heroStatsRowRt);
 
+        // SPEC §9 / §9.7 (v3.253)：SeedWarehouseButton PosY 290 → 140。
         var seedRt = CreateChildRect(hudRoot, "SeedWarehouseButton",
             new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-            new Vector2(285f, 290f), new Vector2(150f, 150f));
+            new Vector2(285f, 140f), new Vector2(150f, 150f));
         var seedImage = seedRt.gameObject.AddComponent<Image>();
         seedImage.sprite = seedSprite;
         seedImage.preserveAspect = true;
@@ -476,6 +479,25 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
         // SPEC §9.8（v3.207）：EnterHomeHud 专用 BottomTabBar（默认隐藏，与 BottomNavBar 互斥）。
         hudEnterHomeTabBar = HudEnterHomeTabBarView.BuildInto(hudRoot);
 
+        // SPEC §9.8.18 (v3.236) / §9.8.19 (v3.238)：伴侣小屋 + 庄园场景挂公会屏。
+        if (builtGongHuiScreen != null && PlantingService.Instance != null)
+        {
+            var gongHuiRt = builtGongHuiScreen.transform as RectTransform;
+            companionCottage = PetDemo.UI.Companion.CompanionCottageView.BuildInto(
+                gongHuiRt, hudRoot, PlantingService.Instance);
+            if (companionCottage != null)
+            {
+                companionCottage.BuildHudEntry(gongHuiRt);
+                builtGongHuiScreen.BindCompanionCottage(companionCottage);
+                var manor = PetDemo.UI.Companion.CompanionManorScreenView.BuildInto(gongHuiRt);
+                if (manor != null)
+                {
+                    manor.BindPlantingService(PlantingService.Instance);
+                    companionCottage.BindManor(manor);
+                }
+            }
+        }
+
         // SPEC §9.8.9.7 (v3.129)：公会跟随 NPC 进入家园来访（须在底栏创建后绑定 Tab 切换）。
         if (bottomNavBar != null && jiaYuanWorldContent != null)
         {
@@ -612,13 +634,9 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
                     hudEnterHomeTabBar.HideBar();
                 if (builtGongHuiScreen != null)
                     builtGongHuiScreen.ClearEnterHomeHudBottomInset();
-                if (bottomNavBar != null)
-                {
-                    bottomNavBar.gameObject.SetActive(true);
-                    bottomNavBar.transform.SetAsLastSibling();
-                    if (!string.IsNullOrEmpty(navKey))
-                        bottomNavBar.SetOpenKey(navKey);
-                }
+                // SPEC §9.8（v3.237）：BottomNavBar 永久隐藏，仅程序化 SetOpenKey，不再 SetActive(true)。
+                if (bottomNavBar != null && !string.IsNullOrEmpty(navKey))
+                    bottomNavBar.SetOpenKey(navKey);
                 // SPEC §9.8（v3.207）：离开 EnterHomeHud 后恢复世界层门控；
                 // 实际显隐仍由 JiaYuanWorldScreenView 按 OpenKey 决定。
                 if (jiaYuanWorld != null)
@@ -648,9 +666,7 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
                 }
 
                 MainHudLayerRoot.SetVisible(true);
-
-                if (bottomNavBar != null)
-                    bottomNavBar.gameObject.SetActive(false);
+                // SPEC §9.8（v3.237）：BottomNavBar 已全局永久隐藏，无需在此再 SetActive(false)。
 
                 if (builtGongHuiScreen != null)
                 {
@@ -688,6 +704,22 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
             {
                 if (characterCreationScreen == null || characterCreationScreen.IsShown)
                     return;
+                PrepareOpenCharacterCreationHud();
+                characterCreationScreen.Show();
+            }
+
+            // SPEC §9.8.9.10（v3.243）：更多游戏 → ShowMoreGames（EnterHomeTopPanel），不开 HomeTabPanel。
+            void OpenCharacterCreationMoreGames()
+            {
+                if (characterCreationScreen == null)
+                    return;
+                if (!characterCreationScreen.IsShown)
+                    PrepareOpenCharacterCreationHud();
+                characterCreationScreen.ShowMoreGames();
+            }
+
+            void PrepareOpenCharacterCreationHud()
+            {
                 if (appScreen != null)
                     appScreen.Hide();
                 if (singleChatPanel != null)
@@ -700,7 +732,6 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
                 MainHudLayerRoot.SetVisible(false);
                 if (jiaYuanWorld != null)
                     jiaYuanWorld.SetWorldScreenEnabled(false);
-                characterCreationScreen.Show();
             }
 
             void OpenCharacterCreationToTab(string tabKey)
@@ -758,17 +789,12 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
                 }
 
                 // 公会 Building_3 / SwitchToBottomNav 等：从 EnterHomeHud 切到 JiaYuan 等 Tab。
+                // SPEC §9.8（v3.237）：不再恢复显示 BottomNavBar。
                 if (enterHomeHudMode)
                 {
                     enterHomeHudMode = false;
                     if (hudEnterHomeTabBar != null)
                         hudEnterHomeTabBar.HideBar();
-                    if (bottomNavBar != null)
-                    {
-                        if (!bottomNavBar.gameObject.activeSelf)
-                            bottomNavBar.gameObject.SetActive(true);
-                        bottomNavBar.transform.SetAsLastSibling();
-                    }
                     if (builtGongHuiScreen != null)
                         builtGongHuiScreen.ClearEnterHomeHudBottomInset();
                     // 恢复世界层门控；JiaYuan 时 RefreshVisibility 才会真正显示农场。
@@ -779,6 +805,10 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
 
             if (topDing != null)
                 topDing.BindNavigateToCharacterCreation(OpenCharacterCreationScreen);
+
+            // SPEC §9.8.9.10（v3.243）：「更多游戏」→ ShowMoreGames / EnterHomeTopPanel。
+            if (gongHuiCommunityEntry != null)
+                gongHuiCommunityEntry.BindOpenMoreGames(OpenCharacterCreationMoreGames);
 
             if (bottomNavBar != null)
                 bottomNavBar.OnOpenChanged += HandleBottomNavOpenChangedForEnterHomeHud;
@@ -889,6 +919,8 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
 
             // SPEC §9.8.9 (v3.123)：公会场景层（预制体 + 摇杆/碰撞/建筑/NPC）；§9.8.10：商店全屏背景层。
             builtGongHuiScreen = GongHuiScreenView.BuildInto(canvasRect, barView);
+            if (builtGongHuiScreen != null)
+                builtGongHuiScreen.BindPlantingService(PlantingService.Instance);
             ApplyHudScreenTier(builtGongHuiScreen);
 
             var shangDianScreen = BottomNavSimpleBackgroundScreenView.BuildInto(canvasRect, barView, "ShangDianScreen",
@@ -929,6 +961,10 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
             var rolePresenter = GetComponent<MainRoleCunminPresenter>();
             if (rolePresenter != null)
                 rolePresenter.BindBottomNavBar(barView);
+
+            // SPEC §9.8（v3.237）：初始化后永久隐藏；逻辑态仍由 SetOpenKey / OnOpenChanged 驱动。
+            barView.EnsureInitialized();
+            barView.gameObject.SetActive(false);
         }
 
         return barView;
@@ -1232,9 +1268,10 @@ public class AirMainMenuRuntimeBuilder : MonoBehaviour
         if (fertilizeSprite == null)
             return null;
 
+        // SPEC §9.7 (v3.253)：FertilizeEntryButton PosY 290 → 140。
         var rt = CreateChildRect(canvasRect, "FertilizeEntryButton",
             new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-            new Vector2(450f, 290f), new Vector2(150f, 150f));
+            new Vector2(450f, 140f), new Vector2(150f, 150f));
         var image = rt.gameObject.AddComponent<Image>();
         image.sprite = fertilizeSprite;
         image.preserveAspect = true;

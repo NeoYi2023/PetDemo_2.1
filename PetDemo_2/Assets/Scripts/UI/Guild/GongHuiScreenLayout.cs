@@ -1,4 +1,5 @@
-// SPEC §9.8.9.14 (v3.198)：公会界面右上玩法入口按钮与 TipsToast 层级构建。
+// SPEC §9.8.9.14 (v3.198；伴侣入口 v3.236)：公会界面右上玩法入口按钮与 TipsToast 层级构建。
+using PetDemo.UI.Companion;
 using PetDemo.UI.Farm;
 using UnityEngine;
 using UnityEngine.UI;
@@ -11,6 +12,7 @@ namespace PetDemo.UI
         public const string ResWfZuDui = "AirUI/WF_ZuDui";
         public const string ResWfJjc = "AirUI/WF_JJC";
         public const string ResWfZhuangYuan = "AirUI/WF_ZhuangYuan";
+        public const string ResCompanionCottageIcon = CompanionCottageView.ResHudEntryIcon;
 
         public const string LayerName = "TopRightWorkflowLayer";
         public const string ActionsName = "TopRightWorkflowActions";
@@ -18,10 +20,19 @@ namespace PetDemo.UI
         public const string WfZuDuiButtonName = "WfZuDuiButton";
         public const string WfJjcButtonName = "WfJjcButton";
         public const string WfZhuangYuanButtonName = "WfZhuangYuanButton";
+        public const string CompanionCottageEntryButtonName = CompanionCottageView.EntryButtonName;
+
+        /// <summary>WF×4 + CompanionCottageEntry；竖排总格数。</summary>
+        public const int TopRightSlotCount = 5;
+        /// <summary>CompanionCottageEntryButton 竖排索引（WfZhuangYuan 正下方）。</summary>
+        public const int CompanionCottageEntryIndex = 4;
 
         public static readonly Vector2 TopRightButtonSize = HomeTabPanelLayout.TopRightButtonSize;
         public const float TopRightMargin = HomeTabPanelLayout.TopRightMargin;
         public const float TopRightButtonGap = HomeTabPanelLayout.TopRightButtonGap;
+
+        // SPEC §9.8.9.14 v3.233：竖排容器整体下移，避开顶部。
+        public const float TopRightActionsPosY = -150f;
 
         private static readonly Color TopRightButtonFallbackColor = new Color(0.35f, 0.32f, 0.4f, 0.9f);
         private static readonly Color TipsBgColor = new Color(0.08f, 0.08f, 0.1f, 0.88f);
@@ -35,7 +46,7 @@ namespace PetDemo.UI
             (WfZhuangYuanButtonName, ResWfZhuangYuan),
         };
 
-        /// <summary>幂等创建右上竖排玩法按钮层。</summary>
+        /// <summary>幂等创建右上竖排玩法按钮层（含伴侣小屋入口，共 5 格）。</summary>
         public static RectTransform EnsureTopRightWorkflowActions(RectTransform screenRoot)
         {
             if (screenRoot == null)
@@ -50,16 +61,22 @@ namespace PetDemo.UI
                 layerRt.SetAsLastSibling();
             }
 
+            float stackHeight = TopRightButtonSize.y * TopRightSlotCount
+                + TopRightButtonGap * (TopRightSlotCount - 1);
+
             var actionsRt = layerRt.Find(ActionsName) as RectTransform;
             if (actionsRt == null)
             {
-                float stackHeight = TopRightButtonSize.y * WorkflowButtons.Length
-                    + TopRightButtonGap * (WorkflowButtons.Length - 1);
                 actionsRt = CreateChild(layerRt, ActionsName,
                     new Vector2(1f, 1f), new Vector2(1f, 1f),
                     new Vector2(1f, 1f),
-                    new Vector2(-TopRightMargin, -TopRightMargin),
+                    new Vector2(-TopRightMargin, TopRightActionsPosY),
                     new Vector2(TopRightButtonSize.x, stackHeight));
+            }
+            else
+            {
+                actionsRt.anchoredPosition = new Vector2(-TopRightMargin, TopRightActionsPosY);
+                actionsRt.sizeDelta = new Vector2(TopRightButtonSize.x, stackHeight);
             }
 
             for (int i = 0; i < WorkflowButtons.Length; i++)
@@ -69,7 +86,21 @@ namespace PetDemo.UI
                 EnsureTopRightIconButton(actionsRt, name, resource, new Vector2(0f, y));
             }
 
+            EnsureCompanionCottageEntryButton(actionsRt);
             return actionsRt;
+        }
+
+        /// <summary>SPEC §9.8.9.14 v3.236：在 WfZhuangYuan 下方幂等创建伴侣小屋入口按钮。</summary>
+        public static RectTransform EnsureCompanionCottageEntryButton(RectTransform actionsRt)
+        {
+            if (actionsRt == null)
+                return null;
+
+            float y = -(CompanionCottageEntryIndex * (TopRightButtonSize.y + TopRightButtonGap)
+                + TopRightButtonSize.y * 0.5f);
+            EnsureTopRightIconButton(actionsRt, CompanionCottageEntryButtonName,
+                ResCompanionCottageIcon, new Vector2(0f, y));
+            return actionsRt.Find(CompanionCottageEntryButtonName) as RectTransform;
         }
 
         /// <summary>幂等创建居中 TipsToast。</summary>
@@ -102,6 +133,11 @@ namespace PetDemo.UI
                 btnRt = CreateChild(parent, name,
                     new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                     new Vector2(0.5f, 0.5f), anchoredPos, TopRightButtonSize);
+            }
+            else
+            {
+                btnRt.anchoredPosition = anchoredPos;
+                btnRt.sizeDelta = TopRightButtonSize;
             }
 
             var img = btnRt.GetComponent<Image>();

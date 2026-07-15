@@ -1,0 +1,71 @@
+{
+"skeleton": { "images": "images/" },
+"bones": [
+	{ "name": "root" }
+],
+"slots": [
+	{ "name": "youdabi", "bone": "root", "attachment": "youdabi" },
+	{ "name": "youxiaobi", "bone": "root", "attachment": "youxiaobi" },
+	{ "name": "youtui", "bone": "root", "attachment": "youtui" },
+	{ "name": "tun", "bone": "root", "attachment": "tun" },
+	{ "name": "zuotui", "bone": "root", "attachment": "zuotui" },
+	{ "name": "youshou", "bone": "root", "attachment": "youshou" },
+	{ "name": "qiang", "bone": "root", "attachment": "qiang" },
+	{ "name": "yousouzhi", "bone": "root", "attachment": "yousouzhi" },
+	{ "name": "bao", "bone": "root", "attachment": "bao" },
+	{ "name": "shenti", "bone": "root", "attachment": "shenti" },
+	{ "name": "tou", "bone": "root", "attachment": "tou" },
+	{ "name": "yanjin", "bone": "root", "attachment": "yanjin" },
+	{ "name": "zuodabi", "bone": "root", "attachment": "zuodabi" },
+	{ "name": "zuoxiaobi", "bone": "root", "attachment": "zuoxiaobi" }
+],
+"skins": {
+	"default": {
+		"zuoxiaobi": {
+			"zuoxiaobi": {"x": 668.5,"y": 355.5,"width": 135,"height": 181 }
+		},
+		"zuodabi": {
+			"zuodabi": {"x": 654,"y": 511,"width": 154,"height": 218 }
+		},
+		"yanjin": {
+			"yanjin": {"x": 454,"y": 741.5,"width": 210,"height": 109 }
+		},
+		"tou": {
+			"tou": {"x": 435,"y": 852.5,"width": 474,"height": 529 }
+		},
+		"shenti": {
+			"shenti": {"x": 502,"y": 496,"width": 366,"height": 350 }
+		},
+		"bao": {
+			"bao": {"x": 559,"y": 327.5,"width": 158,"height": 189 }
+		},
+		"yousouzhi": {
+			"yousouzhi": {"x": 263.5,"y": 606.5,"width": 139,"height": 95 }
+		},
+		"qiang": {
+			"qiang": {"x": 419.5,"y": 600,"width": 619,"height": 402 }
+		},
+		"youshou": {
+			"youshou": {"x": 256.5,"y": 567.5,"width": 121,"height": 95 }
+		},
+		"zuotui": {
+			"zuotui": {"x": 547,"y": 214,"width": 142,"height": 266 }
+		},
+		"tun": {
+			"tun": {"x": 478.5,"y": 341,"width": 273,"height": 160 }
+		},
+		"youtui": {
+			"youtui": {"x": 387.5,"y": 231,"width": 133,"height": 268 }
+		},
+		"youxiaobi": {
+			"youxiaobi": {"x": 272.5,"y": 485.5,"width": 133,"height": 155 }
+		},
+		"youdabi": {
+			"youdabi": {"x": 360.5,"y": 502,"width": 193,"height": 180 }
+		}
+	}
+},
+"animations":{
+	"animation": {}
+}
+}

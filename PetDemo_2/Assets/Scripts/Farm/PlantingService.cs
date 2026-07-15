@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using PetDemo.Core;
 using PetDemo.Save;
+using Spine.Unity;
 using UnityEngine;
 
 namespace PetDemo.Farm
@@ -61,6 +62,7 @@ namespace PetDemo.Farm
         public event Action<string, SeedPackQuality, string> OnSeedRolledFromPack;
         public event Action<string> OnPestEventTriggered;
         public event Action OnRoleStatsChanged;
+        public event Action OnPlayerAppearanceChanged;
         public event Action OnFruitBagChanged;
         public event Action<string, string, int> OnHarvestFruitReady;
         public event Action OnFertilizerBagChanged;
@@ -195,8 +197,10 @@ namespace PetDemo.Farm
 
                 session.foodBag = PlantConfigCatalog.BuildDefaultFoodBag(inv);
 
-                // SPEC §9.14：新存档初始化创角好友目录；创角状态默认未创建。
-                session.friends = FriendCatalog.BuildDefault();
+                // SPEC §9.14 / §9.8.18.3（v3.258）：新存档好友目录自 TopFriends.csv 深拷贝（含 gender/hasPartner）。
+                session.friends = TopFriendCatalog.CreateSessionList();
+                if (session.friends == null || session.friends.Count == 0)
+                    session.friends = FriendCatalog.BuildDefault();
                 session.characterCreation = new CharacterCreationState
                 {
                     openingRescuePending = true,
@@ -692,12 +696,61 @@ namespace PetDemo.Farm
             return session.role;
         }
 
+        // ---- SPEC §9.14.9 (v3.244)：装扮装备玩家 Spine ----
+
+        public string GetEquippedPlayerSpineResource()
+        {
+            var role = GetRoleStats();
+            return role != null ? (role.equippedPlayerSpineResource ?? string.Empty) : string.Empty;
+        }
+
+        public bool TryEquipPlayerSpine(string resourcesSkeletonDataPath)
+        {
+            if (string.IsNullOrEmpty(resourcesSkeletonDataPath))
+                return false;
+
+            string path = resourcesSkeletonDataPath.Trim().Replace('\\', '/');
+            if (path.Length == 0)
+                return false;
+
+            var asset = PlayerSpineAppearanceResolver.TryLoadSkeletonData(path);
+            if (asset == null)
+            {
+                Debug.LogWarning(
+                    "[PlantingService] TryEquipPlayerSpine：无法加载 SkeletonDataAsset：" + path);
+                return false;
+            }
+
+            var role = GetRoleStats();
+            if (role == null)
+                return false;
+
+            if (role.equippedPlayerSpineResource == path)
+            {
+                OnPlayerAppearanceChanged?.Invoke();
+                return true;
+            }
+
+            role.equippedPlayerSpineResource = path;
+            OnPlayerAppearanceChanged?.Invoke();
+            return true;
+        }
+
         // ---- SPEC §9.14：创角界面好友与创角状态 ----
 
         public IReadOnlyList<FriendProfile> GetFriends()
         {
-            if (session.friends == null)
-                session.friends = FriendCatalog.BuildDefault();
+            if (session.friends == null || session.friends.Count == 0)
+            {
+                session.friends = TopFriendCatalog.CreateSessionList();
+                if (session.friends == null || session.friends.Count == 0)
+                    session.friends = FriendCatalog.BuildDefault();
+            }
+            else
+            {
+                // SPEC §9.8.18.3（v3.258）：旧档缺少 isFemale/hasPartner 时按 CSV 回填。
+                TopFriendCatalog.ApplyCsvStaticFields(session.friends);
+            }
             return session.friends;
         }
 

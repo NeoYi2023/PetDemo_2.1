@@ -1,0 +1,47 @@
+{
+"skeleton": { "images": "images/" },
+"bones": [
+	{ "name": "root" }
+],
+"slots": [
+	{ "name": "houfa", "bone": "root", "attachment": "houfa" },
+	{ "name": "shenti", "bone": "root", "attachment": "shenti" },
+	{ "name": "zuodabi", "bone": "root", "attachment": "zuodabi" },
+	{ "name": "tou", "bone": "root", "attachment": "tou" },
+	{ "name": "yanj", "bone": "root", "attachment": "yanj" },
+	{ "name": "fa1", "bone": "root", "attachment": "fa1" },
+	{ "name": "buou", "bone": "root", "attachment": "buou" },
+	{ "name": "shoubi", "bone": "root", "attachment": "shoubi" }
+],
+"skins": {
+	"default": {
+		"shoubi": {
+			"shoubi": {"x": 431,"y": 436,"width": 286,"height": 170 }
+		},
+		"buou": {
+			"buou": {"x": 339,"y": 480,"width": 354,"height": 390 }
+		},
+		"fa1": {
+			"fa1": {"x": 574,"y": 604.5,"width": 174,"height": 287 }
+		},
+		"yanj": {
+			"yanj": {"x": 408,"y": 682,"width": 206,"height": 80 }
+		},
+		"tou": {
+			"tou": {"x": 504.5,"y": 792,"width": 527,"height": 470 }
+		},
+		"zuodabi": {
+			"zuodabi": {"x": 559.5,"y": 468.5,"width": 161,"height": 211 }
+		},
+		"shenti": {
+			"shenti": {"x": 475,"y": 399.5,"width": 400,"height": 459 }
+		},
+		"houfa": {
+			"houfa": {"x": 497.5,"y": 548,"width": 723,"height": 670 }
+		}
+	}
+},
+"animations":{
+	"animation": {}
+}
+}

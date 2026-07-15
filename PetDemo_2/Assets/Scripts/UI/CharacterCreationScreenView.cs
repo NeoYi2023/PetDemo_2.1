@@ -93,9 +93,6 @@ namespace PetDemo.UI
 
         private static readonly EnterHomeNavEntry[] EnterHomeNavEntries =
         {
-            new EnterHomeNavEntry { navKey = "GongHui", displayName = "社区", iconResource = "AirUI/Game_ZuDui" },
-            new EnterHomeNavEntry { navKey = "JiaYuan", displayName = "农场", iconResource = "AirUI/Game_NongChang" },
-            new EnterHomeNavEntry { navKey = "ZhuXian", displayName = "冒险", iconResource = "AirUI/Game_MaoXian" },
             new EnterHomeNavEntry { navKey = "LangLai", displayName = "狼来了", iconResource = "AirUI/Game_LangLai" },
             new EnterHomeNavEntry { navKey = "FenZheng", displayName = "人狼纷争", iconResource = "AirUI/Game_FenZheng" },
             new EnterHomeNavEntry { navKey = "XiuXian", displayName = "修仙", iconResource = "AirUI/Game_XiuXian" },
@@ -225,7 +222,11 @@ namespace PetDemo.UI
         {
             GetOrCreate(canvasRect);
             if (instance != null)
+            {
+                instance.UnbindAppearanceEvents();
                 instance.service = plantingService;
+                instance.BindAppearanceEvents();
+            }
             return instance;
         }
 
@@ -288,6 +289,20 @@ namespace PetDemo.UI
 
         public void Show()
         {
+            ShowInternal(openMoreGames: false);
+        }
+
+        /// <summary>
+        /// SPEC §9.8.9.10（v3.243）：「更多游戏」入口 —
+        /// 打开创角并展示 <c>EnterHomeTopPanel</c> 游戏列表，禁止默认跳转 <c>HomeTabPanel</c>。
+        /// </summary>
+        public void ShowMoreGames()
+        {
+            ShowInternal(openMoreGames: true);
+        }
+
+        private void ShowInternal(bool openMoreGames)
+        {
             EnsureEnterHomeTopPanelRuntime();
             EnsureHomeTabLegacyCleanup();
             if (panelRt != null)
@@ -320,10 +335,21 @@ namespace PetDemo.UI
             HideGongHuiEmbeddedPanel();
             HideDressUpPanel();
             HideTrainingPanel();
-            // SPEC §9.14.10（v3.189）：每次 Show 默认打开「家园」页签。
-            SetActiveTab(TabIndexHome);
-            OpenHomeTabPanel();
+            if (openMoreGames)
+            {
+                // SPEC §9.8.9.10（v3.243）：更多游戏 → EnterHomeTopPanel，底栏无激活页签。
+                SetActiveTab(-1);
+                ShowEnterHomePanel();
+            }
+            else
+            {
+                // SPEC §9.14.10（v3.189）：每次 Show 默认打开「家园」页签。
+                SetActiveTab(TabIndexHome);
+                OpenHomeTabPanel();
+            }
             RefreshState();
+            // SPEC §9.14.6（v3.241）：内容面板置顶后恢复关闭钮可点。
+            ElevateScreenCloseButton();
         }
 
         public void Hide()
@@ -383,11 +409,7 @@ namespace PetDemo.UI
                 friendListCloseButton.onClick.RemoveAllListeners();
                 friendListCloseButton.onClick.AddListener(HideFriendListPopup);
             }
-            if (screenCloseButton != null)
-            {
-                screenCloseButton.onClick.RemoveAllListeners();
-                screenCloseButton.onClick.AddListener(OnScreenCloseClicked);
-            }
+            WireScreenCloseButton();
             if (friendCellTemplate != null)
                 friendCellTemplate.SetActive(false);
             // SPEC §9.14.8 第 1 点（v3.158）：topFriendCellTemplate 现为 Resources 预制体资源，不在此处 SetActive。
@@ -406,6 +428,20 @@ namespace PetDemo.UI
                 return;
             }
 
+            // SPEC §9.8.9.10 / §9.14.10（v3.245）：更多游戏列表打开时关闭回退 GongHuiScreen。
+            if (IsEnterHomeTopPanelShown())
+            {
+                HideFriendListPopup();
+                HideQinMiDuPopup();
+                HideZhuanQianPopup();
+                HideZhongDuanPopup();
+                HideFriendCharacterPopup();
+                HideFriendDetailPopup();
+                Hide();
+                OnEnterHomeHudRequested?.Invoke(false);
+                return;
+            }
+
             HideFriendListPopup();
             HideQinMiDuPopup();
             HideZhuanQianPopup();
@@ -414,6 +450,11 @@ namespace PetDemo.UI
             HideFriendDetailPopup();
             Hide();
             OnCloseRequested?.Invoke();
+        }
+
+        private bool IsEnterHomeTopPanelShown()
+        {
+            return enterHomeTopPanel != null && enterHomeTopPanel.activeSelf;
         }
 
         // ---- 状态机（SPEC §9.14.1） ----
@@ -628,10 +669,8 @@ namespace PetDemo.UI
 
         private void OnEnterHomeNavClicked(string navKey)
         {
-            if (string.IsNullOrEmpty(navKey))
-                return;
-            Hide();
-            OnNavigateToBottomNav?.Invoke(navKey);
+            // SPEC §9.8.9.10 / §9.14.10（v3.245）：EnterHomeScrollView 内 NavigateButton 点击无效果。
+            _ = navKey;
         }
 
         private void PersistSave()
@@ -743,6 +782,7 @@ namespace PetDemo.UI
             if (intimacyTopPanel != null)
                 EmbedIntoContentRegion(intimacyTopPanel.transform as RectTransform, CharacterCreationScreenLayout.ContentRegionSideMargin);
             SetActiveSafe(intimacyTopPanel, true);
+            ElevateScreenCloseButton();
         }
 
         private void HideIntimacyPanel()
@@ -750,11 +790,13 @@ namespace PetDemo.UI
             SetActiveSafe(intimacyTopPanel, false);
         }
 
-        /// <summary>「进入家园」页签：在内容区切换显示跳转列表（DisplayArea 保持可见）。</summary>
+        /// <summary>「进入家园」页签 / 更多游戏列表：在内容区切换显示跳转列表（DisplayArea 保持可见）。</summary>
         private void ShowEnterHomePanel()
         {
             HideIntimacyPanel();
+            HideHomeTabPanel();
             HideDressUpPanel();
+            HideGongHuiEmbeddedPanel();
             HideTrainingPanel();
             HideZhuanQianPopup();
             HideFriendCharacterPopup();
@@ -765,6 +807,7 @@ namespace PetDemo.UI
             if (enterHomeTopPanel != null)
                 EmbedIntoContentRegion(enterHomeTopPanel.transform as RectTransform, CharacterCreationScreenLayout.ContentRegionSideMargin);
             SetActiveSafe(enterHomeTopPanel, true);
+            SetActiveSafe(displayArea, true);
         }
 
         private void HideEnterHomePanel()
@@ -797,6 +840,7 @@ namespace PetDemo.UI
             {
                 homeTabDailyTaskWired = true;
                 homeTabPanel.OnDailyTaskRequested += OpenAddFavorTab;
+                homeTabPanel.OnWarehouseRequested += OpenUnifiedWarehouseFromHomeTab;
                 homeTabPanel.OnCloseRequested += OnScreenCloseClicked;
             }
 
@@ -806,6 +850,41 @@ namespace PetDemo.UI
 
             var homeRt = homeTabPanel.transform as RectTransform;
             HomeTabPanelLayout.ApplyCharacterCreationEmbedLayout(homeRt);
+            ElevateScreenCloseButton();
+        }
+
+        /// <summary>SPEC §9.14.11 / §9.8.13 v3.253：家园页签仓库钮 → 统一仓库（升至 HudPopup 以免被创角压住）。</summary>
+        private void OpenUnifiedWarehouseFromHomeTab()
+        {
+            if (panelRt == null)
+            {
+                UnityEngine.Debug.LogWarning("[CharacterCreationScreenView] 仓库按钮：panelRt 为空");
+                return;
+            }
+
+            var canvasRt = panelRt.parent as RectTransform;
+            if (canvasRt == null)
+            {
+                UnityEngine.Debug.LogWarning("[CharacterCreationScreenView] 仓库按钮：MainCanvas RectTransform 为空");
+                return;
+            }
+
+            if (service == null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[CharacterCreationScreenView] 仓库按钮：plantingService 为空，无法打开统一仓库。");
+                return;
+            }
+
+            var hub = WarehouseHubPanelView.GetOrCreate(canvasRt);
+            if (hub == null)
+                return;
+
+            var hubRt = hub.transform as RectTransform;
+            if (hubRt != null)
+                MainHudLayerRoot.ApplySortTier(hubRt, MainUiSortTier.HudPopup);
+
+            hub.Show(service);
         }
 
         private void HideHomeTabPanel()
@@ -1110,6 +1189,7 @@ namespace PetDemo.UI
             // 兼容尚未重生成的旧 prefab：运行时禁用全屏遮罩与关闭按钮。
             DisableChildByName(dressRt, "Dim");
             DisableChildByName(dressRt, "CloseButton");
+            ElevateScreenCloseButton();
         }
 
         /// <summary>
@@ -1166,6 +1246,7 @@ namespace PetDemo.UI
 
             var trainRt = trainingPanel.transform as RectTransform;
             TrainingPanelLayout.ApplyCharacterCreationEmbedLayout(trainRt);
+            ElevateScreenCloseButton();
         }
 
         private void HideTrainingPanel()
@@ -1193,9 +1274,6 @@ namespace PetDemo.UI
 
         // ---- 主角 Spine（SPEC §9.14.1，复用 Hero_Role_cunmin） ----
 
-        private SkeletonDataAsset cachedRoleDataAsset;
-        private bool roleDataAssetResolved;
-
         private void EnsureRoleSpine()
         {
             if (roleSpineBuilt || roleMount == null)
@@ -1207,6 +1285,40 @@ namespace PetDemo.UI
                 roleSkeletonGraphic = sg;
             else
                 BuildRolePlaceholder(roleMount, RoleSpineDisplayScale);
+        }
+
+        /// <summary>SPEC §9.14.9（v3.244）：装备 Spine 变更后重建 DisplayArea 主角。</summary>
+        private void BindAppearanceEvents()
+        {
+            if (service == null)
+                return;
+            service.OnPlayerAppearanceChanged -= OnPlayerAppearanceChanged;
+            service.OnPlayerAppearanceChanged += OnPlayerAppearanceChanged;
+        }
+
+        private void UnbindAppearanceEvents()
+        {
+            if (service == null)
+                return;
+            service.OnPlayerAppearanceChanged -= OnPlayerAppearanceChanged;
+        }
+
+        private void OnPlayerAppearanceChanged()
+        {
+            RebuildRoleSpineForAppearance();
+        }
+
+        private void RebuildRoleSpineForAppearance()
+        {
+            if (roleMount == null)
+                return;
+
+            for (int i = roleMount.childCount - 1; i >= 0; i--)
+                Destroy(roleMount.GetChild(i).gameObject);
+
+            roleSkeletonGraphic = null;
+            roleSpineBuilt = false;
+            EnsureRoleSpine();
         }
 
         /// <summary>
@@ -1251,21 +1363,9 @@ namespace PetDemo.UI
 
         private SkeletonDataAsset ResolveRoleSkeletonDataAsset()
         {
-            if (roleDataAssetResolved)
-                return cachedRoleDataAsset;
-            roleDataAssetResolved = true;
-
-            var prefab = ResolveRolePrefab();
-            if (prefab == null)
-                return null;
-
-            var probe = Instantiate(prefab);
-            probe.SetActive(false);
-            var srcAnim = probe.GetComponent<SkeletonAnimation>()
-                ?? probe.GetComponentInChildren<SkeletonAnimation>(true);
-            cachedRoleDataAsset = srcAnim != null ? srcAnim.skeletonDataAsset : null;
-            Destroy(probe);
-            return cachedRoleDataAsset;
+            // SPEC §9.14.9（v3.244）：优先装备路径，否则默认主角骨骼。
+            string equipped = service != null ? service.GetEquippedPlayerSpineResource() : null;
+            return PlayerSpineAppearanceResolver.Resolve(equipped);
         }
 
         /// <summary>SPEC §9.14.1：主角持续循环待机。</summary>
@@ -1721,6 +1821,7 @@ namespace PetDemo.UI
             // 任务列表随弹窗显示刷新（恢复行状态）。
             if (taskListPanel != null)
                 taskListPanel.Show();
+            ElevateScreenCloseButton();
         }
 
         private void HideZhuanQianPopup()
@@ -2054,7 +2155,7 @@ namespace PetDemo.UI
         /// <summary>旧版 prefab 无 ScreenCloseButton 时运行时补建（与 Layout 一致）；已存在则校正左上角布局。</summary>
         private void EnsureScreenCloseButton()
         {
-            if (screenCloseButtonBuilt || panelRt == null)
+            if (panelRt == null)
                 return;
 
             var closeRt = CharacterCreationScreenLayout.BuildScreenCloseButton(panelRt);
@@ -2065,11 +2166,35 @@ namespace PetDemo.UI
                 screenCloseButton = closeRt.GetComponent<Button>();
 
             screenCloseButtonBuilt = true;
-            if (screenCloseButton != null)
-            {
-                screenCloseButton.onClick.RemoveAllListeners();
-                screenCloseButton.onClick.AddListener(OnScreenCloseClicked);
-            }
+            WireScreenCloseButton();
+        }
+
+        private void WireScreenCloseButton()
+        {
+            if (screenCloseButton == null)
+                return;
+            screenCloseButton.onClick.RemoveAllListeners();
+            screenCloseButton.onClick.AddListener(OnScreenCloseClicked);
+            if (screenCloseButton.targetGraphic != null)
+                screenCloseButton.targetGraphic.raycastTarget = true;
+            screenCloseButton.interactable = true;
+        }
+
+        /// <summary>
+        /// SPEC §9.14.6（v3.241）：内容面板 SetAsLastSibling 后将关闭钮提到其之上（仍低于加号黑底），保证可点回 PageHome。
+        /// </summary>
+        private void ElevateScreenCloseButton()
+        {
+            EnsureScreenCloseButton();
+            if (screenCloseButton == null)
+                return;
+
+            screenCloseButton.transform.SetAsLastSibling();
+            // 加号态：黑底与加号仍须盖过关闭钮（SPEC §9.14.1）。
+            bool plusVisible = (addButtonBackdrop != null && addButtonBackdrop.gameObject.activeSelf)
+                || (addButton != null && addButton.gameObject.activeSelf);
+            if (plusVisible)
+                SetAddButtonTopSiblingOrder();
         }
 
         /// <summary>
@@ -2156,9 +2281,11 @@ namespace PetDemo.UI
 
         private void OnDestroy()
         {
+            UnbindAppearanceEvents();
             if (homeTabPanel != null && homeTabDailyTaskWired)
             {
                 homeTabPanel.OnDailyTaskRequested -= OpenAddFavorTab;
+                homeTabPanel.OnWarehouseRequested -= OpenUnifiedWarehouseFromHomeTab;
                 homeTabPanel.OnCloseRequested -= OnScreenCloseClicked;
                 homeTabDailyTaskWired = false;
             }

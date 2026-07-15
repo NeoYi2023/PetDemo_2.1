@@ -1,10 +1,10 @@
 # SPEC §B.24：解锁说明配置表（v3.208，仅展示）
 # 列：unlockId,requiredLevel,iconPath,title,description
 unlockId,requiredLevel,iconPath,title,description
-unlock_lv2_train,2,AirUI/ShouHuo_1,庄园,解锁庄园玩法
+unlock_lv2_train,2,AirUI/ShouHuo_1,农场,解锁庄园玩法
 unlock_lv2_dongzuo,2,AirUI/HuDong_DongZuo_1,动作,解锁宠物动作
 unlock_lv3_arena,3,AirUI/ZJM_MaoXian_1,冒险,解锁冒险玩法
 unlock_lv3_yinyuan,3,AirUI/item_1340000,播种,解锁使用种子播种
 unlock_lv3_team,3,AirUI/ShouHuo_0,好友,解锁好友玩法
 unlock_lv4_bounty,4,AirUI/HaoYouList_0,组队冒险,解锁组队冒险玩法
-unlock_lv4_manor,4,AirUI/WF_ZhuangYuan,庄园预告,解锁庄园玩法预告（展示）
+unlock_lv4_manor,4,AirUI/CompanionCabin_Icon,庄园伴侣庄园,解锁与伴侣一起DIY庄园

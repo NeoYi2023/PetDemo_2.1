@@ -2,7 +2,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using PetDemo.Core;
+using PetDemo.Farm;
+using PetDemo.UI.Companion;
 using PetDemo.UI.Friend;
+using Spine.Unity;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -28,6 +32,9 @@ namespace PetDemo.UI
         public const string NavFriendListPanel = "FriendListPanel";
         /// <summary>SPEC §9.8.9.13（v3.196）：建筑跳转家园世界层。</summary>
         public const string NavJiaYuanWorld = JiaYuanHomeFeatureEntriesView.JiaYuanNavKey;
+        /// <summary>SPEC §9.8.9.13 / §9.8.18（v3.236）：Building_4 打开伴侣小屋。</summary>
+        public const string NavCompanionCottage = "CompanionCottage";
+        private const string Building4NodeName = "Building_4";
 
         private static readonly Vector2 MinWorldSize = new Vector2(1620f, 2880f);
 
@@ -38,6 +45,7 @@ namespace PetDemo.UI
         [SerializeField] private RectTransform buildingsRootRt;
         [SerializeField] private RectTransform npcsRootRt;
         [SerializeField] private RectTransform responseAreasRootRt;
+        [SerializeField] private RectTransform waypointsRootRt;
         [SerializeField] private VirtualJoystickView joystick;
         [SerializeField] private Button panoramaButton;
         [SerializeField] private Button wfXuanShangButton;
@@ -55,11 +63,14 @@ namespace PetDemo.UI
         private CharacterCreationScreenView characterCreationHost;
         private Action onRequestOpenCharacterCreation;
         private FriendListPanelView friendListPanel;
+        private CompanionCottageView companionCottage;
+        private IPlantingService plantingService;
         private JiaYuanViewportFollowController followController;
         private GuildPlayerController playerController;
         private GuildProximityController proximityController;
         private GuildPanoramaController panoramaController;
         private GuildNpcFollowController npcFollowController;
+        private GuildWorldDepthSorter depthSorter;
         private RectTransform playerRt;
         private bool sceneSpawned;
         // SPEC §9.14.8（v3.203）：「去小镇寻找」一次性 NPC 就近摆放。
@@ -164,7 +175,8 @@ namespace PetDemo.UI
             RectTransform buildingsRoot,
             RectTransform npcsRoot,
             VirtualJoystickView joystickView,
-            RectTransform responseAreasRoot = null)
+            RectTransform responseAreasRoot = null,
+            RectTransform waypointsRoot = null)
         {
             viewportRt = viewport;
             worldContentRt = worldContent;
@@ -173,6 +185,7 @@ namespace PetDemo.UI
             buildingsRootRt = buildingsRoot;
             npcsRootRt = npcsRoot;
             responseAreasRootRt = responseAreasRoot;
+            waypointsRootRt = waypointsRoot;
             joystick = joystickView;
         }
 
@@ -199,6 +212,25 @@ namespace PetDemo.UI
         public void BindFriendListPanel(FriendListPanelView panel)
         {
             friendListPanel = panel;
+        }
+
+        /// <summary>SPEC §9.8.18（v3.236）：注入伴侣小屋，供 Building_4 / 右上入口跳转。</summary>
+        public void BindCompanionCottage(CompanionCottageView cottage)
+        {
+            companionCottage = cottage;
+        }
+
+        /// <summary>SPEC §9.8.9.4（v3.247）：注入种植服务，用于装扮装备 Spine 刷新公会主角。</summary>
+        public void BindPlantingService(IPlantingService service)
+        {
+            if (plantingService != null)
+                plantingService.OnPlayerAppearanceChanged -= OnPlayerAppearanceChanged;
+            plantingService = service;
+            if (plantingService != null)
+                plantingService.OnPlayerAppearanceChanged += OnPlayerAppearanceChanged;
+
+            if (sceneSpawned)
+                RefreshGuildPlayerAppearance();
         }
 
         private void TryWireTopDingBar()
@@ -393,9 +425,14 @@ namespace PetDemo.UI
             var spawnPos = playerSpawnRt != null
                 ? GuildSceneGeometry.PointInContentSpace(playerSpawnRt, worldContentRt)
                 : Vector2.zero;
+            // SPEC §9.8.9.16 (v3.231)：主角挂 Npcs 组（与 NPC 同级），以便按 Y 轴深度插入 NPC 之间；
+            // Npcs 组为拉伸铺满/无缩放容器，与 content 局部空间 1:1，坐标与镜头跟随不受影响。缺失回退 worldContent。
+            var characterParentRt = npcsRootRt != null ? npcsRootRt : worldContentRt;
+            var playerSkeletonData = ResolveGuildPlayerSkeletonData();
             playerRt = GuildSpineCharacterBuilder.BuildVillager(
-                worldContentRt, "GuildPlayer", spawnPos, out var playerSkeleton,
-                GuildSpineCharacterBuilder.GuildPlayerLocalScale);
+                characterParentRt, "GuildPlayer", spawnPos, out var playerSkeleton,
+                GuildSpineCharacterBuilder.GuildPlayerLocalScale,
+                playerSkeletonData);
 
             var obstacles = obstaclesRootRt != null
                 ? obstaclesRootRt.GetComponentsInChildren<GuildObstacleArea>(true)
@@ -406,7 +443,7 @@ namespace PetDemo.UI
             followController.SetFollowTarget(playerRt);
             playerController.BindViewportFollowSync(followController.ApplyPlayerContentDelta);
 
-            // NPC：每个标记点位生成对应骨骼 Spine；互动按钮接跟随控制器（SPEC §9.8.9 v3.124 / §9.8.9.9 v3.156）。
+            // NPC：按 TopFriends.csv spinePrefab 生成 Spine（缺配置回退 skeletonKind）；互动接跟随（SPEC §9.8.9 v3.257 / §9.8.9.9）。
             npcFollowController = gameObject.AddComponent<GuildNpcFollowController>();
             npcFollowController.Initialize(playerRt, worldContentRt);
 
@@ -420,8 +457,17 @@ namespace PetDemo.UI
             {
                 if (npcs[i] == null)
                     continue;
+                SkeletonDataAsset npcDataOverride = null;
+                if (TopFriendCatalog.TryGetById(npcs[i].NpcId, out var friendProfile)
+                    && friendProfile != null
+                    && !string.IsNullOrEmpty(friendProfile.spinePrefabPath))
+                {
+                    npcDataOverride = GuildSpineCharacterBuilder.ResolveSkeletonDataAssetFromPrefabPath(
+                        friendProfile.spinePrefabPath);
+                }
                 var npcSpineRt = GuildSpineCharacterBuilder.BuildCharacter(
-                    npcs[i].Rt, npcs[i].SkeletonKind, "NpcSpine", Vector2.zero, out var npcSkeleton);
+                    npcs[i].Rt, npcs[i].SkeletonKind, "NpcSpine", Vector2.zero, out var npcSkeleton,
+                    dataAssetOverride: npcDataOverride);
                 GuildSpineCharacterBuilder.PlayLoop(
                     npcSkeleton, "standby_1", "animation", "idle", "exclusive_2");
                 npcs[i].AttachSpine(npcSpineRt, npcSkeleton);
@@ -437,6 +483,13 @@ namespace PetDemo.UI
             {
                 if (buildings[i] == null)
                     continue;
+                // SPEC §9.8.9.13（v3.236）：Building_4 默认指向伴侣小屋（校正旧预制体 JiaYuan 占位）。
+                if (string.Equals(buildings[i].name, Building4NodeName, StringComparison.Ordinal)
+                    && (string.IsNullOrEmpty(buildings[i].NavTargetKey)
+                        || string.Equals(buildings[i].NavTargetKey, NavJiaYuanWorld, StringComparison.Ordinal)))
+                {
+                    buildings[i].SetNavTargetKey(NavCompanionCottage);
+                }
                 buildings[i].WireActionButton();
                 buildings[i].ActionClicked += HandleBuildingActionClicked;
             }
@@ -454,11 +507,34 @@ namespace PetDemo.UI
             proximityController = gameObject.AddComponent<GuildProximityController>();
             proximityController.Initialize(playerRt, worldContentRt, buildings, npcs, responseAreas, joystick);
 
+            // SPEC §9.8.9.15 (v3.228; 目标点机制 v3.230)：非跟随/非名牌 NPC 随机游走（速度 = 主角 85%）。
+            var waypointsRoot = waypointsRootRt != null
+                ? waypointsRootRt
+                : (worldContentRt != null ? worldContentRt.Find("Waypoints") as RectTransform : null);
+            var waypoints = waypointsRoot != null
+                ? waypointsRoot.GetComponentsInChildren<GuildWaypointMarker>(true)
+                : Array.Empty<GuildWaypointMarker>();
+            var wanderController = gameObject.AddComponent<GuildNpcWanderController>();
+            wanderController.Initialize(
+                worldContentRt, npcs, obstacles, waypoints,
+                playerController.MoveSpeed * 0.85f);
+
             panoramaController = gameObject.AddComponent<GuildPanoramaController>();
             panoramaController.Initialize(
                 viewportRt, worldContentRt, followController, joystick,
                 proximityController, playerController);
             WirePanoramaButton();
+
+            // SPEC §9.8.9.16 (v3.231)：主角 + 全部 NPC 按 content 局部 Y 动态重排 sibling（越靠下越靠前）。
+            var depthSortCharacters = new List<RectTransform>(npcs.Length + 1) { playerRt };
+            for (int i = 0; i < npcs.Length; i++)
+            {
+                if (npcs[i] != null)
+                    depthSortCharacters.Add(npcs[i].Rt);
+            }
+            depthSorter = gameObject.AddComponent<GuildWorldDepthSorter>();
+            depthSorter.Initialize(worldContentRt, characterParentRt);
+            depthSorter.SetCharacters(depthSortCharacters);
 
             TryWireTopDingBar();
         }
@@ -618,7 +694,25 @@ namespace PetDemo.UI
             if (string.Equals(key, NavJiaYuanWorld, StringComparison.Ordinal))
             {
                 OpenJiaYuanWorldFromGuild();
+                return;
             }
+
+            if (string.Equals(key, NavCompanionCottage, StringComparison.Ordinal))
+            {
+                OpenCompanionCottageFromGuild();
+            }
+        }
+
+        private void OpenCompanionCottageFromGuild()
+        {
+            if (companionCottage == null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[GongHuiScreenView] 未注入 CompanionCottageView，无法打开伴侣小屋。");
+                return;
+            }
+
+            companionCottage.TriggerEntry();
         }
 
         private void NavigateToCharacterCreationTab(string tabKey)
@@ -671,11 +765,9 @@ namespace PetDemo.UI
             if (string.IsNullOrEmpty(navKey))
                 return;
 
-            // SPEC §9.8（v3.207）：EnterHomeHud / 主 HUD 均直接切 BottomNavBar（可处于 inactive）。
+            // SPEC §9.8（v3.237 / v3.239）：BottomNavBar 永久隐藏；仅程序化 SetOpenKey（可在 inactive 上调用）。
             if (bottomNav != null)
             {
-                if (!bottomNav.gameObject.activeSelf)
-                    bottomNav.gameObject.SetActive(true);
                 bottomNav.SetOpenKey(navKey);
                 return;
             }
@@ -740,6 +832,7 @@ namespace PetDemo.UI
             var buildingsRoot = CreateStretchedGroup(worldContent, "Buildings");
             var npcsRoot = CreateStretchedGroup(worldContent, "Npcs");
             var responseAreasRoot = CreateStretchedGroup(worldContent, "ResponseAreas");
+            var waypointsRoot = CreateStretchedGroup(worldContent, "Waypoints");
 
             var playerSpawn = BottomNavAttachedScreenLayout.CreateChildRect(
                 worldContent, "PlayerSpawn",
@@ -750,7 +843,7 @@ namespace PetDemo.UI
 
             view.SetSceneRefs(
                 viewport, worldContent, playerSpawn,
-                obstaclesRoot, buildingsRoot, npcsRoot, joystickView, responseAreasRoot);
+                obstaclesRoot, buildingsRoot, npcsRoot, joystickView, responseAreasRoot, waypointsRoot);
 
             BuildPanoramaButton(root, view);
             GongHuiScreenLayout.EnsureTopRightWorkflowActions(root);
@@ -817,10 +910,54 @@ namespace PetDemo.UI
 
         private void OnDestroy()
         {
+            if (plantingService != null)
+                plantingService.OnPlayerAppearanceChanged -= OnPlayerAppearanceChanged;
             if (embeddedInCharacterCreation)
                 embeddedInCharacterCreation = false;
             if (bottomNav != null)
                 bottomNav.OnOpenChanged -= OnBottomNavOpenChanged;
+        }
+
+        private void OnPlayerAppearanceChanged()
+        {
+            RefreshGuildPlayerAppearance();
+        }
+
+        private SkeletonDataAsset ResolveGuildPlayerSkeletonData()
+        {
+            string equipped = plantingService != null
+                ? plantingService.GetEquippedPlayerSpineResource()
+                : null;
+            return PlayerSpineAppearanceResolver.Resolve(equipped);
+        }
+
+        /// <summary>SPEC §9.8.9.4（v3.247）：按会话装备路径刷新公会主角 Spine。</summary>
+        private void RefreshGuildPlayerAppearance()
+        {
+            if (!sceneSpawned || playerRt == null)
+                return;
+
+            var dataAsset = ResolveGuildPlayerSkeletonData();
+            if (dataAsset == null)
+                return;
+
+            float facingSign = playerRt.localScale.x;
+            if (!GuildSpineCharacterBuilder.TryReplaceSkeletonData(playerRt, dataAsset, out var sg))
+            {
+                UnityEngine.Debug.LogWarning("[GongHuiScreenView] 刷新 GuildPlayer Spine 失败。");
+                return;
+            }
+
+            // 保留替换前的朝向（localScale.x 符号）。
+            if (facingSign < 0f && playerRt.localScale.x > 0f)
+                GuildSpineCharacterBuilder.SetFacing(playerRt, faceRight: true);
+            else if (facingSign > 0f && playerRt.localScale.x < 0f)
+                GuildSpineCharacterBuilder.SetFacing(playerRt, faceRight: false);
+
+            if (playerController != null)
+                playerController.RebindSkeleton(sg);
+            else
+                GuildSpineCharacterBuilder.PlayLoop(sg, "exclusive_2", "standby_1", "animation", "idle");
         }
     }
 }

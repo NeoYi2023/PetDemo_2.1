@@ -435,6 +435,9 @@ struct RoleStats {
   int level;                // 等级；默认 1 / level; default 1
   int currentExp;           // 当前经验进度；升级时不减、不归零（可大于本级需求）/ current exp progress; not deducted on level-up
   int expToNextLevel;       // 升至下一级所需单级经验；优先来自 §B.23，回退 §B.21 / single-level exp; prefer §B.23, fallback §B.21
+  // ---- 装扮装备 Spine（v3.244，§9.14.9） / Equipped dress-up Spine (v3.244, §9.14.9) ----
+  string equippedPlayerSpineResource; // Resources 相对路径 → SkeletonDataAsset；空=各界面回退默认主角骨骼
+                                      // Resources-relative SkeletonDataAsset path; empty = default hero skeleton fallback
 }
 
 // Demo 默认值 / Demo defaults (Role)：
@@ -759,6 +762,9 @@ struct GameSession {
 - `IPlantingService.GetFruitBag() → PlayerFruitBag` — 自 v3.27 起新增：返回 `GameSession.fruitBag` 引用（UI 刷新用）。 / Since v3.27: returns the `GameSession.fruitBag` reference for UI refresh.
 - `IPlantingService.ApplyHarvestRoleReward(statType, amount)` — 自 v3.2 起新增：提交一次属性奖励，写入 `GameSession.role` 并触发 `OnRoleStatsChanged`；**普通收获路径不再调用**（自 v3.27 起收获改入果实背包，见 §4.1.11）。 / Since v3.2: commit a stat reward into `GameSession.role` and fire `OnRoleStatsChanged`; **normal harvest no longer calls this** since v3.27 (harvest goes to fruit bag per §4.1.11).
 - `IPlantingService.GetRoleStats() → RoleStats` — 自 v3.2 起新增：返回主角属性快照，供主界面属性显示初始化与刷新。 / Since v3.2: returns role stats snapshot for main-menu display init/refresh.
+- `IPlantingService.GetEquippedPlayerSpineResource() → string` — 自 v3.244 起（§9.14.9）：返回 `RoleStats.equippedPlayerSpineResource`（可能空）。 / Since v3.244 (§9.14.9): returns equipped player Spine Resources path (may be empty).
+- `IPlantingService.TryEquipPlayerSpine(resourcesSkeletonDataPath) → bool` — 自 v3.244 起（v3.245 路径扩展）：路径非空且经 `PlayerSpineAppearanceResolver.TryLoadSkeletonData` 成功（Resources 或 Editor `Assets/`）则写入并触发 **`OnPlayerAppearanceChanged`**；否则 false（无写入）。 / Since v3.244 (v3.245 path ext): equip Spine if loadable; fires `OnPlayerAppearanceChanged` on success.
+- `IPlantingService` 事件 **`OnPlayerAppearanceChanged`** — 自 v3.244 起：装备玩家 Spine 变更时触发（与 `OnRoleStatsChanged` 分离）。 / Since v3.244: fired when equipped player Spine changes (separate from role-stats).
 - `IPlantingService.GetTile(orderIndex) → CropTile` — 按 1..20 的顺序号读取农田 / fetch a tile by 1..20 order index
 - `IPlantingService.GetActionableActionOf(tileId) → ActionType?` — 查询某农田当前可执行的最高优先级动作（无可执行返回空） / query the highest-priority action available on a tile (null if none)
 - `IPlantingService.GetCurrentFocusTileId() → string?` — 读取当前焦点田（用于 UI 高亮） / get the current focus tile (for UI highlight)
@@ -903,8 +909,8 @@ struct GameSession {
 **中文：** **主界面** 以全屏 `Image` 展示美术资源 `Assets/Scenes/Air/UI/UI0.png` 作为主要画面；Canvas 参考分辨率 **1080×1920**（竖屏），与第 2、8 节一致。  
 **English:** The **main menu** uses a full-screen `Image` with art `Assets/Scenes/Air/UI/UI0.png` as the primary screen; the Canvas reference resolution is **1080×1920** (portrait), consistent with Sections 2 and 8.
 
-**中文：** 主界面包含一枚 **种子仓库入口按钮**，其 `Image.sprite` 使用 `Assets/Scenes/Air/UI/ZhongZi-1.png`；点击后显示 **种子仓库** 弹窗层（`GameObject` 默认隐藏，点击后 `SetActive(true)`）。  
-**English:** The main menu includes a **seed warehouse entry button** whose `Image.sprite` uses `Assets/Scenes/Air/UI/ZhongZi-1.png`; tapping it shows the **seed warehouse** modal layer (a `GameObject` hidden by default, then `SetActive(true)`).
+**中文：** 主界面包含一枚 **种子仓库入口按钮**（`SeedWarehouseButton`，挂于 `MainHudLayerRoot`），其 `Image.sprite` 使用 `Assets/Scenes/Air/UI/ZhongZi-1.png`（运行时 `Resources/AirUI/ZhongZi-1`）；建议尺寸 150×150，`anchorMin = anchorMax = (0.5, 0)`、**自 v3.253 起** `anchoredPosition = (285, 140)`（原 Y=290）；点击后显示 **种子仓库** 弹窗层（`GameObject` 默认隐藏，点击后 `SetActive(true)`）。  
+**English:** The main menu includes a **seed warehouse entry button** (`SeedWarehouseButton` under `MainHudLayerRoot`) whose `Image.sprite` uses `Assets/Scenes/Air/UI/ZhongZi-1.png` (runtime `Resources/AirUI/ZhongZi-1`); suggested size 150×150, `anchorMin = anchorMax = (0.5, 0)`, **since v3.253** `anchoredPosition = (285, 140)` (was Y=290); tapping it shows the **seed warehouse** modal layer (a `GameObject` hidden by default, then `SetActive(true)`).
 
 **中文：** **种子仓库** 为叠在主界面之上的弹窗：底层为半透明遮罩（可点击关闭），前景为 `Image`，背景图使用 `Assets/Scenes/Air/UI/ZhongZiCangKu_1.png`；具体布局与边距可在实现中微调，但资源路径须保持一致。  
 **English:** The **seed warehouse** is a modal over the main menu: a semi-transparent dim layer (tap to close) with a foreground `Image` using `Assets/Scenes/Air/UI/ZhongZiCangKu_1.png`; layout margins may be tuned in implementation, but asset paths must stay as specified.
@@ -1066,8 +1072,8 @@ float ResolveSortYFromWorldPoint(Vector3 worldPosition);
 
 ### 9.2 统一「操作」按钮 / Unified Action Button
 
-**中文：** 主界面底部居中放置一枚 `UnifiedActionButton`（建议尺寸 **282 × 193** px，位于 `anchoredPosition (0, -660)`，相对画布中心锚点）；其文字与图标随当前焦点田的最高优先级动作动态切换（`Seed / Water / Fertilize / PestControl / Harvest`），点击调用 `IPlantingService.ExecuteUnifiedAction()`。  
-**English:** A `UnifiedActionButton` is placed at the bottom-center of the main screen (suggested size **282 × 193** px, at `anchoredPosition (0, -660)` relative to the canvas center anchor); its label and icon switch dynamically by the focused tile's highest-priority action (`Seed / Water / Fertilize / PestControl / Harvest`), and tapping it invokes `IPlantingService.ExecuteUnifiedAction()`.
+**中文：** 主界面底部居中放置一枚 `UnifiedActionButton`（建议尺寸 **282 × 193** px，位于 `anchoredPosition (0, -820)`，相对画布中心锚点；自 v3.237 起由 `-660` 下移贴画面下沿）；其文字与图标随当前焦点田的最高优先级动作动态切换（`Seed / Water / Fertilize / PestControl / Harvest`），点击调用 `IPlantingService.ExecuteUnifiedAction()`。  
+**English:** A `UnifiedActionButton` is placed at the bottom-center of the main screen (suggested size **282 × 193** px, at `anchoredPosition (0, -820)` relative to the canvas center anchor; since v3.237 lowered from `-660` to hug the bottom edge); its label and icon switch dynamically by the focused tile's highest-priority action (`Seed / Water / Fertilize / PestControl / Harvest`), and tapping it invokes `IPlantingService.ExecuteUnifiedAction()`.
 
 **中文：** 当 20 田全部「无事可做」时，按钮置灰并显示「暂无操作 / No Action」，禁用点击。  
 **English:** When none of the 20 tiles is actionable, the button is disabled and shows "暂无操作 / No Action".
@@ -1296,6 +1302,17 @@ struct MainRoleCunminConfig {
 **中文：** **资源装载约束（Player 构建）**：非 Editor 环境下不能使用 `AssetDatabase`；须额外提供可被 `Resources.Load<GameObject>("Prefabs/Air/Hero_Role_cunmin")` 命中的预制体副本（建议路径 `Assets/Resources/Prefabs/Air/Hero_Role_cunmin.prefab`，与工程内权威美术预制体保持内容一致）。Editor 下仍可回退 `Assets/Scenes/Air/Role/Hero_Role_cunmin.prefab`。  
 **English:** **Asset loading (player builds):** `AssetDatabase` is unavailable outside the Editor; ship a prefab copy addressable via `Resources.Load<GameObject>("Prefabs/Air/Hero_Role_cunmin")` (recommended path `Assets/Resources/Prefabs/Air/Hero_Role_cunmin.prefab`, kept in sync with the authored asset). In the Editor, loading from `Assets/Scenes/Air/Role/Hero_Role_cunmin.prefab` remains a valid fallback.
 
+**中文：** **`Resources/Prefabs/Air` 角色 Spine 探针预制体一览（v3.256）**：均只含 `Transform / MeshFilter / MeshRenderer / SkeletonAnimation` + 子节点 `CarryAnchor`；根 `localScale≈(0.35,0.35,1)`；`skeletonDataAsset` 引用 `Scenes/Air` 源骨骼（GUID），源资产**不**迁入 Resources。
+
+| Resources 路径 | 源 `SkeletonData` | 说明 |
+|----------------|-------------------|------|
+| `Prefabs/Air/Hero_Role_cunmin` | `Scenes/Air/LangRen/Role_cslangren/...` | 默认主角 / 公会 LangRen；文件名历史兼容 |
+| `Prefabs/Air/Hero_Role_langmeiren` | `Scenes/Air/LangMeiRen/Role_langmeiren/...` | 狼美人 |
+| `Prefabs/Air/Hero_Role_csnvhai` | `Scenes/Air/Role_csnvhai/Role_csnvhai/...` | 小女孩（v3.256） |
+| `Prefabs/Air/Hero_Role_cslieren` | `Scenes/Air/Role_cslieren/Role_cslieren/...` | 憎恶猎人（v3.256） |
+
+**English:** **`Resources/Prefabs/Air` role Spine probe prefabs (v3.256):** each holds only `Transform / MeshFilter / MeshRenderer / SkeletonAnimation` + `CarryAnchor`; root scale ≈ `(0.35,0.35,1)`; `skeletonDataAsset` references source under `Scenes/Air` by GUID (source assets stay in Scenes).
+
 **中文：** **实现优先级**：P0 必做「预制体显示 + 待机/攻击类/wait 类动画经 §9.5 候选链可解析 + 浇水/施肥触发攻击类动画 + 收获涨 atk 时 wait 类动画 + Inspector 可调位置/层级正确」；更复杂的状态机可延至 P1。  
 **English:** **Implementation priority:** P0 must ship prefab display + idle/attack/wait clips resolvable via the §9.5 fallback chains + attack-like clip on water/fertilize + wait-like clip when harvest increments atk + Inspector-tunable pose + correct draw order; richer state machines may wait until P1.
 
@@ -1483,8 +1500,8 @@ struct HeroMainMenuStatsDisplayConfig {
 **中文：** 自 v2.10 起，`Fertilize`「施肥」从统一按钮（§9.2 / §10）下线，改为「**主界面入口按钮 + 肥料仓库弹窗 + 农田点击**」三段式触发，对齐 §9.4.6 中 `Seed` 的播种交互模型。  
 **English:** Since v2.10, `Fertilize` is removed from the unified button (§9.2 / §10) and switches to a three-stage flow: **main-menu entry button + fertilizer warehouse modal + tile tap**, mirroring the `Seed` interaction model in §9.4.6.
 
-**中文：** **入口按钮（`FertilizeEntryButton`）**：在主界面 `SeedWarehouseButton` 右侧紧邻放置，建议尺寸 150×150，`anchorMin = anchorMax = (0.5, 0)`、`anchoredPosition = (450, 290)`、`Image.sprite` 加载自 `Resources/AirUI/ShiFei-1`；`Button.transition = None`，仅承担「打开 / 关闭肥料仓库弹窗」职责。  
-**English:** **Entry button (`FertilizeEntryButton`):** placed immediately to the right of `SeedWarehouseButton` on the main menu; suggested size 150×150, `anchorMin = anchorMax = (0.5, 0)`, `anchoredPosition = (450, 290)`, `Image.sprite` loaded from `Resources/AirUI/ShiFei-1`; `Button.transition = None`, only responsible for opening/closing the fertilizer warehouse modal.
+**中文：** **入口按钮（`FertilizeEntryButton`）**：在主界面 `SeedWarehouseButton` 右侧紧邻放置，建议尺寸 150×150，`anchorMin = anchorMax = (0.5, 0)`、**自 v3.253 起** `anchoredPosition = (450, 140)`（原 Y=290）、`Image.sprite` 加载自 `Resources/AirUI/ShiFei-1`；`Button.transition = None`，仅承担「打开 / 关闭肥料仓库弹窗」职责。  
+**English:** **Entry button (`FertilizeEntryButton`):** placed immediately to the right of `SeedWarehouseButton` on the main menu; suggested size 150×150, `anchorMin = anchorMax = (0.5, 0)`, **since v3.253** `anchoredPosition = (450, 140)` (was Y=290), `Image.sprite` loaded from `Resources/AirUI/ShiFei-1`; `Button.transition = None`, only responsible for opening/closing the fertilizer warehouse modal.
 
 **中文：** **肥料仓库弹窗（`FertilizeWarehouseModal`）**：与 §9 种子仓库弹窗采用一致的「半透明遮罩 + 前景面板」结构；前景面板实例化 **`Resources/Prefabs/Farm/FertilizerWarehousePanel.prefab`**（与种子仓库 **不同** prefab；不修改种子仓库 `WarehouseBackground.prefab`），点击 dim 区或入口按钮可关闭。根节点 **`RectTransform.sizeDelta.x = 1080`**；根 `Image.sprite` 美术源为 `Assets/Scenes/Air/UI/FeiLiaoUI_0.png`（由菜单 `Tools/PetDemo/Generate Fertilizer Warehouse Prefab` 写入预制体）。**上半区**：展示当前选中肥料的放大图标与 **`FertilizerType.description`**（空则回退 `displayName`）；其下两个按钮文案固定为「全部施肥」「施肥1个」。**「施肥1个」**仅关闭肥料弹窗（不调用 `ApplyFertilizerToTile`），便于玩家返回主界面后点击农田完成单格施肥。**「全部施肥」（自 v3.22 起）** 先关闭肥料弹窗回到主场景，再调用 `IPlantingService.ApplyFertilizerToAllAwaitingTiles()` 自动对所有满足「已种植且 `tile.fertilizer == AwaitingFertilizer` 且未被变异锁定」条件的农田批量施肥；按 `orderIndex` 升序处理，每格成功消耗 1 份当前活跃肥料库存，库存归零或活跃 id 不存在时立即停止；每次成功仍按 §9.7「农田点击执行」逐格触发 `OnTileFlagsChanged / OnFertilizerBagChanged / OnFertilizeApplied` 三连事件，UI 与 §9.5 主角 `attack_3` 联动复用既有路径无需特殊处理。**下半区**：以 `FeiLiaoUI_1.png` 为槽位底图，图标形式列出 `PlayerFertilizerBag.stacks` 中 `count>0` 的条目，槽内小图标来自 `FertilizerType.iconResource`（`Resources.Load<Sprite>`）；点击槽调用 `IPlantingService.SelectActiveFertilizer(id)` 并刷新选中高亮。**默认选中**：打开弹窗且背包非空时，若 `activeId` 为空或指向已无库存的 id，则自动选中 **第一条有效堆叠**。`stacks` 为空时居中显示「暂无肥料 / No Fertilizer」，详情区与按钮可按实现禁用或留空。  
 **English:** **Fertilizer warehouse modal (`FertilizeWarehouseModal`):** uses the same "dim mask + foreground panel" pattern as the §9 seed warehouse modal; the foreground instantiates **`Resources/Prefabs/Farm/FertilizerWarehousePanel.prefab`** (distinct from the seed `WarehouseBackground.prefab`; do not modify the seed prefab); tapping the dim area or the entry button closes it. Root **`RectTransform.sizeDelta.x = 1080`**; root `Image.sprite` is authored from `Assets/Scenes/Air/UI/FeiLiaoUI_0.png` (baked by `Tools/PetDemo/Generate Fertilizer Warehouse Prefab`). **Upper half:** shows the selected fertilizer's large icon and **`FertilizerType.description`** (fallback to `displayName` when empty); below are two buttons labeled 「全部施肥」 and 「施肥1个」. **「施肥1个」** only closes the fertilizer modal (it does **not** call `ApplyFertilizerToTile`), so the player returns to the farm and taps a tile to fertilize one slot. **「全部施肥」 (since v3.22)** first closes the fertilizer modal back to the main scene, then calls `IPlantingService.ApplyFertilizerToAllAwaitingTiles()` to batch-fertilize every tile that satisfies "planted AND `tile.fertilizer == AwaitingFertilizer` AND not mutation-locked". The service iterates tiles in ascending `orderIndex`, each success consumes 1 stock of the current active fertilizer, and the loop stops immediately when stock reaches zero or the active id is invalidated. Each successful per-tile apply still fires the §9.7 "tile-tap execution" three-event sequence (`OnTileFlagsChanged / OnFertilizerBagChanged / OnFertilizeApplied`), so the UI and §9.5 villager `attack_3` linkage reuse the existing path with no special handling needed. **Lower half:** lists owned stacks (`count>0`) as icon slots using `FeiLiaoUI_1.png` as the slot background; small icons load from `FertilizerType.iconResource` via `Resources.Load<Sprite>`; tapping a slot calls `SelectActiveFertilizer(id)` and updates selection highlight. **Default selection:** when opening with a non-empty bag, if `activeId` is empty or points at zero stock, auto-select the **first valid stack**. When `stacks` is empty, show the centered "暂无肥料 / No Fertilizer" hint; detail area and buttons may be disabled or left empty per implementation.
@@ -1603,6 +1620,197 @@ void ExitAnchorViewLock();            // 收获视角退出（既有，清除 Zh
 **中文：** **`MainHudLayerRoot` API**：`BuildUnder(mainCanvas)` 创建 HUD 根；`ApplySortTier(node, tier)` 为 Modal/Screen/Overlay 根节点写入独立 `overrideSorting`；`EnsureGraphicRaycaster(go)` 为带 `Canvas` 的节点补齐 `GraphicRaycaster`。**凡启用 `overrideSorting` 的嵌套 Canvas 必须自带 `GraphicRaycaster`**（父级 `MainCanvas` 射线不会穿透子 Canvas）；`MainHudLayerRoot`、`ApplySortTier` 目标节点及 §9.1.4 `JiaYuanWorldDepthSorter` 动态 Canvas 均须调用。  
 **English:** See `MainHudLayerRoot.BuildUnder` / `ApplySortTier` / `EnsureGraphicRaycaster`; **each nested `overrideSorting` Canvas needs its own `GraphicRaycaster`** (parent raycaster does not reach child canvases); applies to HUD tiers and §9.1.4 world depth sorter canvases.
 
+#### 9.8.18 伴侣小屋 / Companion Cottage (v3.213；迁入公会 v3.236；邀请弹窗预制体 v3.242)
+
+##### 9.8.18.1 系统设计说明 / System Design
+
+**中文（v3.236；已结伴进庄园 v3.238）：** 「伴侣小屋」由 `CompanionCottageView` 驱动，**宿主为 §9.8.9 `GongHuiScreenPanel`**（逻辑节点挂在公会屏根下，随公会层显隐；**不再**挂 `JiaYuanWorldContent`）。伴侣关系为**本次会话内存态**，不写入存档（`GameSaveSnapshot`），重启即丢失。入口有两处，点击行为**完全一致**（均复用 `CompanionCottageView.TriggerEntry`：未结伴→邀请弹窗；已结伴→打开 §9.8.19 `CompanionManorScreenView` 庄园全屏子层）：
+1. **公会建筑 `Building_4`（伴侣庄园）**：接近后名牌「前往」→ `navTargetKey = CompanionCottage` → `NavigateByKey` → `TriggerEntry`（**不**切家园 Tab，见 §9.8.9.13）。
+2. **右上玩法入口按钮 `CompanionCottageEntryButton`**：位于 §9.8.9.14 `TopRightWorkflowActions` 内、`WfZhuangYuanButton` **正下方**（竖排第 5 项，`i=4`），图标 `AirUI/CompanionCabin_Icon`，尺寸与右上 WF 按钮对齐（`120×120`）；随公会面板自然显隐（无需底栏 JiaYuan 门控）。
+
+**English (v3.236; partnered→manor v3.238):** Companion Cottage is hosted on **`GongHuiScreenPanel`** (logic under guild screen root; **not** under `JiaYuanWorldContent`). Session-only partner state. Two shared entry points via `TriggerEntry`: unpartnered → invite modal; partnered → §9.8.19 `CompanionManorScreenView`. Guild `Building_4` "前往" (`navTargetKey=CompanionCottage`) and top-right `CompanionCottageEntryButton` under `WfZhuangYuanButton` (`CompanionCabin_Icon`, 120×120).
+
+##### 9.8.18.2 数据结构定义 / Data Structures
+
+**中文：**
+- `FriendProfile` 新增字段 `bool hasPartner`（是否已有伴侣）。
+- `TopFriends.csv` 新增列 `hasPartner`（列序追加至末尾；`true`/`1`/`yes` 视为已有伴侣），由 `TopFriendCatalog.Load()` 解析（缺列默认 `false`，向后兼容）。
+- 会话内存态：`CompanionCottageView.partnerFriendId`（`string`，空=未结伴）与待确认申请对象 `pendingFriendId`。
+
+```
+FriendProfile { ... ; bool hasPartner; }   // §9.14.8 扩展字段
+TopFriends.csv 列序: id,displayName,avatar,gender,intimacy,intimacyInterrupted,online,avatarFrame,spinePrefab,hasPartner
+```
+
+##### 9.8.18.3 接口 / 交互流程 / API & Interaction Flow
+
+**中文：**
+1. 点击入口（未结伴）→ 打开「邀请伴侣」弹窗（`InvitePartnerModalView`，HUD `HudModal` 分层）：含 标题、介绍文案、「添加好友」(+) 按钮、已选好友展示区、确定、取消。
+2. 点击 (+)→ 展开好友选择列表（`ScrollRect`）：数据 `IPlantingService.GetFriends()`，按 `intimacy` **严格降序**排序；每行展示 头像 / 昵称 / **性别图标**（读 `TopFriends.csv` 的 `gender`：`male`→`AirUI/friends_icon_man`，`female`→`AirUI/friends_icon_woman`，对齐 §9.14.8）/ 彼此好感度 / 是否有伴侣 / 是否在线。`hasPartner == true` 的行**置灰不可选**；点击无伴侣行=选中并高亮，回填至弹窗已选区。
+   - **CSV 静态字段（v3.258）：** `GetFriends()` 返回的 `FriendProfile` 必须已合并 `TopFriends.csv` 的配置态字段（至少 `isFemale` / `hasPartner` / `intimacyInterrupted` / `avatarFrameResource` / `spinePrefabPath`）。新会话用 `TopFriendCatalog.CreateSessionList()` 初始化；读档后与 `GetFriends()` 内调用 `TopFriendCatalog.ApplyCsvStaticFields`，保证旧档/仅存 intimacy 的好友也能正确显示性别图标与伴侣态。`InvitePartnerModalView.ApplyGenderIcon` 仅消费 `friend.isFemale`，不再手写「男/女」。
+3. 确定（已选好友）→ 关闭弹窗，记 `pendingFriendId`，启动 **2 秒延迟协程**；到时在**屏幕上方**弹出「对方玩家接受了你的邀请」顶部弹窗（含 确定 / 放弃）。
+4. 顶部弹窗 **确定** → `partnerFriendId = pendingFriendId`；**放弃** → 丢弃 `pendingFriendId`，保持未结伴态。
+5. 入口（已结伴）→ `CompanionManorScreenView.Show(partnerFriendId)`（§9.8.19），把会话伴侣 id 交给庄园驱动 Partner NPC；覆盖在公会屏上；关闭庄园后仍留在公会。
+
+**装配：** `CompanionCottageView.BuildInto(gongHuiRoot, hudRoot, service)` + `BuildHudEntry`（挂到 `TopRightWorkflowActions`）+ `GongHuiScreenView.BindCompanionCottage` + `CompanionManorScreenView.BuildInto(gongHuiRoot)` + `BindPlantingService` 注入 `BindManor`；由 `AirMainMenuRuntimeBuilder` 在公会屏构建后注入。
+
+**清理：** 切离公会 / `GongHuiScreen` 隐藏时，若弹窗/顶部弹窗/庄园层处于打开态应随之收起，避免残留遮挡。
+
+##### 9.8.18.3.1 邀请伴侣弹窗预制体（v3.242）/ Invite Partner Modal Prefab
+
+**中文（对齐 §8.1 预制体优先）：** 「邀请伴侣」弹窗改为**预制体驱动**，禁止以运行时代码作为正式视觉来源。
+
+| 项 | 约定 |
+|----|------|
+| 预制体路径 | `Resources/Prefabs/Farm/InvitePartnerModal`（`Assets/Resources/Prefabs/Farm/InvitePartnerModal.prefab`） |
+| 编辑器菜单 | `Tools/PetDemo/Generate Invite Partner Modal Prefab` |
+| 根节点名 | `InvitePartnerModal`（挂 `InvitePartnerModalView`） |
+| HUD 分层 | 挂到 `hudRoot` 后 `MainHudLayerRoot.ApplySortTier(..., HudModal)` |
+| 列表行 | 预制体内隐藏 `FriendRowTemplate`；运行时 `Instantiate` 克隆并填数据 |
+| 缺失回退 | `Resources.Load` 失败时可用 `BuildModalSkeleton` 极简回退 + `LogWarning`，**不得**作为验收标准 |
+
+```text
+InvitePartnerModal (InvitePartnerModalView)
+├─ Dim                          ← 半透明遮罩，点击关闭
+└─ Panel
+   ├─ Title / Intro / AddLabel
+   ├─ AddButton                 ← 「+」展开/收起列表
+   ├─ SelectedInfo              ← 已选好友文案
+   ├─ FriendListPanel           ← 默认隐藏
+   │   └─ ScrollView / Viewport / Content
+   │       └─ FriendRowTemplate （默认 active=false）
+   │           ├─ Avatar / NameText / GenderIcon（Image，非文字）
+   │           ├─ IntimacyText / PartnerText / OnlineText
+   │           └─ （根 Image + Button + LayoutElement）
+   ├─ ConfirmButton
+   └─ CancelButton
+```
+
+**好友行性别（v3.255）：** `FriendRowTemplate/GenderIcon` 为 `Image`（`preserveAspect=true`，`raycastTarget=false`）。运行时按 `FriendProfile.isFemale`（源自 `TopFriends.csv` 的 `gender`）加载：`true`→`AirUI/friends_icon_woman`，`false`→`AirUI/friends_icon_man`；缺图时纯色占位。禁止再写「男/女」文字。旧节点名 `GenderText` 视为废弃；生成器与回退骨架统一产出 `GenderIcon`。
+
+**职责拆分：** 位置/尺寸/颜色/字体/锚点由预制体承担；`InvitePartnerModalView` 仅：`BuildInto` 实例化与绑定、`Show`/`Hide`、列表刷新（克隆模板）、选中态与确认回调。不覆盖预制体已设定的样式。
+
+**English (v3.255):** Invite-partner friend rows show gender via `GenderIcon` Image (`friends_icon_man` / `friends_icon_woman` from CSV `gender`), not text. Prefab-first unchanged (v3.242).
+
+##### 9.8.18.4 实现优先级 / Priority
+
+**中文：** P0：公会 `Building_4` + 右上入口 + 邀请弹窗（**预制体** + 好友列表筛选，仅无伴侣可选）+ 2 秒模拟接受顶部弹窗。P1：已结伴进入 §9.8.19 庄园场景（`Show(partnerFriendId)` 驱动 Partner NPC）。数据仅内存态，不做存档与后端同步。
+
+#### 9.8.19 伴侣庄园场景 / Companion Manor Screen (v3.238；Partner NPC + Waypoints v3.259；Obstacles v3.260；Scale/选点避障 v3.261；建造弹图 v3.262)
+
+##### 9.8.19.1 系统设计说明 / System Design
+
+**中文（v3.259）：** 「庄园」是挂在公会屏根下的**全屏 UI 子层**（`CompanionManorScreenPanel`），与公会 §9.8.9 同款骨架精简版：Viewport + WorldContent + 2×2 切块背景 + 虚拟摇杆主角 + 装饰同挂 `Characters/` 做 Y 深度排序。对内命名 CompanionManor，避免与公会 `WfZhuangYuan`→家园、Building_3「我的庄园」混淆。玩家可见文案可用「庄园」。
+
+**伴侣 NPC（v3.259；缩放 v3.261）：** 邀请弹窗选中的好友（会话 `partnerFriendId`）在庄园内以预制体槽位 `Npcs/PartnerNpc`（`GuildNpcMarker`）呈现。运行时 `Show(partnerFriendId)` 写入 `npcId`：`TopFriendCatalog.TryGetById` 命中则用该 id，否则默认 **`friend-01`**。Spine / NamePlate（头像+名字+「拉手」）/ 跟随 / 动作图标（`showActionIcon`）/ 接近显牌均与公会 §9.8.9 同款控制器一致。出生点与半径等 Inspector 字段由预制体编辑；**不**从公会克隆节点。**`NpcSpine.localScale` 固定为 `GuildPlayerLocalScale = (0.27, 0.27, 1)`**（对齐庄园 `ManorPlayer` / 公会主角；与公会 NPC 默认 `0.53` 解耦）。
+
+**Waypoint 游走（v3.259；选点避障 v3.261）：** `ManorWorldContent/Waypoints` 下摆 `GuildWaypointMarker`，由 `GuildNpcWanderController` 驱动（目标点占用锁、速度=主角×0.85），语义同 §9.8.9.15；具体点位由预制体配置。游走**选点排除落在 `GuildObstacleArea` 内的 Waypoint**（脚底盒与移动碰撞一致）；沿途仍分轴贴墙滑动。本期仍不做任务/存档。
+
+**Obstacles 碰撞（v3.260）：** `ManorWorldContent/Obstacles` 下人工摆放 `GuildObstacleArea`（空 RectTransform 矩形、无视觉），与公会 §9.8.9 一致：主角与 Partner 游走均按**分轴（先 X 后 Y）AABB** 阻挡并贴墙滑动，另钳位在 `ManorWorldContent` 边界内。`EnsureSceneSpawned` 收集障碍传给 `GuildPlayerController` / `GuildNpcWanderController`；位置与 `sizeDelta` 由预制体编辑。
+
+**建造弹图（v3.262）：** 庄园根下 `Button/Button-JianZao` 点击后，在 `CompanionManorScreen` **整层底边**弹出静态图 `AirUI/WDZY_ZS_UI_1`（原生尺寸 **1080×766**，禁止拉伸适配）。结构为兄弟节点：全屏透明 `Dim`（Button → 关闭）+ 底部 `Image`（`raycastTarget=true` 拦截点击，点图本身不关）。本期仅静态展示，不做家具/购买/撤销等交互。`Hide()` / 离开庄园时同步收起弹图。
+
+**场景悬浮框（v3.263）：** `ManorWorldContent/FloatingFrames/` 下可摆多个 `FloatingFrame_*`（`ManorFloatingFrameMarker`）。每个框含背景图 `Panel`（Image）+ 固定文字 `Label`（Text）；**默认隐藏**。主角靠近该框中心点 **≤ `showRadius`（默认 300，content 局部像素）** 时显示该框；离开 **> 300** 后隐藏。多框**各自独立**判定（可同时显示多个）。中心点 = Marker 自身 `RectTransform`（经 `GuildSceneGeometry.PointInContentSpace`）。位置 / 文本 / 背景 Sprite / 半径均由预制体 Inspector 编辑；脚本只做接近显隐，**不做**点击/跳转/深度排序/碰撞。Image/Text `raycastTarget=false`，避免挡摇杆。`Hide()` / 控制器 `OnDisable` 时强制全藏。
+
+**进入条件：** `CompanionCottageView.HasPartner == true`（会话已结伴）后点伴侣入口。
+
+**English (v3.259–v3.263):** Companion Manor overlay; partner NPC `NpcSpine` scale **0.27**; waypoints skip picks inside obstacles; editable Obstacles; build button opens bottom-aligned native-size `WDZY_ZS_UI_1` overlay (blank-area dismiss). **(v3.263)** Editable proximity floating frames under `FloatingFrames/` (default hidden; show within 300 content-px of marker center; independent per frame).
+
+##### 9.8.19.2 节点树与资源 / Hierarchy & Assets
+
+```text
+CompanionManorScreenPanel (CompanionManorScreenView)
+├─ ManorViewport (RectMask2D)
+│   └─ ManorWorldContent
+│       ├─ Background          ← Tile_r0_c0..Tile_r1_c1（2×2）
+│       ├─ Obstacles/
+│       │   └─ Obstacle_* (GuildObstacleArea)  ← 矩形碰撞，预制体可编
+│       ├─ Characters/         ← ManorPlayer + Men_1 + Men_2 +（运行时）PartnerNpc（同父，深度排序）
+│       ├─ Npcs/
+│       │   └─ PartnerNpc (GuildNpcMarker)  ← 出生点可编；EnsureSceneSpawned 后 reparent 到 Characters/
+│       ├─ Waypoints/
+│       │   └─ Waypoint_* (GuildWaypointMarker) ← 游走目标，预制体配置
+│       ├─ FloatingFrames/     ← 场景悬浮框（v3.263）
+│       │   └─ FloatingFrame_* (ManorFloatingFrameMarker)
+│       │       └─ Panel (Image) ← 背景；raycastTarget=false
+│       │           └─ Label (Text) ← 固定文字；raycastTarget=false
+│       └─ PlayerSpawn
+├─ JoystickTouchLayer / JoystickVisualLayer
+├─ Button/
+│   ├─ Button-BaiFang          ← 本期占位（无业务）
+│   └─ Button-JianZao          ← 打开 BuildOverlay
+├─ BackButton（左上，Hide）
+└─ BuildOverlay（默认隐藏；打开时 SetAsLastSibling）
+    ├─ Dim                     ← 全屏透明 Button → HideBuildOverlay
+    └─ Image                   ← WDZY_ZS_UI_1，底边居中，size=sprite.rect（1080×766）
+```
+
+| 资源 | 路径 | 用途 |
+|------|------|------|
+| 背景切块 | `AirUI/BLZY_r{row}_c{col}`（row/col=0..1） | 左上 `r0_c0` 起行优先 2×2 |
+| 门装饰 Men_1 | `AirUI/BLZY_men1` | 与玩家同挂 Characters |
+| 门装饰 Men_2 | `AirUI/BLZY_men_2` | 同上 |
+| Obstacles | `Obstacles/Obstacle_*` | `GuildObstacleArea` 分轴碰撞矩形 |
+| PartnerNpc | `Npcs/PartnerNpc` | 会话伴侣；`npcId` 运行时注入 |
+| Waypoints | `Waypoints/Waypoint_*` | 随机游走目标点 |
+| FloatingFrames | `FloatingFrames/FloatingFrame_*` | 接近显隐信息牌（背景+文字） |
+| 悬浮框默认底板 | `AirUI/common_bg_15` | 骨架/占位默认 Panel 背景（可改） |
+| 建造弹图 | `AirUI/WDZY_ZS_UI_1` | Button-JianZao 底部原尺寸展示（1080×766） |
+| 预制体 | `Prefabs/Farm/CompanionManorScreenPanel` | 优先；缺则运行时 `BuildSceneSkeleton` |
+
+##### 9.8.19.2.2 场景悬浮框数据结构（v3.263） / Floating Frame Data
+
+```text
+ManorFloatingFrameMarker
+  [SerializeField] float showRadius = 300f;   // content 局部像素；默认 300
+  // 中心点 = 自身 RectTransform（PointInContentSpace）
+  // 视觉：子节点 Panel(Image) + Label(Text)；脚本只 SetVisible，不覆写文案/Sprite
+
+ManorFloatingFrameProximityController
+  Initialize(playerRt, worldContentRt, frames[])
+  // 0.1s 轮询；(framePos - playerPos).sqrMagnitude <= r*r → SetVisible(true)
+  // OnDisable → HideAll
+```
+
+##### 9.8.19.2.1 门装饰与深度排序脚底约定（v3.254） / Door Prop Feet Pivot for Depth Sort
+
+**中文：** `GuildWorldDepthSorter` 的排序键是 **`RectTransform.position`（= 枢轴世界坐标）转 `ManorWorldContent` 局部 Y`，不是 Sprite 导入设置里的 Custom Pivot。`ManorPlayer`（SkeletonGraphic）骨骼原点在脚底、挂在 Rect 枢轴上，故枢轴/center 即脚底参考。Men_1 / Men_2 是 UGUI `Image`：Sprite `spritePivot=(0.5,0)` **不会**改变 `RectTransform.position`；若 Image 的 `pivot` 仍为 `(0.5,0.5)`，深度切换会像「按门面中心」而非「按门脚」。**约定：** Men_* 的 **`RectTransform.pivot` 必须为 `(0.5, 0)`**（脚底居中）；改 pivot 时须补偿 `anchoredPosition` 使画面位置不变。`EnsureDecoration` 幂等应用该枢轴；预制体同步。
+
+**深度同父（v3.259）：** PartnerNpc 预制体挂在 `Npcs/` 便于编辑；`EnsureSceneSpawned` 将其 **reparent 到 `Characters/`**（保留 `anchoredPosition`），与 ManorPlayer、Men_* 一并登记 `GuildWorldDepthSorter`。
+
+**English:** Depth sort uses **`RectTransform.position` (pivot)**, not Sprite Import Custom Pivot. Spine `ManorPlayer` already sorts by feet (skeleton origin at pivot). Door `Image` props must use **`RectTransform.pivot = (0.5, 0)`** with position compensation; Sprite pivot alone does not affect `GuildWorldDepthSorter`. PartnerNpc is reparented into `Characters/` at spawn for co-sorting.
+
+##### 9.8.19.3 接口 / API
+
+- `CompanionManorScreenView.BuildInto(gongHuiRoot)` → 实例化/回退骨架，默认 `SetActive(false)`。
+- `BindPlantingService(IPlantingService)` — **自 v3.248 起**：订阅 `OnPlayerAppearanceChanged`；生成/刷新 `ManorPlayer` 时用 `PlayerSpineAppearanceResolver`（与公会 `GuildPlayer` 同装备路径）。
+- `Show(string partnerFriendId)` — **自 v3.259 起**：缓存伴侣 id → 显层 → 懒 `EnsureSceneSpawned`。解析：`TopFriendCatalog.TryGetById` 失败或空 → `npcId=friend-01`；写入预制体 `GuildNpcMarker`；装配 Spine（CSV `spinePrefab` / `skeletonKind` 回退）、`GuildNpcFollowController`、`GuildNpcWork2InteractionController`、`GuildProximityController`、`GuildNpcWanderController`（waypoints × 主角速度 0.85）；深度列表 = ManorPlayer + Men_* + PartnerNpc。无参 `Show()` 保留为回退（等价空 id → `friend-01`）。
+- `SetSceneRefs(..., npcsRoot, waypointsRoot, ...)` — 增 `Npcs`/`Waypoints` 根引用；缺失时 `Find("Npcs")` / `Find("Waypoints")`。
+- `Hide()` → 关跟随/摇杆、收起 BuildOverlay、`SetActive(false)`（悬浮框由 `ManorFloatingFrameProximityController.OnDisable` 全藏）。
+- `CompanionCottageView.BindManor` + `TriggerEntry` 已结伴分支调用 `Show(partnerFriendId)`；`OnDisable` 调 `Hide`。
+- 背景：`CompanionManorBackgroundBuilder`（`TileResourcePrefix = "AirUI/BLZY"`），拼图算法同 §9.8.9 `GongHuiBackgroundBuilder`。
+- 控制器复用：`GuildPlayerController`、`VirtualJoystickView`、`JiaYuanViewportFollowController`、`GuildWorldDepthSorter`、`GuildSpineCharacterBuilder`、`GuildObstacleArea`、`GuildNpcMarker`、`GuildWaypointMarker`、`GuildNpcFollowController`、`GuildNpcWork2InteractionController`、`GuildProximityController`、`GuildNpcWanderController`。
+- **自 v3.254 起**：`EnsureDecoration` 将 Men_* `RectTransform.pivot` 置为脚底 `(0.5,0)`（保画面补偿）。
+- **自 v3.260 起**：`Obstacles/Obstacle_*`（`GuildObstacleArea`）预制体可编；`BuildSceneSkeleton` 默认生成 4 个占位矩形；碰撞语义同 §9.8.9（主角 + Partner 游走）。
+- **自 v3.261 起**：Partner `NpcSpine` 使用 `GuildPlayerLocalScale (0.27,0.27,1)`；游走选点排除障碍内 Waypoint（§9.8.9.15）。
+- **自 v3.262 起**：`WireActionButtons` 幂等绑定 `Button/Button-JianZao` → `ShowBuildOverlay`；`EnsureBuildOverlay` 懒建 `BuildOverlay/Dim+Image`；`HideBuildOverlay`；`Hide()` 同步关弹层。图片 `Resources.Load("AirUI/WDZY_ZS_UI_1")`，`sizeDelta = sprite.rect.size`，底锚 `(0.5,0)` / pivot `(0.5,0)`。`BuildSceneSkeleton` 同步生成 `Button/` 与弹层骨架（预制体生成器复用）。
+- **自 v3.263 起**：`FloatingFrames/FloatingFrame_*`（`ManorFloatingFrameMarker`）预制体可编；`EnsureSceneSpawned` 收集并装配 `ManorFloatingFrameProximityController`（0.1s content 距离轮询，默认半径 300）；`BuildSceneSkeleton` 生成 `FloatingFrames` + 2 个占位框；Panel/Label `raycastTarget=false`。
+- 本期不接公会 TopDingBar 跟随头像（庄园子层无独立接线）。
+
+##### 9.8.19.4 实现优先级 / Priority
+
+**中文：** P0：2×2 背景 + 摇杆 + 视口跟随 + Men 深度 + 返回 + 入口接线。**P0（v3.259）：** PartnerNpc + NamePlate/跟随/游走 + 可编 Waypoints。**P0（v3.260）：** 可编 Obstacles 碰撞矩形。**P0（v3.261）：** Partner Spine 0.27 + 游走选点避障。**P0（v3.262）：** Button-JianZao → 底部原尺寸建造弹图，空白关闭。**P0（v3.263）：** 场景悬浮框（靠近 300px 显隐、多实例预制体可编）。P1+：装修交互 / 任务 / 存档等后续补充。
+
+##### 9.8.19.5 建造弹图技术实现建议（v3.262） / Build Overlay Notes
+
+**中文：** 遮罩与图片必须为**兄弟**节点（勿把 Image 挂在 Dim 下），否则点击图片会冒泡/命中父级关闭。Image `raycastTarget=true`；Dim 可全透明（`color.a≈0`）仅吃射线。脚本 `RemoveListener+AddListener` 幂等绑定，不依赖 Inspector `m_OnClick`。重新跑预制体生成器时须保留 `Button/` 与 `BuildOverlay`（已纳入 `BuildSceneSkeleton`）。  
+**English:** Sibling Dim+Image; image blocks rays; native size bottom-anchored; listener-only wiring.
+
+##### 9.8.19.6 场景悬浮框技术实现建议（v3.263） / Floating Frame Notes
+
+**中文：** 不复用 `GuildProximityController`（其绑定 NamePlate/建筑/NPC/响应区）。独立 `ManorFloatingFrameProximityController`，距离算法对齐公会（`GuildSceneGeometry.PointInContentSpace` + 平方距离 + 0.1s 节流）。Marker 根节点保持激活（中心点稳定）；`SetVisible` 仅显隐子节点 `Panel`。编辑流程：复制 `FloatingFrame_*` → 改 `anchoredPosition` / Panel Sprite / Label 文案 / 可选 `showRadius`。不参与深度排序与障碍碰撞。硬阈值无滞回（同公会接近）。重新跑生成器须保留 `FloatingFrames/`（已纳入 `BuildSceneSkeleton`）。  
+**English:** Dedicated proximity controller (not Guild NamePlate); content-space 300px radius; Panel toggle only; editable prefab instances; no depth/collision.
+
 ### 9.8 主界面底部一级导航切换栏 / Main Menu Bottom Primary Navigation Switch Bar
 
 **中文：** 自 v3.29 起，§9.8 由「4 入口图标」整体重写为「5 按钮一级导航切换栏」。主界面底部布置 1 条整体宽 `1080` × 高 `160` 的横向切换栏，沿屏幕底边贴紧，包含 5 个固定顺序的按钮（从左到右）：`GongHui`（公会）、`JueSe`（角色）、`JiaYuan`（家园）、`ZhuXian`（主线）、`ShangDian`（商店）。该切换栏**完全替代** v3.2 的「底部 4 入口图标」实现，原 `MaoXian`（冒险）入口下线，新增 `JiaYuan` 与 `ZhuXian` 两项。  
@@ -1616,8 +1824,8 @@ void ExitAnchorViewLock();            // 收获视角退出（既有，清除 Zh
 **中文：** **默认 `Open` 项**：`JiaYuan`（家园，索引 2）；可在 `BottomNavBarView.defaultOpenIndex` Inspector 字段中改为其它索引（0..4）。  
 **English:** **Default `Open` item:** `JiaYuan` (index 2); adjustable via the Inspector field `BottomNavBarView.defaultOpenIndex` to any index in `0..4`.
 
-**中文（自 v3.207 起，EnterHomeHud 互斥底栏）：** 当主流程处于 **EnterHomeHud**（`OpenKey == "GongHui"`，或创角 `EnterHomeButton` / `OnNavigateToBottomNav("GongHui")` 汇合入口）时：`MainHudLayerRoot` **可见**；**隐藏** `BottomNavBar`；在 `MainHudLayerRoot` 下显示与 §9.14.10 同款的 **`BottomTabBar`**（`HudEnterHomeTabBarView`，默认 `EnterHomeButton` IconOpen）；内容为 `GongHuiScreen`（主 HUD 全屏层，`offsetMin.y = BottomTabBarHeight`，**不再**走创角 `EnterCharacterCreationEmbed`）。当 `OpenKey` 为 `JueSe` / `JiaYuan` / `ZhuXian` / `ShangDian` 时：恢复显示 `BottomNavBar`，隐藏 HUD `BottomTabBar`，并 **`JiaYuanWorldScreenView.SetWorldScreenEnabled(true)`** 恢复世界层门控（实际显隐仍按 `OpenKey`；公会 `Building_3` 等 `SwitchToBottomNav` 同此路径），行为与既有 §9.8 一致。HUD `BottomTabBar` 点「亲密度 / 装扮 / 家园 / 训练」→ 打开创角覆盖层并 `NavigateFromGuild` 至对应页签（`MainHudLayerRoot.SetVisible(false)`）；点「进入家园」在已激活时 no-op。  
-**English (since v3.207, EnterHomeHud bar mutex):** In **EnterHomeHud** (`OpenKey == "GongHui"` or EnterHome entry), hide `BottomNavBar`, show HUD `BottomTabBar` (`HudEnterHomeTabBarView`, EnterHome open) with `GongHuiScreen` (no character-creation embed). Other keys restore `BottomNavBar`, hide the HUD tab bar, and re-enable `JiaYuanWorldScreen` gating via `SetWorldScreenEnabled(true)`. Non-EnterHome HUD tabs open character creation via `NavigateFromGuild`.
+**中文（自 v3.207 起，EnterHomeHud 互斥底栏；自 v3.237 起 BottomNavBar 永久隐藏）：** `BottomNavBar` 组件仍由 `AirMainMenuRuntimeBuilder` 构建并接线，但**全局永不显示**（构建并 `EnsureInitialized` 后即 `SetActive(false)`，任何路径**不得**再 `SetActive(true)`）。逻辑态仍由 `OpenKey` / `SetOpenKey` / `OnOpenChanged` 驱动（含 inactive 对象上的程序化切换）。当主流程处于 **EnterHomeHud**（`OpenKey == "GongHui"`，或创角 `EnterHomeButton` / `OnNavigateToBottomNav("GongHui")` 汇合入口）时：`MainHudLayerRoot` **可见**；在 `MainHudLayerRoot` 下显示与 §9.14.10 同款的 **`BottomTabBar`**（`HudEnterHomeTabBarView`，默认 `EnterHomeButton` IconOpen）；内容为 `GongHuiScreen`（主 HUD 全屏层，`offsetMin.y = BottomTabBarHeight`，**不再**走创角 `EnterCharacterCreationEmbed`）。当 `OpenKey` 为 `JueSe` / `JiaYuan` / `ZhuXian` / `ShangDian` 时：隐藏 HUD `BottomTabBar`，并 **`JiaYuanWorldScreenView.SetWorldScreenEnabled(true)`** 恢复世界层门控（实际显隐仍按 `OpenKey`；公会 `Building_3` 等 `SwitchToBottomNav` 同此路径）；**不**恢复显示 `BottomNavBar`。HUD `BottomTabBar` 点「亲密度 / 装扮 / 家园 / 训练」→ 打开创角覆盖层并 `NavigateFromGuild` 至对应页签（`MainHudLayerRoot.SetVisible(false)`）；点「进入家园」在已激活时 no-op。  
+**English (since v3.207 EnterHomeHud; since v3.237 BottomNavBar permanently hidden):** `BottomNavBar` is still built and wired but **never shown** (`SetActive(false)` after `EnsureInitialized`; no path may re-activate it). Logic still driven by `OpenKey` / `SetOpenKey` / `OnOpenChanged` (including programmatic switches on the inactive object). In **EnterHomeHud**, show HUD `BottomTabBar` with `GongHuiScreen`. Other keys hide the HUD tab bar and re-enable `JiaYuanWorldScreen` gating — **without** restoring `BottomNavBar` visibility. Non-EnterHome HUD tabs open character creation via `NavigateFromGuild`.
 
 #### 9.8.2 几何与左对齐布局 / Geometry and Left-Aligned Layout
 
@@ -1711,8 +1919,8 @@ public class BottomNavButtonView : MonoBehaviour
 
 #### 9.8.8 主线关卡选择界面 / Main Story Level Select Screen (v3.31, 章节标记点 + 前往 + 饿肚子提示 v3.40)
 
-**中文：** 当底部导航 `OnOpenChanged` 的 `newKey == "ZhuXian"`（玩家点击 `BottomNavSlot_ZhuXian` 并成功切换为 `Open`）时，在主 Canvas 上显示全屏面板 **`MainStoryLineScreen`**（与 `BottomNavBar` 同级、`RectTransform` 全屏拉伸，`SetSiblingIndex` 置于 `BottomNavBar` 之下，保证底栏始终可点）。面板根节点默认 `active=false`；当 `newKey != "ZhuXian"` 时隐藏，并强制隐藏其上的「前往」按钮与「饿肚子提示框」（关闭弹窗，但保留实例避免反复销毁/重建）。背景图固定为 **`Resources.Load<Sprite>("AirUI/ZhuXian_1")`**，`Image.preserveAspect = false` 铺满；资源缺失时回退为深色纯色并 `Debug.LogWarning`。面板顶部居中标题节点 **`Title`** 锚定 `anchorMin/Max=(0.5,1)`、`pivot=(0.5,1)`，**`anchoredPosition.y`（PosY）固定为 `-30`**，文案固定为「**第1章**」。**自 v3.47 起**，面板**左上角**（`anchorMin/Max=(0,1)`、`pivot=(0,1)`、`anchoredPosition=(20,-20)`）增加 **`MainStoryStaminaHud`**（根容器实现约 **`300×168`**，容纳体力槽与数值）：`MainStoryStaminaBarSlot` 尺寸 **`275×116`**（与 §9.8.13 统一仓库体力槽及 §9.8.12.4 `StaminaBarView` 复用同一套 `TiLi_*` 资源），其 `siblingIndex` 位于 **`EmptyAreaCloseButton` 之上**、**`ChapterPin` 之下或同级靠后**（须保证体力 HUD 不被全屏透明层遮挡）；可选 **`MainStoryStaminaText`**（`fontSize≈28`、白字、`raycastTarget=false`）置于槽位下方（相对 HUD 顶边 `anchoredPosition.y≈-124`）展示 **`stamina / staminaMax`**。数据来自 `IPlantingService.GetRoleStats()` + `StaminaBarView.BuildInto(slot, role, plantingService)`；`plantingService==null` 时仍显示 HUD 占位（数值文案 `-- / --`，体力条按空 `RoleStats` 显示 0 档）。**刷新时机（v3.47）**：(1) 每次底栏切回 `ZhuXian` 且本层 `SetActive(true)` 时调用 **`RefreshMainStoryStamina()`**；(2) 每次 **`WarehouseHubPanelView.Hide()`**（统一仓库关闭，含从主线「确定」进入后再关闭）且 **`MainStoryLineScreen` 根节点处于激活**时同样调用，确保从仓库返回主线后条与数字与 `RoleStats` 一致。实现类型为 `PetDemo.UI.MainStoryLineScreenView`，由 `AirMainMenuRuntimeBuilder.BuildBottomNavBar` 在实例化 `BottomNavBar` 之后调用 `BuildInto(canvasRect, barView, plantingService)` 构建并订阅 `OnOpenChanged`；`OnDestroy` 时解除订阅。全屏根节点、`Background` 的 `Resources` 加载与拉伸规则与 §9.8.9 / §9.8.10 共用静态工具 **`PetDemo.UI.BottomNavAttachedScreenLayout`**（`CreateRootBelowBottomNav` + `AddStretchedResourcesBackground`）。**v3.40 起，旧版用于占位的 `LevelSlot_1 / LevelSlot_2 / LevelSlot_3` 三连按钮整体下线**；主线层改为「章节标记点 + 前往按钮 + 饿肚子提示框」三段式（详见下文）。  
-**English:** When `OnOpenChanged` reports `newKey == "ZhuXian"` (the player taps `BottomNavSlot_ZhuXian` and it becomes `Open`), show a full-screen panel **`MainStoryLineScreen`** on the main Canvas (sibling of `BottomNavBar`, stretch-full `RectTransform`, `SetSiblingIndex` **below** `BottomNavBar` so the bar stays interactable on top). The panel root defaults to `active=false`; hide when `newKey != "ZhuXian"`, and force-hide the "Go" button and the "hungry" dialog above it (close modals, keep instances to avoid churn). The background is **`Resources.Load<Sprite>("AirUI/ZhuXian_1")`** with `Image.preserveAspect = false` to fill; missing asset falls back to a dark color with `Debug.LogWarning`. The top-centered **`Title`** uses `anchorMin/Max=(0.5,1)`, `pivot=(0.5,1)`, with **`anchoredPosition.y` (PosY) fixed at `-30`**, copy 「**第1章**」. **Since v3.47**, a **top-left** HUD (**`MainStoryStaminaHud`**) is added at `anchorMin/Max=(0,1)`, `pivot=(0,1)`, `anchoredPosition=(20,-20)` (root ~**`300×168`** to fit the bar plus label): a **`MainStoryStaminaBarSlot`** sized **`275×116`** aligns with the §9.8.13 warehouse slot and reuses the §9.8.12.4 `StaminaBarView` / `TiLi_*` stack; its `siblingIndex` must sit **above** **`EmptyAreaCloseButton`** so the transparent layer does not cover it, and remain **below or before** interactive pins as needed. Optional **`MainStoryStaminaText`** (~`fontSize=28`, white, `raycastTarget=false`) sits under the slot (`anchoredPosition.y≈-124` from the HUD top) showing **`stamina / staminaMax`**. Data comes from `IPlantingService.GetRoleStats()` via `StaminaBarView.BuildInto(slot, role, plantingService)`; when `plantingService == null`, the HUD still renders with placeholder copy `-- / --` and an empty-role bar at 0. **Refresh rules (v3.47):** (1) call **`RefreshMainStoryStamina()`** whenever the bottom nav returns to `ZhuXian` and this layer becomes active; (2) also call it after **`WarehouseHubPanelView.Hide()`** whenever **`MainStoryLineScreen`** is still active, so returning from the unified warehouse restamps the bar and numbers from `RoleStats`. Implement as `PetDemo.UI.MainStoryLineScreenView`, constructed from `AirMainMenuRuntimeBuilder.BuildBottomNavBar` after the bottom bar is instantiated via `BuildInto(canvasRect, barView, plantingService)` with `OnOpenChanged` subscription; unsubscribe on `OnDestroy`. Root, background load and stretch rules are shared with §9.8.9 / §9.8.10 via **`PetDemo.UI.BottomNavAttachedScreenLayout`** (`CreateRootBelowBottomNav` + `AddStretchedResourcesBackground`). **Since v3.40, the legacy `LevelSlot_1 / LevelSlot_2 / LevelSlot_3` placeholder buttons are retired**; the layer is rewritten to a three-stage flow: chapter pin + Go button + hungry dialog (see below).
+**中文：** 当底部导航 `OnOpenChanged` 的 `newKey == "ZhuXian"`（含公会 Building_1 / WF_XuanShang 等经 `SwitchToBottomNav("ZhuXian")` 程序化切 Tab）时，在主 Canvas 上显示全屏面板 **`MainStoryLineScreen`**（与 `BottomNavBar` 同级、`RectTransform` 全屏拉伸，`SetSiblingIndex` 置于 `BottomNavBar` 之下）。**自 v3.237 / v3.239 起**：显示本层时 **`BottomNavBar` 必须保持隐藏**（不得因跳转主线而 `SetActive(true)`；`MainStoryLineScreenView` 显示时可再兜底 `SetActive(false)`），逻辑态仍由 `OpenKey == "ZhuXian"` 驱动。面板根节点默认 `active=false`；当 `newKey != "ZhuXian"` 时隐藏，并强制隐藏其上的「前往」按钮与「饿肚子提示框」（关闭弹窗，但保留实例避免反复销毁/重建）。背景图固定为 **`Resources.Load<Sprite>("AirUI/ZhuXian_1")`**，`Image.preserveAspect = false` 铺满；资源缺失时回退为深色纯色并 `Debug.LogWarning`。面板顶部居中标题节点 **`Title`** 锚定 `anchorMin/Max=(0.5,1)`、`pivot=(0.5,1)`，**`anchoredPosition.y`（PosY）固定为 `-30`**，文案固定为「**第1章**」。**自 v3.240 起**，面板**左上角**（`anchorMin/Max=(0,1)`、`pivot=(0,1)`、`anchoredPosition=(20,-20)`、尺寸默认 **`120×120`**）增加 **`BackButton`（返回公会）**：`Image.sprite = Resources.Load<Sprite>("AirUI/common_bg_9")`、`preserveAspect=true`；缺失时纯色回退并 `Debug.LogWarning`；`Button.transition=None`；`siblingIndex` 位于 **`EmptyAreaCloseButton` 之上**；点击后调用 **`bottomNav.SetOpenKey(GongHuiScreenView.GongHuiNavKey)`**（**禁止** `SetActive(true)` 底栏，对齐 v3.239），由 `OnOpenChanged` 隐藏主线层并由 EnterHomeHud 路径恢复 §9.8.9 `GongHuiScreen`。**自 v3.47 起、自 v3.240 改位**：面板**右上角**（`anchorMin/Max=(1,1)`、`pivot=(1,1)`、`anchoredPosition=(-20,-20)`）增加 **`MainStoryStaminaHud`**（根容器实现约 **`300×168`**，容纳体力槽与数值；子节点相对 HUD 左上对齐，容器右缘贴屏、内容向左展开）：`MainStoryStaminaBarSlot` 尺寸 **`275×116`**（与 §9.8.13 统一仓库体力槽及 §9.8.12.4 `StaminaBarView` 复用同一套 `TiLi_*` 资源），其 `siblingIndex` 位于 **`EmptyAreaCloseButton` 之上**、**`ChapterPin` 之下或同级靠后**（须保证体力 HUD 不被全屏透明层遮挡）；可选 **`MainStoryStaminaText`**（`fontSize≈28`、白字、`raycastTarget=false`）置于槽位下方（相对 HUD 顶边 `anchoredPosition.y≈-124`）展示 **`stamina / staminaMax`**。数据来自 `IPlantingService.GetRoleStats()` + `StaminaBarView.BuildInto(slot, role, plantingService)`；`plantingService==null` 时仍显示 HUD 占位（数值文案 `-- / --`，体力条按空 `RoleStats` 显示 0 档）。**刷新时机（v3.47）**：(1) 每次底栏切回 `ZhuXian` 且本层 `SetActive(true)` 时调用 **`RefreshMainStoryStamina()`**；(2) 每次 **`WarehouseHubPanelView.Hide()`**（统一仓库关闭，含从主线「确定」进入后再关闭）且 **`MainStoryLineScreen` 根节点处于激活**时同样调用，确保从仓库返回主线后条与数字与 `RoleStats` 一致。实现类型为 `PetDemo.UI.MainStoryLineScreenView`，由 `AirMainMenuRuntimeBuilder.BuildBottomNavBar` 在实例化 `BottomNavBar` 之后调用 `BuildInto(canvasRect, barView, plantingService)` 构建并订阅 `OnOpenChanged`；`OnDestroy` 时解除订阅。全屏根节点、`Background` 的 `Resources` 加载与拉伸规则与 §9.8.9 / §9.8.10 共用静态工具 **`PetDemo.UI.BottomNavAttachedScreenLayout`**（`CreateRootBelowBottomNav` + `AddStretchedResourcesBackground`）。**v3.40 起，旧版用于占位的 `LevelSlot_1 / LevelSlot_2 / LevelSlot_3` 三连按钮整体下线**；主线层改为「章节标记点 + 前往按钮 + 饿肚子提示框」三段式（详见下文）。  
+**English:** When `OnOpenChanged` reports `newKey == "ZhuXian"` (including programmatic `SwitchToBottomNav("ZhuXian")` from guild Building_1 / WF_XuanShang), show a full-screen panel **`MainStoryLineScreen`** on the main Canvas (sibling of `BottomNavBar`, stretch-full `RectTransform`, `SetSiblingIndex` **below** `BottomNavBar`). **Since v3.237 / v3.239:** while this layer is shown, **`BottomNavBar` must remain hidden** (do not `SetActive(true)` when jumping to ZhuXian; `MainStoryLineScreenView` may force `SetActive(false)` on show); logic still driven by `OpenKey == "ZhuXian"`. The panel root defaults to `active=false`; hide when `newKey != "ZhuXian"`, and force-hide the "Go" button and the "hungry" dialog above it (close modals, keep instances to avoid churn). The background is **`Resources.Load<Sprite>("AirUI/ZhuXian_1")`** with `Image.preserveAspect = false` to fill; missing asset falls back to a dark color with `Debug.LogWarning`. The top-centered **`Title`** uses `anchorMin/Max=(0.5,1)`, `pivot=(0.5,1)`, with **`anchoredPosition.y` (PosY) fixed at `-30`**, copy 「**第1章**」. **Since v3.240**, a **top-left `BackButton`** (return to guild) sits at `anchorMin/Max=(0,1)`, `pivot=(0,1)`, `anchoredPosition=(20,-20)`, default size **`120×120`**, sprite **`AirUI/common_bg_9`**, `preserveAspect=true` (solid fallback + warning if missing); `Button.transition=None`; `siblingIndex` **above** **`EmptyAreaCloseButton`**; on click calls **`bottomNav.SetOpenKey(GongHuiScreenView.GongHuiNavKey)`** (**never** `SetActive(true)` the bottom bar) so `OnOpenChanged` hides the story layer and EnterHomeHud restores §9.8.9 `GongHuiScreen`. **Since v3.47, relocated in v3.240:** a **top-right** HUD (**`MainStoryStaminaHud`**) at `anchorMin/Max=(1,1)`, `pivot=(1,1)`, `anchoredPosition=(-20,-20)` (root ~**`300×168`**; children stay top-left within the HUD so content extends left from the screen's right edge): a **`MainStoryStaminaBarSlot`** sized **`275×116`** aligns with the §9.8.13 warehouse slot and reuses the §9.8.12.4 `StaminaBarView` / `TiLi_*` stack; its `siblingIndex` must sit **above** **`EmptyAreaCloseButton`** so the transparent layer does not cover it, and remain **below or before** interactive pins as needed. Optional **`MainStoryStaminaText`** (~`fontSize=28`, white, `raycastTarget=false`) sits under the slot (`anchoredPosition.y≈-124` from the HUD top) showing **`stamina / staminaMax`**. Data comes from `IPlantingService.GetRoleStats()` via `StaminaBarView.BuildInto(slot, role, plantingService)`; when `plantingService == null`, the HUD still renders with placeholder copy `-- / --` and an empty-role bar at 0. **Refresh rules (v3.47):** (1) call **`RefreshMainStoryStamina()`** whenever the bottom nav returns to `ZhuXian` and this layer becomes active; (2) also call it after **`WarehouseHubPanelView.Hide()`** whenever **`MainStoryLineScreen`** is still active, so returning from the unified warehouse restamps the bar and numbers from `RoleStats`. Implement as `PetDemo.UI.MainStoryLineScreenView`, constructed from `AirMainMenuRuntimeBuilder.BuildBottomNavBar` after the bottom bar is instantiated via `BuildInto(canvasRect, barView, plantingService)` with `OnOpenChanged` subscription; unsubscribe on `OnDestroy`. Root, background load and stretch rules are shared with §9.8.9 / §9.8.10 via **`PetDemo.UI.BottomNavAttachedScreenLayout`** (`CreateRootBelowBottomNav` + `AddStretchedResourcesBackground`). **Since v3.40, the legacy `LevelSlot_1 / LevelSlot_2 / LevelSlot_3` placeholder buttons are retired**; the layer is rewritten to a three-stage flow: chapter pin + Go button + hungry dialog (see below).
 
 ##### 9.8.8.1 章节标记点 / Chapter Pin (v3.40)
 
@@ -1730,8 +1938,8 @@ Each `ChapterPin` `RectTransform` uses `anchorMin = anchorMax = (0.5, 0.5)`, `pi
 
 ##### 9.8.8.2 空白点击切回未选中 / Tap Outside to Deselect (v3.40)
 
-**中文：** `MainStoryLineScreen` 根节点上挂一枚**全屏透明 `Image`（`Color.alpha = 0` 但 `raycastTarget = true`）+ `Button`**，命名 `EmptyAreaCloseButton`；其 `siblingIndex` 必须**在背景之上、在章节标记点与前往按钮之下**，确保只在背景空白处接收点击。点击该按钮后 `ChapterPin` 状态回到 `Unselected`，「前往」按钮隐藏。**底栏点击不受影响**：`BottomNavBar` 在 Canvas 中的 `siblingIndex` 比 `MainStoryLineScreen` 大（§9.8.8 已规定），因此底栏的点击不会被该透明层吞掉。**未来多个章节标记点扩展**：本透明层依旧只承担"取消选中"语义；点击某 `ChapterPin` 时执行单选互斥，其它 pin 自动取消选中，并把选中状态写入新点击的 pin。  
-**English:** A fullscreen transparent `Image` (alpha 0, `raycastTarget = true`) + `Button` is attached to `MainStoryLineScreen` (named `EmptyAreaCloseButton`); its `siblingIndex` is **above the background but below pins and the Go button**, so only background blank space receives the click. Tapping it returns the pin to `Unselected` and hides the Go button. **The bottom bar stays interactable**: `BottomNavBar` has a higher `siblingIndex` in the Canvas than `MainStoryLineScreen` (§9.8.8 mandates this), so its taps are not swallowed by this layer. **Multi-pin extension:** the transparent layer keeps only the "deselect" semantics; tapping any `ChapterPin` enforces single-selection mutex by deselecting peers and selecting the tapped one.
+**中文：** `MainStoryLineScreen` 根节点上挂一枚**全屏透明 `Image`（`Color.alpha = 0` 但 `raycastTarget = true`）+ `Button`**，命名 `EmptyAreaCloseButton`；其 `siblingIndex` 必须**在背景之上、在章节标记点与前往按钮之下**，确保只在背景空白处接收点击。点击该按钮后 `ChapterPin` 状态回到 `Unselected`，「前往」按钮隐藏。**自 v3.237 / v3.239 起 `BottomNavBar` 永久隐藏**，本透明层无需再为底栏留交互（层级仍可置于历史 `BottomNavBar` sibling 之下，但底栏 `active=false`）。**未来多个章节标记点扩展**：本透明层依旧只承担"取消选中"语义；点击某 `ChapterPin` 时执行单选互斥，其它 pin 自动取消选中，并把选中状态写入新点击的 pin。  
+**English:** A fullscreen transparent `Image` (alpha 0, `raycastTarget = true`) + `Button` is attached to `MainStoryLineScreen` (named `EmptyAreaCloseButton`); its `siblingIndex` is **above the background but below pins and the Go button**, so only background blank space receives the click. Tapping it returns the pin to `Unselected` and hides the Go button. **Since v3.237 / v3.239 `BottomNavBar` is permanently hidden**, this transparent layer no longer needs to preserve bottom-bar hit-testing (sibling order under the historical bar may remain, but the bar stays `active=false`). **Multi-pin extension:** the transparent layer keeps only the "deselect" semantics; tapping any `ChapterPin` enforces single-selection mutex by deselecting peers and selecting the tapped one.
 
 ##### 9.8.8.3 「前往」按钮 / Go Button (v3.40)
 
@@ -1791,14 +1999,15 @@ Each `ChapterPin` `RectTransform` uses `anchorMin = anchorMax = (0.5, 0.5)`, `pi
 **English:** Since v3.123, §9.8.9 is a **prefab-driven guild 2D scene layer** with viewport follow. **(v3.133)** Background uses **tiled art (option A):** `Resources/AirUI/GongHui_0_1_r{row}_c{col}` scanned from `r0_c0` into a rectangular grid; each tile is 1:1 px→UI units at `Scale=1`, world origin at center; current art is 3×3 × `1043×1500` → `3129×4500` world; falls back to single `AirUI/GongHui_0_1` or `AirUI/Gonghui_0` when no tiles exist.
 
 **中文（玩法要素）：**
-1. **主角移动**：主角复用家园村民 Spine（`Resources/Prefabs/Air/Hero_Role_cunmin`，`SkeletonGraphic` 构建方式同 §9.5 `MainRoleCunminPresenter`），`GuildPlayer` 节点 `localScale = (0.27, 0.27, 1)`（`GuildSpineCharacterBuilder.GuildPlayerLocalScale`；NPC 仍用默认 `0.53`），由**透明虚拟摇杆**控制：平时不可见，玩家按下场景任意处时在按下点显示半透明底盘 + 手柄，拖动输出方向向量，松手归零并隐藏。移动中播放 `move_1`（回退 `move`/`animation`），停止播放 `exclusive_2`（回退 `standby_1`/`animation`）；按水平方向翻转 `localScale.x` 朝向。
+1. **主角移动**：主角复用家园村民 Spine（默认 `Resources/Prefabs/Air/Hero_Role_cunmin`，`SkeletonGraphic` 构建方式同 §9.5 `MainRoleCunminPresenter`）；**自 v3.247 起**：若会话已装备装扮 Spine（`RoleStats.equippedPlayerSpineResource` / §9.14.9），则 `GuildPlayer` 用该骨骼，并订阅 `OnPlayerAppearanceChanged` 就地替换；`GuildPlayer` 节点 `localScale = (0.27, 0.27, 1)`（`GuildSpineCharacterBuilder.GuildPlayerLocalScale`；NPC 仍用默认 `0.53`），由**透明虚拟摇杆**控制：平时不可见，玩家按下场景任意处时在按下点显示半透明底盘 + 手柄，拖动输出方向向量，松手归零并隐藏。移动中播放 `move_1`（回退 `move`/`animation`），停止播放 `exclusive_2`（回退 `standby_1`/`animation`）；按水平方向翻转 `localScale.x` 朝向。
 2. **碰撞体**：`Obstacles/` 下由人工摆放若干 **`GuildObstacleArea`**（空 RectTransform 矩形标记，无视觉）；主角移动按**分轴（先 X 后 Y）矩形相交检测**被阻挡，实现贴墙滑动不穿模；同时钳位在 `GongHuiWorldContent` 边界内。
 3. **建筑**：`Buildings/` 下由人工摆放 **`GuildBuildingMarker`**（占位 `Image` + 建筑名 + 交互半径）；主角进入半径时在建筑上方显示「建筑名 + 功能按钮（占位）」名牌，离开隐藏。
-4. **NPC**：`Npcs/` 下由人工摆放 **`GuildNpcMarker`**（固定出生点）；运行时为每个 NPC 实例化同款村民 Spine 待机；主角进入半径时在 NPC 头顶显示「头像 + 名字 + 互动按钮（占位）」名牌（头像/名字默认取 §9.14.2 `FriendCatalog`，可被 Inspector 覆盖），离开隐藏。
+4. **NPC（v3.257）**：`Npcs/` 下由人工摆放 **`GuildNpcMarker`**（固定出生点，`npcId` 对齐 §9.14.8 `TopFriends.csv` 的 `id`）；运行时按 `npcId` 读 CSV `spinePrefab`，探针取 `SkeletonDataAsset` 构建 Spine 待机；缺 id / 空路径 / 缺资源时回退 Inspector `GuildNpcSkeletonKind` 探针（`LangMeiRen`→`Hero_Role_langmeiren`，`LangRen`→`Hero_Role_cunmin`）；主角进入半径时在 NPC 头顶显示「头像 + 名字 + 互动按钮」名牌（头像/名字默认取同一 CSV，可被 Inspector 覆盖），离开隐藏。
 5. **按钮占位**：建筑功能按钮本期点击仅 `Debug.Log`，具体功能后续版本扩展；NPC 互动按钮自 v3.124 起触发「NPC 跟随」（见第 6 点）。
-6. **NPC 跟随（v3.124；TopDingBar 头像 v3.159；战斗读队 v3.211；名册 v3.212）**：点击任意 NPC 名牌上的 `InteractButton` 后，该 NPC 进入**跟随主角**状态：与主角（content 局部空间）距离 **> 40px** 时朝主角直线移动（速度与主角一致 `420px/s`，自然形成"跟在身后"的效果），**≤ 40px** 时停下待机；跟随移动**不做障碍碰撞与边界钳位**。移动中播放 `move_1`（回退 `move`/`animation`），停止播放 `exclusive_2`（回退 `standby_1`/`animation`/`idle`），按水平方向翻转朝向。支持**多个 NPC 同时跟随**；重复点击同一 NPC 无额外效果。跟随状态持续到**离开公会界面**（底栏切到其它 Tab）：此时所有跟随 NPC 复位回各自出生点 `anchoredPosition` 并恢复待机，跟随列表清空；再次进入界面后 NPC 回到初始静止状态。跟随移动的是 `GuildNpcMarker` 节点本身，名牌随 NPC 一起移动；因跟随距离 40px 小于交互半径 220px，跟随期间名牌保持显示，属预期表现。**（v3.159）** 拉手成功后同步在 §9.8.15.1 `TopDingBar` 左下角登记该 NPC 头像（84×84 单列向下）；离开公会 Tab 时清空头像列。**（v3.212）** 跟随列表在 `InvasionBattleModal2View.Show()` 时一次性写入 `RunPartyRoster`（见 §12.14.1.1），本局内不再变更。
+6. **NPC 随机游走（v3.228）**：未跟随、未显示名牌的 NPC 自主执行「待机 6~15s → 选点游走 → 到达 → 再待机」循环（速度 = 主角 85%，35%/35%/30% 选建筑/响应区/随机点，沿途障碍碰撞贴墙滑动）；详见 §9.8.9.15。
+7. **NPC 跟随（v3.124；TopDingBar 头像 v3.159；战斗读队 v3.211；名册 v3.212）**：点击任意 NPC 名牌上的 `InteractButton` 后，该 NPC 进入**跟随主角**状态：与主角（content 局部空间）距离 **> 40px** 时朝主角直线移动（速度与主角一致 `420px/s`，自然形成"跟在身后"的效果），**≤ 40px** 时停下待机；跟随移动**不做障碍碰撞与边界钳位**。移动中播放 `move_1`（回退 `move`/`animation`），停止播放 `exclusive_2`（回退 `standby_1`/`animation`/`idle`），按水平方向翻转朝向。支持**多个 NPC 同时跟随**；重复点击同一 NPC 无额外效果。跟随状态持续到**离开公会界面**（底栏切到其它 Tab）：此时所有跟随 NPC 复位回各自出生点 `anchoredPosition` 并恢复待机，跟随列表清空；再次进入界面后 NPC 回到初始静止状态。跟随移动的是 `GuildNpcMarker` 节点本身，名牌随 NPC 一起移动；因跟随距离 40px 小于交互半径 220px，跟随期间名牌保持显示，属预期表现。**（v3.159）** 拉手成功后同步在 §9.8.15.1 `TopDingBar` 左下角登记该 NPC 头像（84×84 单列向下）；离开公会 Tab 时清空头像列。**（v3.212）** 跟随列表在 `InvasionBattleModal2View.Show()` 时一次性写入 `RunPartyRoster`（见 §12.14.1.1），本局内不再变更。
 
-**English (gameplay):** (1) player uses the home villager Spine (`Prefabs/Air/Hero_Role_cunmin`, built as `SkeletonGraphic` like §9.5) driven by a **transparent virtual joystick** (invisible until press; semi-transparent base+knob appear at press point; outputs a direction vector; hidden on release), with `move_1` / `exclusive_2` animations and horizontal flip; (2) hand-placed **`GuildObstacleArea`** rectangles block movement via per-axis AABB tests (wall sliding, no clipping), plus world-bounds clamping; (3) hand-placed **`GuildBuildingMarker`** shows a "name + placeholder action button" plate when the player enters its radius; (4) hand-placed **`GuildNpcMarker`** spawns an idle villager Spine and shows "avatar + name + interact button" overhead within radius (defaults from §9.14.2 `FriendCatalog`, Inspector-overridable); (5) the building button only `Debug.Log`s this release, while the NPC interact button triggers **NPC follow** since v3.124; (6) **NPC follow (v3.124):** tapping a plate's `InteractButton` puts that NPC into follow mode — it walks straight toward the player at `420px/s` while farther than **40px** (content-local space) and idles within 40px, with **no obstacle/bounds checks**, `move_1`/`exclusive_2` animations and horizontal flip; multiple NPCs may follow at once and re-tapping is a no-op; leaving the GongHui screen resets every following NPC to its spawn `anchoredPosition`, restores idle, and clears the follow list. The marker node itself moves, so the plate travels with the NPC and stays visible (40px < 220px radius) by design.
+**English (gameplay):** (1) player uses the home villager Spine (`Prefabs/Air/Hero_Role_cunmin`, built as `SkeletonGraphic` like §9.5) driven by a **transparent virtual joystick** (invisible until press; semi-transparent base+knob appear at press point; outputs a direction vector; hidden on release), with `move_1` / `exclusive_2` animations and horizontal flip; (2) hand-placed **`GuildObstacleArea`** rectangles block movement via per-axis AABB tests (wall sliding, no clipping), plus world-bounds clamping; (3) hand-placed **`GuildBuildingMarker`** shows a "name + placeholder action button" plate when the player enters its radius; (4) hand-placed **`GuildNpcMarker`** spawns Spine from **`TopFriends.csv` `spinePrefab`** by `npcId` (fallback `skeletonKind`), and shows "avatar + name + interact button" overhead within radius; (5) the building button only `Debug.Log`s this release, while the NPC interact button triggers **NPC follow** since v3.124; (6) **NPC follow (v3.124):** tapping a plate's `InteractButton` puts that NPC into follow mode — it walks straight toward the player at `420px/s` while farther than **40px** (content-local space) and idles within 40px, with **no obstacle/bounds checks**, `move_1`/`exclusive_2` animations and horizontal flip; multiple NPCs may follow at once and re-tapping is a no-op; leaving the GongHui screen resets every following NPC to its spawn `anchoredPosition`, restores idle, and clears the follow list. The marker node itself moves, so the plate travels with the NPC and stays visible (40px < 220px radius) by design.
 
 ##### 9.8.9.2 预制体结构 / Prefab Structure
 
@@ -1814,8 +2023,10 @@ GongHuiScreenPanel (GongHuiScreenView)
 │       ├─ Obstacles/Obstacle_N   (GuildObstacleArea，矩形=自身 RectTransform)
 │       ├─ Buildings/Building_N   (GuildBuildingMarker：占位图；NamePlate 运行时懒创建)
 │       ├─ Npcs/Npc_N             (GuildNpcMarker：出生点；NamePlate 与 Spine 均运行时挂入)
+│       │   └─ GuildPlayer         (主角 Spine；自 v3.231 运行时挂入 Npcs 组，与 NPC 同级参与 Y 轴深度排序)
 │       ├─ ResponseAreas/ResponseArea_N (GuildResponseAreaMarker：地图响应区域；v3.182)
-│       └─ PlayerSpawn            (主角出生点；Spine 运行时挂入 worldContent)
+│       ├─ Waypoints/Waypoint_N   (GuildWaypointMarker：NPC 游走目标点；无视觉，人工摆放；v3.230)
+│       └─ PlayerSpawn            (主角出生点；GuildPlayer 运行时按此坐标挂入 Npcs 组，见 §9.8.9.16)
 └─ JoystickVisualLayer (末子节点、不拦截射线；JoystickBase/JoystickKnob 默认隐藏)
 ```
 
@@ -1840,7 +2051,12 @@ class GuildNpcMarker : MonoBehaviour {
     // v3.124：互动回调与 Spine 引用（运行时由 GongHuiScreenView 装配）
     Action<GuildNpcMarker> OnInteract;        // InteractButton 点击时触发
     SkeletonGraphic NpcSkeleton;              // 生成 NpcSpine 时缓存，供跟随切换动画
+    bool IsFollowing { get; }                 // 是否跟随中（游走互斥判定）
+    bool IsPlateVisible { get; }              // v3.228：名牌是否显示中（游走暂停判定）
 }
+
+// v3.228：主角速度只读访问器（游走速度 = MoveSpeed × 0.85）
+class GuildPlayerController { float MoveSpeed { get; } }
 
 // v3.124：NPC 跟随控制器（挂在 GongHuiScreen 根上，与其它 Controller 一致）
 class GuildNpcFollowController : MonoBehaviour {
@@ -1887,7 +2103,7 @@ class GuildNpcFollowController : MonoBehaviour {
 
 **触发条件（严格"直接切换"）：** 仅当底栏 `OnOpenChanged` 的 `newKey == "JiaYuan"` 且**上一次** `OpenKey == "GongHui"`，且离开公会时存在跟随快照（至少 1 个 NPC 在跟随）。若玩家公会→其它 Tab（角色/主线/商店）→家园，则**不触发**家园来访。
 
-**跨 Tab 数据传递（v3.220 修订；v3.222 增补骨骼）：** 公会跟随状态由 `GuildNpcFollowController`（§9.8.9.6）维护，但其 `OnDisable` 在切 Tab 时会复位并清空 `entries`。为把"谁在跟随"传给家园**与冒险读队**，静态快照 `GuildHomeVisitState`：`StartFollow` 成功后写入当前跟随 `NpcId` **及** `skeletonPrefab`（由 `GuildNpcMarker.SkeletonKind` 映射：`LangMeiRen`→`Hero_Role_langmeiren`，`LangRen`→`Hero_Role_cunmin`）；`OnDisable` **不**清空快照。冒险 `ResolveFollowerPresentation` **优先**读快照中的 `skeletonPrefab`，避免公会场景 inactive 时 `FindObjectsOfType<GuildNpcMarker>` 失败而回退狼人骨骼。家园侧 `JiaYuanGuildVisitorPresenter` 规则：
+**跨 Tab 数据传递（v3.220 修订；v3.222 增补骨骼；v3.257 改 CSV）：** 公会跟随状态由 `GuildNpcFollowController`（§9.8.9.6）维护，但其 `OnDisable` 在切 Tab 时会复位并清空 `entries`。为把"谁在跟随"传给家园**与冒险读队**，静态快照 `GuildHomeVisitState`：`StartFollow` 成功后写入当前跟随 `NpcId` **及** `skeletonPrefab`（**优先** `TopFriends.csv` 该 `npcId` 的 `spinePrefab`；空/缺 id 时再按 `GuildNpcMarker.SkeletonKind` 映射：`LangMeiRen`→`Hero_Role_langmeiren`，`LangRen`→`Hero_Role_cunmin`）；`OnDisable` **不**清空快照。冒险 `ResolveFollowerPresentation` **优先**读快照中的 `skeletonPrefab`，避免公会场景 inactive 时 `FindObjectsOfType<GuildNpcMarker>` 失败而回退狼人骨骼。家园侧 `JiaYuanGuildVisitorPresenter` 规则：
 1. **公会→家园**且快照非空 → `Consume()` 触发来访；
 2. **非公会→家园** → `Clear()`（取消家园来访挂起）；
 3. **公会→主线/角色/商店等非家园 Tab** → **保留快照**（供 §12.14.1.1 `PeekFollowers` 读队），仅销毁家园来访者视觉。
@@ -1975,21 +2191,34 @@ class GuildNpcWork2InteractionController : MonoBehaviour {
 }
 ```
 
-##### 9.8.9.10 公会社区入口与 App_4 全屏弹层 (v3.165)
+##### 9.8.9.10 公会社区入口与 App_4 全屏弹层 (v3.165 / v3.242 / v3.243)
 
-**中文：** 当底栏 `OpenKey == "GongHui"` 时，在 §9.8.15 `TopDingBar` **左下方**显示 **`GongHuiCommunityEntryLayer`** 入口按钮「**打开社区**」：图标 **`Resources.Load<Sprite>("AirUI/SheQu_Icon")`**（`preserveAspect=true`），文案白字 `fontSize≈36`；按钮锚点左上 `(0,1)`、`pivot=(0,1)`，`anchoredPosition.x=16`，`anchoredPosition.y = -(DingUI 原生高度 + 12)`（运行时读 `TopDingBarView.ResDingSprite` 的 `rect.height`，缺图回退 `y=-12`）；水平 `HorizontalLayoutGroup`（图标约 **72×72** + 文字，`spacing=8`）。点击后全屏打开 **`GongHuiCommunityOverlay`**：背景 **`Resources.Load<Sprite>("AirUI/App_4")`**，`Image.preserveAspect=false` 铺满；根节点 `Button.transition=None`，**任意位置点击关闭**（同 §9.8.16 `ArenaChallengeOverlayView` / `JingJi-3` 模式）。`newKey != "GongHui"` 时隐藏入口并 `HideIfAny()` 强制关闭弹层。
+**中文：** 当底栏 `OpenKey == "GongHui"` 时，在 §9.8.15 `TopDingBar` **左下方**显示 **`GongHuiCommunityEntryLayer`**，包含两个入口按钮（结构相同，均为水平 `HorizontalLayoutGroup`：图标约 **100×100** + 白字 Label `fontSize≈36`，`spacing=8`；锚点左上 `(0,1)`、`pivot=(0,1)`，`anchoredPosition.x=16`）：
 
-**中文（层级与构建）：** 入口层为 `MainHudLayerRoot` 子节点，`MainUiSortTier.HudTop`（1400），由 `GongHuiCommunityEntryView.BuildInto(hudRoot, bottomNavBar, canvasRect)` 在 `TopDingBarView.BuildInto` 之后构建；弹层挂主 `Canvas`，`MainUiSortTier.HudPopup`（1500），`Show()` 时 `SetAsLastSibling()`。本期 `App_4` 仅静态展示 + 点击关闭，不实现 Feed 内交互热区。
+1. **`OpenCommunityButton`（乐园社区）**：图标 **`Resources.Load<Sprite>("AirUI/SheQu_Icon_1")`**（`preserveAspect=true`），文案「乐园社区」；`anchoredPosition.y = -(DingUI 原生高度 + 12)`（运行时读 `TopDingBarView.ResDingSprite` 的 `rect.height`，缺图回退 `y=-12`）。点击后全屏打开 **`GongHuiCommunityOverlay`**：背景 **`Resources.Load<Sprite>("AirUI/App_4")`**，`Image.preserveAspect=false` 铺满；根节点 `Button.transition=None`，**任意位置点击关闭**（同 §9.8.16 `ArenaChallengeOverlayView` / `JingJi-3` 模式）。
+2. **`MoreGamesButton`（更多游戏，v3.242 / v3.243 / v3.245）**：结构同 `OpenCommunityButton`；图标 **`Resources.Load<Sprite>("AirUI/MoreGames_1")`**，文案「更多游戏」；`anchoredPosition.y = 社区按钮 y − IconSize − 12`（正下方）。点击复用创角单例：隐藏 HUD / 世界层后调用 **`CharacterCreationScreenView.ShowMoreGames()`**（**不**走默认 `Show()` → `HomeTabPanel`）；展示 §9.14.10 `EnterHomeTopPanel` / `EnterHomeScrollView` 游戏列表（`EnterHomeNavEntries`：狼来了 / 人狼纷争 / 修仙），底栏页签无激活（`SetActiveTab(-1)`）。由 `BindOpenMoreGames(Action)` 注入 `OpenCharacterCreationMoreGames`（未绑定时兜底 `GetOrCreate(canvas).ShowMoreGames()`）。
+   - **NavigateButton（v3.245）**：列表内所有「前往」**点击无效果**（不调用 `OnNavigateToBottomNav`、不离开创角）。
+   - **ScreenCloseButton（v3.245）**：当 `EnterHomeTopPanel` 可见时，关闭创角并 **`OnEnterHomeHudRequested(false)`** 回退到主 HUD **`GongHuiScreen`**（EnterHomeHud），**不**走 `OnCloseRequested` → APP PageHome。
 
-**English:** On `GongHui` tab, show an **Open Community** entry below `TopDingBar` (top-left, icon `AirUI/SheQu_Icon`, label 「打开社区」). Tap opens a full-screen `App_4` overlay; tap anywhere to close. Entry hides and overlay closes when leaving the guild tab. Entry tier `HudTop`; overlay tier `HudPopup`.
+`newKey != "GongHui"` 时隐藏入口层并 `HideIfAny()` 强制关闭社区弹层；**不**强制关闭创角界面（由创角自身关闭钮处理）。
+
+**中文（层级与构建）：** 入口层为 `MainHudLayerRoot` 子节点，`MainUiSortTier.HudTop`（1400），由 `GongHuiCommunityEntryView.BuildInto(hudRoot, bottomNavBar, canvasRect)` 在 `TopDingBarView.BuildInto` 之后构建；`AirMainMenuRuntimeBuilder` 在创角打开回调就绪后调用 `BindOpenMoreGames(OpenCharacterCreationMoreGames)`。弹层挂主 `Canvas`，`MainUiSortTier.HudPopup`（1500），`Show()` 时 `SetAsLastSibling()`。本期 `App_4` 仅静态展示 + 点击关闭，不实现 Feed 内交互热区。
+
+**English:** On `GongHui` tab, show two left-top entries below `TopDingBar`: **乐园社区** opens full-screen `App_4`; **更多游戏** opens character-creation via `ShowMoreGames()` showing `EnterHomeTopPanel` game list — **not** the default `HomeTabPanel`. While that list is open: NavigateButtons are no-ops; ScreenClose returns to `GongHuiScreen` (EnterHomeHud), not APP. Entry hides and community overlay closes when leaving the guild tab. Entry tier `HudTop`; overlay / character-creation tier `HudPopup`.
 
 **API：**
 
 ```csharp
 class GongHuiCommunityEntryView : MonoBehaviour {
-    const string ResEntryIcon = "AirUI/SheQu_Icon";
+    const string ResEntryIcon = "AirUI/SheQu_Icon_1";
+    const string ResMoreGamesIcon = "AirUI/MoreGames_1";
     static GongHuiCommunityEntryView BuildInto(RectTransform hudRoot, BottomNavBarView barView, RectTransform canvasRect);
+    void BindOpenMoreGames(Action open); // 注入 OpenCharacterCreationMoreGames
 }
+
+// CharacterCreationScreenView
+void Show();           // 默认 HomeTabPanel（§9.14.10 v3.189）
+void ShowMoreGames();  // EnterHomeTopPanel 游戏列表，不开 HomeTabPanel
 
 class GongHuiCommunityOverlayView : MonoBehaviour {
     const string ResCommunitySprite = "AirUI/App_4";
@@ -2099,40 +2328,42 @@ class GuildPanoramaController : MonoBehaviour {
 
 **实现优先级 / Priority:** **P1** — 全景切换 + 全览镜头 + 强制名牌；无平滑过渡动画。
 
-##### 9.8.9.13 公会建筑功能跳转 (v3.195；v3.196 修订)
+##### 9.8.9.13 公会建筑功能跳转 (v3.195；v3.196 修订；ActionButton 文案 v3.235；Building_4 伴侣小屋 v3.236)
 
-**中文：** `GuildBuildingMarker` 新增 Inspector 字段 **`navTargetKey`**；主角进入 `interactRadius` 显示名牌（含 `ActionButton`「功能」），**点击按钮**触发 `ActionClicked` → `GongHuiScreenView.NavigateByKey`：
+**中文：** `GuildBuildingMarker` 新增 Inspector 字段 **`navTargetKey`**；主角进入 `interactRadius` 显示名牌（含 `ActionButton`，**Label 文案统一为「前往」**，常量 `GuildSceneUiFactory.BuildingActionButtonLabel`；`WireActionButton` / 懒创建 `BuildPlate` 均强制同步 Label，避免预制体或会话内旧文案残留），**点击按钮**触发 `ActionClicked` → `GongHuiScreenView.NavigateByKey`：
 
 | 预制体节点 | `navTargetKey` | 目标 |
 |------------|----------------|------|
 | `Building_1` | `MainStoryLine` | 底栏切 `ZhuXian`，显示 §9.8.8 `MainStoryLineScreenView`（**不**打开选关层） |
 | `Building_2` | `FriendListPanel` | `FriendListPanelView.Show()`（§13.2 好友列表弹窗） |
 | `Building_3` | `JiaYuan` | 底栏切 `JiaYuan`，显示 §9.8.14 `JiaYuanWorldScreenView` |
+| `Building_4` | `CompanionCottage` | §9.8.18 `CompanionCottageView.TriggerEntry`（邀请弹窗 / 已结伴→§9.8.19 庄园；**留在公会**，不切 `JiaYuan`） |
 
-跳转前：若公会处于创角内嵌（`embeddedInCharacterCreation`），`Building_1`/`Building_3` 调用 `CharacterCreationScreenView.RequestExitToBottomNav(navKey)` 恢复 HUD 并切底栏；`Building_2` 先 `RequestExitToBottomNav("GongHui")` 恢复 HUD 保持在公会 Tab，再打开好友列表弹窗。主 HUD 公会模式下：`Building_1`/`Building_3` 直接 `bottomNav.SetOpenKey`；`Building_2` 直接 `FriendListPanelView.Show()`。
+跳转前：若公会处于创角内嵌（`embeddedInCharacterCreation`），`Building_1`/`Building_3` 调用 `CharacterCreationScreenView.RequestExitToBottomNav(navKey)` 恢复 HUD 并切底栏；`Building_2` 先 `RequestExitToBottomNav("GongHui")` 恢复 HUD 保持在公会 Tab，再打开好友列表弹窗。主 HUD 公会模式下：`Building_1`/`Building_3` 直接 `bottomNav.SetOpenKey`；`Building_2` 直接 `FriendListPanelView.Show()`；`Building_4` 直接 `TriggerEntry`（与主 HUD / EnterHomeHud 一致）。运行时双保险：`EnsureSceneSpawned` 若发现名为 `Building_4` 且 key 为空/`JiaYuan`，校正为 `CompanionCottage`。
 
-**English:** `GuildBuildingMarker` **`navTargetKey`** drives building **ActionButton** navigation: `MainStoryLine` → ZhuXian tab / main-story screen; `FriendListPanel` → friend list modal; `JiaYuan` → home tab / world screen. Exit character-creation embed when applicable.
+**English:** `GuildBuildingMarker` **`navTargetKey`** drives building **ActionButton** navigation (label unified to **"前往"** / `BuildingActionButtonLabel`); `MainStoryLine` → ZhuXian; `FriendListPanel` → friend list; `JiaYuan` → home world; **`CompanionCottage` (Building_4)** → §9.8.18 `TriggerEntry` without leaving GongHui.
 
 **数据结构增补 / Data structure addition:**
 
 ```csharp
 class GuildBuildingMarker : MonoBehaviour {
-    [SerializeField] string navTargetKey = "";   // MainStoryLine / FriendListPanel / JiaYuan / …
+    [SerializeField] string navTargetKey = "";   // MainStoryLine / FriendListPanel / JiaYuan / CompanionCottage / …
     event Action<GuildBuildingMarker> ActionClicked;
 }
 ```
 
 **API 与装配 / API & wiring:**
 
-- `GongHuiScreenView.EnsureSceneSpawned`：扫描 `GuildBuildingMarker` 并订阅 `ActionClicked`。
-- `GongHuiScreenView` 导航常量：`NavMainStoryLine`、`NavFriendListPanel`、`NavJiaYuanWorld`（=`JiaYuan`）。
-- `GongHuiScreenView.BindFriendListPanel(FriendListPanelView)`：由 `AirMainMenuRuntimeBuilder` 注入。
+- `GongHuiScreenView.EnsureSceneSpawned`：扫描 `GuildBuildingMarker` 并订阅 `ActionClicked`；校正 `Building_4` key。
+- `GuildSceneUiFactory.BuildingActionButtonLabel`（`"前往"`）+ `SetBuildingActionButtonLabel`：懒创建 / 复用层级名牌时同步 `ActionButton/Label`。
+- `GongHuiScreenView` 导航常量：`NavMainStoryLine`、`NavFriendListPanel`、`NavJiaYuanWorld`（=`JiaYuan`）、`NavCompanionCottage`（=`CompanionCottage`）。
+- `GongHuiScreenView.BindFriendListPanel` / `BindCompanionCottage`：由 `AirMainMenuRuntimeBuilder` 注入。
 
-**实现优先级 / Priority:** **P1** — 建筑按钮真实跳转（v3.195 / v3.196 修订）。
+**实现优先级 / Priority:** **P1** — 建筑按钮真实跳转（v3.195 / v3.196 修订；v3.236 Building_4）。
 
-##### 9.8.9.14 公会右上玩法入口按钮 (v3.198)
+##### 9.8.9.14 公会右上玩法入口按钮 (v3.198；伴侣入口 v3.236)
 
-**中文：** `GongHuiScreenPanel` 根节点右上角新增竖排 **4** 个图标按钮（与 `PanoramaButtonLayer` 同级，叠在 `GongHuiViewport` 之上），自上而下依次为：
+**中文：** `GongHuiScreenPanel` 根节点右上角新增竖排 **5** 个图标按钮（与 `PanoramaButtonLayer` 同级，叠在 `GongHuiViewport` 之上），自上而下依次为：
 
 | 节点名 | 图标资源 | 点击行为 |
 |--------|----------|----------|
@@ -2140,39 +2371,145 @@ class GuildBuildingMarker : MonoBehaviour {
 | `WfZuDuiButton` | `AirUI/WF_ZuDui` | `NavigateByKey(FriendListPanel)` → `FriendListPanelView.Show()` |
 | `WfJjcButton` | `AirUI/WF_JJC` | 无跳转；`ShowTips("敬请期待")`，约 **2.2s** 自动隐藏 |
 | `WfZhuangYuanButton` | `AirUI/WF_ZhuangYuan` | `NavigateByKey(JiaYuan)` → 底栏 `JiaYuan` / §9.8.14 `JiaYuanWorldScreen` |
+| `CompanionCottageEntryButton` | `AirUI/CompanionCabin_Icon` | §9.8.18 `CompanionCottageView.TriggerEntry`（由 View `BuildHudEntry` 接线，**不**走 NavigateByKey 四连） |
 
-**布局常量**（对齐 §9.14.11 `HomeTabPanelLayout` v3.190 右上按钮范式）：`buttonSize = 120×120`，`margin = 24px`，`gap = 16px`；容器 `TopRightWorkflowLayer/TopRightWorkflowActions`，锚点 `(1,1)`、`pivot=(1,1)`、`anchoredPosition=(-24,-24)`。竖排 Y：`-(i * (size.y + gap) + size.y * 0.5f)`（`i = 0..3`）。
+**布局常量**（对齐 §9.14.11 `HomeTabPanelLayout` v3.190 右上按钮范式）：`buttonSize = 120×120`，`margin = 24px`，`gap = 16px`；容器 `TopRightWorkflowLayer/TopRightWorkflowActions`，锚点 `(1,1)`、`pivot=(1,1)`、`anchoredPosition=(-24,-150)`（v3.233：`PosY` 由 `-24` 下移至 `-150`，避开顶部；`PosX` 仍为 `-margin`）。竖排 Y：`-(i * (size.y + gap) + size.y * 0.5f)`（`i = 0..4`；WF×4 + 伴侣入口）。`EnsureTopRightWorkflowActions` 按 **5** 格重算 stack 高度，并在 `WfZhuangYuan` 后幂等创建 `CompanionCottageEntryButton`。
 
 **TipsToast：** 面板根下居中 `TipsToast/TipsText`（参照 `TrainingPanelLayout.BuildTipsToast`），默认 `active=false`；`GongHuiScreenView.ShowTips` 显示并 `SetAsLastSibling()`。
 
-**构建入口：** `GongHuiScreenLayout.EnsureTopRightWorkflowActions` + `EnsureTipsToast`；由 `GongHuiScreenView.BuildSceneSkeleton` 与 `Awake` 幂等补建；`GongHuiScreenPrefabGenerator` 生成预制体。创角内嵌公会时跳转语义与 §9.8.9.13 一致（`RequestExitToBottomNav`）。
+**构建入口：** `GongHuiScreenLayout.EnsureTopRightWorkflowActions` + `EnsureTipsToast`；由 `GongHuiScreenView.BuildSceneSkeleton` 与 `Awake` 幂等补建；`CompanionCottageView.BuildHudEntry` 对接击事件；`GongHuiScreenPrefabGenerator` 生成预制体。创角内嵌公会时跳转语义与 §9.8.9.13 一致（`RequestExitToBottomNav`）。
 
-**English:** Top-right vertical stack of four workflow icon buttons on `GongHuiScreenPanel`: bounty → main story, team → friend list, arena → "coming soon" toast, manor → home world; layout matches §9.14.11 top-right pattern; built via `GongHuiScreenLayout` + `GongHuiScreenView`.
+**English:** Top-right vertical stack of **five** workflow icon buttons on `GongHuiScreenPanel`: bounty → main story, team → friend list, arena → "coming soon" toast, manor → home world, **companion cottage** → `TriggerEntry`; layout matches §9.14.11 top-right pattern; built via `GongHuiScreenLayout` + `GongHuiScreenView` / `CompanionCottageView`.
 
-**实现优先级 / Priority:** **P1** — 右上玩法入口与 §9.8.9.13 跳转复用。
+**实现优先级 / Priority:** **P1** — 右上玩法入口与 §9.8.9.13 / §9.8.18 跳转复用。
+##### 9.8.9.15 公会 NPC 随机移动（游走）(v3.228；目标点机制 v3.230；选点避障 v3.261)
+
+**中文（系统设计）：** 自 v3.228 起，`Npcs/` 下每个 **未跟随、未显示名牌** 的 `GuildNpcMarker` 会自主执行「**待机 → 随机游走 → 到达 → 再待机**」循环，让公会场景显得更有活力。由新增控制器 **`GuildNpcWanderController`**（挂在 `GongHuiScreen` 根上，与 `GuildNpcFollowController` / `GuildProximityController` 并列，`EnsureSceneSpawned` 装配）逐 NPC 驱动，坐标系与移动写法与 §9.8.9.6 完全一致：操作 `marker.Rt.anchoredPosition`（content 局部空间像素，与主角/跟随 1:1），距离/碰撞换算复用 `GuildSceneGeometry`。
+
+**中文（v3.230 变更：目标点机制）：** 自 v3.230 起，**目标选择由「概率选建筑/响应区/随机点」改为「专用目标点」**：新增标记组件 **`GuildWaypointMarker`**（仅 `RectTransform`、无视觉，参照 `GuildObstacleArea`），由人工在预制体 **`Waypoints/`** 根下手动摆放坐标。NPC 待机结束后 **从未被占用的目标点里随机取 1 个** 前往；到达后停在该目标点上。目标点带 **占用锁**：某目标点从「有 NPC 开始前往它」起被占用、不再进入其它 NPC 的随机候选，直到「该 NPC 开始前往另一个目标点」才释放。无可用目标点（无目标点或全被占用）时 NPC 直接进入待机。
+
+**中文（玩法规则）：**
+1. **待机-游走循环**：每次进入待机时随机 `Random.Range(IdleMin, IdleMax)`（**6~15 秒**）；待机结束后按下方规则从目标点集合选择一个 **未被占用** 的目标点开始移动；到达目标点（距目标 ≤ `ArriveEps≈10px`）后重新进入待机循环。移动播 `move_1`（回退 `move`/`animation`），待机播 `standby_1`（回退 `animation`/`idle`/`exclusive_2`），按水平位移方向翻转朝向（`GuildSpineCharacterBuilder.SetFacing(marker.SpineRt, dir.x>0)`）。
+   - **（v3.229 增补）待机动作**：每次 **进入待机状态时**，先在 `work_1 / work_2 / work_3 / work_4` 中 **随机选一个单次播放 1 次**，播放结束后再进入 `standby_1` 待机循环（用 `GuildSpineCharacterBuilder.PlayOnceThenLoop(sg, work_x, "standby_1", …)`：`SetAnimation(0, work, false)` 后 `AddAnimation(0, standby, true)` 队列衔接）；若所选 work 动画在该骨骼上缺失则跳过、直接循环 `standby_1`。跟随互斥复位到待机的分支 **不** 触发该待机动作（动画交由 `GuildNpcFollowController`）。
+2. **移动速度**：`WanderSpeed = 主角 moveSpeed × 0.85`（默认 `420 × 0.85 = 357 px/s`）；主角速度经 `GuildPlayerController.MoveSpeed` 只读属性读取，装配时乘 `SpeedFactor=0.85` 传入。
+3. **目标选择（v3.230 目标点机制；选点避障 v3.261）**：候选 = `Waypoints/` 下所有 **未被占用** 且 **脚底碰撞盒不与任一 `GuildObstacleArea` 相交** 的 `GuildWaypointMarker`；从中 **等概率随机取 1 个**，目标坐标 = `GuildSceneGeometry.PointInContentSpace(waypoint.Rt, worldContent)`。选中即刻 **占用** 该目标点（见下方占用规则），走到该点（`ArriveEps` 内）停下。
+   - **占用/释放规则**：
+     - 占用起点 = NPC **开始前往** 某目标点的瞬间（选中即加入控制器级 `occupied` 集合）。
+     - 到达后停在目标点上 **持续占用**（"目标点上有 NPC"）。
+     - 释放 = NPC **开始前往另一个** 目标点时（先移除旧点、再占用新点）；因此 NPC 每次都换到与当前不同的目标点（自身占用点被排除在候选外）。
+     - 进入跟随（`IsFollowing`）时释放其占用的目标点。
+   - **无可用目标点**（`Waypoints/` 为空，或所有目标点均被占用/落在障碍内）：本轮直接 **认定为到达、进入待机状态**（重置 `IdleTimer` 并按第 1 点播放待机 work 动作），停在原地，下轮再试。
+   - **（v3.261）**：选点前用与沿途移动相同的 `NpcCollisionBoxSize` / `NpcCollisionBoxOffset` 判断目标点是否在障碍内；落在障内则排除。沿途仍做分轴贴墙滑动。
+4. **与跟随互斥（对应 §9.8.9 第 6 点）**：进入跟随状态（`marker.IsFollowing == true`）的 NPC **不参与** 随机移动；该帧跳过并复位其游走内部状态，移动交由 `GuildNpcFollowController` 处理。
+5. **名牌暂停（finish 语义）**：当该 NPC 正显示 NamePlate（`marker.IsPlateVisible == true`）时，**暂停**「待机→选点出发」这一步（待机计时不推进、不发起新移动）；但**不打断**已在进行中的移动（允许走完当前这段路到达目标）；到达后若名牌仍显示则停留待机，直至名牌隐藏后才继续下一轮。
+
+**中文（沿途碰撞）：** 与 §9.8.9.6 跟随移动「不做碰撞」不同，随机移动**沿途做障碍碰撞**：复用 §9.8.9.4 主角的 **分轴（先 X 后 Y）矩形相交检测 + 贴墙滑动 + `ClampToWorld` 世界边界钳位**。为避免贴墙滑动导致永久卡死，加入 **卡住超时**：约 `StuckTimeout≈1.5s` 内到目标距离无明显推进则放弃当前目标、回待机重新选点。NPC 位置跨 Tab 保留（`EnsureSceneSpawned` 仅执行一次；切 Tab 时根节点停用，`Update` 自然停止，重入继续游走，不强制回出生点）。
+
+**English:** Since v3.228, every **non-following, plate-hidden** `GuildNpcMarker` runs an **idle → wander → arrive → idle** loop driven by the new **`GuildNpcWanderController`** (mounted on `GongHuiScreen`, wired in `EnsureSceneSpawned`, same content-local `anchoredPosition` space as §9.8.9.6). Idle for `Random(6,15)`s, then walk at `player.MoveSpeed × 0.85` (357 px/s). **(v3.230) Target selection uses dedicated waypoints** (`GuildWaypointMarker`, hand-placed under `Waypoints/`): pick a **random un-occupied** waypoint and go to it. A waypoint is **occupied** from the moment an NPC starts heading to it (it leaves the random pool), stays occupied while the NPC sits on it, and is released only when that NPC starts heading to **another** waypoint (so each trip goes to a different waypoint); following NPCs release their waypoint. When **no waypoint is available** (none exist or all occupied), the NPC just re-enters idle in place. Following NPCs (`IsFollowing`) are skipped (handled by `GuildNpcFollowController`). While the NPC's plate is visible (`IsPlateVisible`) the idle→move step is **paused** (finish semantics: an in-progress move still completes; no new move starts until the plate hides). Wander runs per-axis AABB wall-sliding + `ClampToWorld` en route, with a **stuck-timeout** (~1.5s of no progress abandons the target). Positions persist across tabs.
+
+**数据结构 / Data Structures：**
+
+```csharp
+// v3.230：专用目标点标记（仅 RectTransform，无视觉，人工在 Waypoints/ 下摆放）
+class GuildWaypointMarker : MonoBehaviour {
+    RectTransform Rt { get; }   // = (RectTransform)transform
+    // OnDrawGizmos：Scene 视图画小标记便于手动摆放（编辑器专用，构建剥离）
+}
+
+// v3.228：公会场景 NPC 随机游走控制器（挂在 GongHuiScreen 根上）
+class GuildNpcWanderController : MonoBehaviour {
+    const float IdleMin = 6f, IdleMax = 15f;   // 待机时长随机区间（秒）
+    const float SpeedFactor = 0.85f;           // 相对主角速度（装配时用于计算 WanderSpeed）
+    const float ArriveEps = 10f;               // 到达判定阈值
+    const float StuckTimeout = 1.5f;           // 卡住超时（无推进则放弃目标）
+    // v3.229：进入待机时随机单播一个动作后回 standby
+    static readonly string[] WorkClips = { "work_1", "work_2", "work_3", "work_4" };
+
+    enum WanderState { Idle, Moving }
+    class WanderEntry {
+        GuildNpcMarker marker;
+        WanderState state;
+        Vector2 target;
+        GuildWaypointMarker waypoint;   // v3.230：当前占用/前往的目标点（null=未占用）
+        float idleTimer;          // 剩余待机时间
+        float stuckTimer;         // 未推进累计时间
+        float lastDistToTarget;   // 上次到目标距离（判定推进）
+        bool  moving;             // 动画状态
+    }
+    List<WanderEntry> entries;
+    List<Rect> obstacleRects;     // content 空间障碍矩形（复用 GuildSceneGeometry.RectInContentSpace）
+    List<GuildWaypointMarker> waypoints;        // v3.230：全部目标点
+    HashSet<GuildWaypointMarker> occupied;      // v3.230：已被占用的目标点
+    float wanderSpeed;            // = 主角 MoveSpeed × SpeedFactor
+
+    void Initialize(RectTransform worldContent, IList<GuildNpcMarker> npcs,
+                    IList<GuildObstacleArea> obstacles,
+                    IList<GuildWaypointMarker> waypoints, float wanderSpeed);
+}
+
+// 新增只读访问器
+class GuildNpcMarker    { bool  IsPlateVisible { get; } } // = plateRt != null && plateRt.gameObject.activeSelf
+class GuildPlayerController { float MoveSpeed  { get; } } // = 序列化 moveSpeed 字段
+```
+
+**接口设计 / API：** `EnsureSceneSpawned` 在创建 `proximityController` 后 `AddComponent<GuildNpcWanderController>()` 并 `Initialize(worldContentRt, npcs, obstacles, waypoints, playerController.MoveSpeed * SpeedFactor)`；`waypoints = waypointsRootRt.GetComponentsInChildren<GuildWaypointMarker>(true)`（`waypointsRootRt` 为空时回退 `worldContentRt.Find("Waypoints")`）。`waypointsRootRt` 为新增 `[SerializeField]`，由 `BuildSceneSkeleton` 建 `Waypoints` 拉伸根并经 `SetSceneRefs` 装配。
+
+**实现优先级 / Priority：** **P2** — 场景表现增强，不影响跟随/战斗读队等核心链路；依赖 §9.8.9.4（主角碰撞几何）、§9.8.9.6（坐标系）、§9.8.9（跟随互斥）。
+
+**技术实现建议 / Implementation Notes：** ① 移动步长 `Mathf.Min(wanderSpeed * Time.deltaTime, distToTarget)` 防过冲；② 分轴检测与钳位直接搬用 `GuildPlayerController.TryMoveAxis / ClampToWorld` 的算法（NPC 脚底盒尺寸/偏移可用独立常量便于调参）；③ 每帧先判 `IsFollowing`（并释放占用）再判 `IsPlateVisible`；④ 目标点坐标用 `GuildSceneGeometry.PointInContentSpace(waypoint.Rt, worldContent)`；⑤ 选点仅从 `occupied` 之外的 `waypoints` 随机取；`OccupyWaypoint` 先移除旧点再加入新点；⑥（v3.229）进入待机时用 `GuildSpineCharacterBuilder.PlayOnceThenLoop` 单播随机 `work_x` 后队列衔接 `standby_1`，动画缺失自动回退循环。
+
+**English (v3.229 addendum):** On **entering idle**, first play a random one-shot from `work_1..work_4`, then queue the `standby_1` loop (via new `GuildSpineCharacterBuilder.PlayOnceThenLoop`: `SetAnimation(0, work, false)` then `AddAnimation(0, standby, true)`); missing work clips fall back to just looping standby. The follow-mutex idle reset does **not** trigger this idle action.
+
+##### 9.8.9.16 公会场景角色 Y 轴深度遮挡（v3.231）/ Guild Scene Character Y-Depth Occlusion
+
+**中文（系统设计）：** 自 v3.231 起，公会场景内 **主角与全部 NPC**（含跟随中的 NPC）的互相遮挡不再依赖它们在层级里的静态 sibling 顺序，而由各角色在 **`GongHuiWorldContent` 局部空间的 Y 坐标** 动态决定：**Y 越低（屏幕越靠下）越靠前，应遮挡 Y 更高（越靠上）的角色**。语义与 §9.1.4 家园世界一致，但**实现方式不同**——公会场景 **不** 使用 `JiaYuanWorldDepthSorter` 的 `Canvas.overrideSorting` 方案，而是采用「**同一父容器内按 Y 重排 sibling 顺序**」，原因是公会屏在角色之上还有 `PanoramaButtonLayer`（全景按钮）、`JoystickVisualLayer`（摇杆）、`TipsToast` 等顶层 UI（靠 sibling 顺序保证覆盖），若给角色引入 `overrideSorting` 嵌套 Canvas 会破坏这些顶层 UI 的覆盖关系。
+
+**中文（前置结构改动）：** 要让主角能「插入」到部分 NPC 之前、另一部分之后，主角与 NPC 必须**同父级**。故 `EnsureSceneSpawned` 中主角 `GuildPlayer` 由原先挂 `GongHuiWorldContent` 改为挂 **`Npcs/` 组**（与各 `GuildNpcMarker` 同级）。由于 `Npcs/` 是「拉伸铺满 `GongHuiWorldContent`、`localScale=1`、无额外偏移」的容器，其局部空间与 content 局部空间 **1:1 重合**，主角 `anchoredPosition`（= content 局部像素）语义、出生点坐标、`GuildPlayerController` 的分轴移动/钳位、以及 `JiaYuanViewportFollowController` 镜头跟随（用目标**世界坐标** `target.position` 与帧 delta 补偿）**全部不受影响**。`Npcs/` 缺失时回退挂 `GongHuiWorldContent`（此时深度排序退化为仅 NPC 之间，主角恒在最上，保持旧行为）。
+
+**中文（排序规则）：**
+1. 参与排序的对象 = 主角 `GuildPlayer` RectTransform + 各 `GuildNpcMarker` 的 RectTransform（marker 本体；其 `NpcSpine`、`NamePlate`、头顶 `Avatar`、`ActionIconButton` 均为 marker 子节点，随 marker 整体一起前后移动，无需单独排序）。
+2. 每帧 `LateUpdate` 读取各对象的排序键 `sortY = GongHuiWorldContent.InverseTransformPoint(rt.position).y`（**`RectTransform` 枢轴**的 content 局部 Y，非 Sprite Custom Pivot；镜头平移 content 时该值不变，排序稳定）。Spine 角色骨骼原点在枢轴≈脚底；UGUI `Image` 装饰若要比脚底切换，须把 **`RectTransform.pivot.y=0`**（见 §9.8.19.2.1）。
+3. 仅对 **`activeInHierarchy == true`** 的对象排序；按 `sortY` **降序**排列后，依序 `SetSiblingIndex(0..n-1)`：`sortY` 最大者 sibling index 最小（最先绘制，位于最底/最后方）；`sortY` 最小者 sibling index 最大（最后绘制，位于最前/最下方）。
+4. **重排节流**：先算出目标顺序，若与当前 sibling 顺序一致则整帧跳过所有 `SetSiblingIndex`，避免无谓的 Canvas 重建。
+
+**English:** Since v3.231, occlusion among the **protagonist and all NPCs** in the guild scene is driven by each character's **local Y in `GongHuiWorldContent`** (**lower Y / lower on screen = front**, occluding higher-Y characters), matching §9.1.4 semantics. **Implementation differs from home world:** it uses **sibling reordering within a shared parent** rather than `JiaYuanWorldDepthSorter`'s `Canvas.overrideSorting`, because the guild screen has top-layer UI above characters (`PanoramaButtonLayer`, `JoystickVisualLayer`, `TipsToast`) whose coverage relies on sibling order; nested `overrideSorting` canvases on characters would break that. **Prereq:** the player `GuildPlayer` now mounts under the **`Npcs/`** group (sibling of `GuildNpcMarker`) instead of `GongHuiWorldContent`, so it can interleave with NPCs; coords/movement/camera are unchanged because `Npcs/` is a stretch-full, unit-scale, zero-offset container (1:1 with content space). Each `LateUpdate`, characters are sorted by `sortY = GongHuiWorldContent.InverseTransformPoint(rt.position).y` **descending** and assigned `SetSiblingIndex(0..n-1)` (only `activeInHierarchy` ones; skipped entirely when order is unchanged). Marker children (Spine / NamePlate / overhead Avatar / action icon) move with their marker and are not sorted individually.
+
+**数据结构 / Data Structure：**
+
+```csharp
+// v3.231：公会场景角色 Y 轴深度排序器（挂 GongHuiScreen 根，与其它 Controller 并列）
+class GuildWorldDepthSorter : MonoBehaviour {
+    RectTransform worldContent;                 // 排序键换算基准（content 局部空间）
+    RectTransform characterParent;              // 参与排序的共同父容器（= Npcs 组）
+    readonly List<RectTransform> characters;    // 主角 + 各 NPC marker（注册顺序无关）
+
+    void Initialize(RectTransform worldContent, RectTransform characterParent);
+    void SetCharacters(IList<RectTransform> characterRoots); // 主角 + NPC markers
+
+    void LateUpdate();  // 收集激活角色 → 按 content 局部 Y 降序 → 顺序变化才 SetSiblingIndex
+}
+```
+
+**技术实现建议 / Implementation Notes：** ① 主角改挂 `Npcs/`：`BuildVillager(npcsRootRt ?? worldContentRt, ...)`，`anchoredPosition` 仍传原 `spawnPos`（content 局部坐标，容器 1:1）；② 排序键用 `worldContent.InverseTransformPoint(rt.position).y`（跟随 content 平移不变，天然稳定）；③ 复用一个复用列表做「过滤激活 + 排序」，`LateUpdate` 中用**插入/选择式**依序 `SetSiblingIndex(i)`（同 `GridBattleFieldLayout` 行重排写法）；④ 排序前先比对目标顺序与现状，一致则跳过，减少 Canvas 重建开销；⑤ 排序对象只登记角色根（marker / player），名牌等子节点自动跟随，不单独登记；⑥ `Npcs/` 容器内除角色外不应放置其它需固定层级的子节点（当前仅角色）。
 
 #### 9.8.10 商店全屏背景层（底部导航 ShangDian）(v3.34, 背景资源 v3.37)
 
 **中文：** 当 `newKey == "ShangDian"` 时，显示全屏面板 **`ShangDianScreen`**，规则同 §9.8.9（叠在底栏下、互斥显隐）。背景图为 **`Resources.Load<Sprite>("AirUI/ShangDian_0")`**（对应源文件 `Assets/Resources/AirUI/ShangDian_0.png`），`preserveAspect = false`；缺失时同色回退与告警。由 `BottomNavSimpleBackgroundScreenView.BuildInto(..., "ShangDian", "AirUI/ShangDian_0")` 构建（常量 `ResShangDianBackground`），布局与背景构建复用 **`BottomNavAttachedScreenLayout`**。  
 **English:** When `newKey == "ShangDian"`, show **`ShangDianScreen`** with the same stacking/visibility rules as §9.8.9. Background **`Resources.Load<Sprite>("AirUI/ShangDian_0")`** (`Assets/Resources/AirUI/ShangDian_0.png`), `preserveAspect = false`; same fallback on missing asset. Built via `BottomNavSimpleBackgroundScreenView.BuildInto` with `navKey == "ShangDian"` and `resourcesSpritePath == "AirUI/ShangDian_0"` (`ResShangDianBackground`), sharing **`BottomNavAttachedScreenLayout`** for root/background construction.
 
-#### 9.8.11 家园功能入口：订单弹窗与仓库全屏（底部导航 JiaYuan）(v3.35)
+#### 9.8.11 家园功能入口：订单弹窗与仓库全屏（底部导航 JiaYuan）(v3.35；v3.253 层永久隐藏)
 
-**中文：** 当 `OnOpenChanged` 的 `newKey == "JiaYuan"` 时，在主 Canvas 上显示 **`JiaYuanHomeFeatureLayer`**（与 `BottomNavBar` 同级，`SetSiblingIndex` 置于 `BottomNavBar` 之下，保证底栏始终可点）。该层内提供两个临时摆位的功能入口按钮：**「订单」** `OrderEntryButton` 锚定在画面**竖直中线偏左、整体上移**（默认 `anchor=(0,0.5)`、`anchoredPosition=(74,246)`、`sizeDelta=(140,140)`），图标 **`Resources.Load<Sprite>("AirUI/DingDan")`**；**「仓库」** `WarehouseEntryButton` 锚定在画面**竖直中线偏右、同上纵向**（默认 `anchor=(1,0.5)`、`anchoredPosition=(-74,246)`、`sizeDelta=(140,140)`），图标 **`Resources.Load<Sprite>("AirUI/CangKu")`**。`newKey != "JiaYuan"` 时整层隐藏，并强制关闭已打开的订单弹窗与仓库全屏，避免切换到底栏其它页后残留遮挡。
+**中文（自 v3.253 起）：** **`JiaYuanHomeFeatureLayer` 在主 HUD（`MainHudLayerRoot`）流程下永久 `SetActive(false)`**，不再随 `OpenKey == "JiaYuan"` 显示。「仓库」入口迁至 §9.14.11 `HomeTabPanel/TopRightActions`（见该节）；「订单」入口本期随层隐藏、不另迁。`OnOpenChanged` 仍订阅，但仅用于：保持层隐藏，并在切离时强制关闭已打开的订单弹窗与 `WarehouseHubPanel`（防残留）。
 
-**中文（订单弹窗）：** 点击「订单」打开 **`OrderModal`**（半透明遮罩 `alpha≈0.55`，点击遮罩关闭）；前景居中 **`OrderPanel`**（默认约 `960×1500`）使用 **`Resources.Load<Sprite>("AirUI/DingDan_1")`** 作为订单界面主图，`Image.preserveAspect = true`；**`OrderPanel` 右上角**（`anchor=(1,1)`、`anchoredPosition≈(-20,-20)`、`72×72`）提供关闭按钮（点击与遮罩等效关闭）。打开弹窗时将该 modal 节点 `SetAsLastSibling()`，保证叠在同层其它子节点之上。
+**中文（历史 v3.35～v3.41，参考）：** 曾在 `newKey == "JiaYuan"` 时显示本层（与 `BottomNavBar` 同级），提供 **「订单」** `OrderEntryButton` 与 **「仓库」** `WarehouseEntryButton`；订单打开 `OrderModal`/`OrderPanel`（`AirUI/DingDan_1`）；仓库自 v3.41 起打开 §9.8.13 `WarehouseHubPanel`。
 
-**中文（仓库全屏，v3.41 起）：** 点击「仓库」打开 **统一仓库预制体 `WarehouseHubPanel`**（详见 §9.8.13）：`JiaYuanHomeFeatureEntriesView` 不再代码搭建全屏 `Image(ChiFan_test) + 关闭按钮`，而是经 `WarehouseHubPanelView.GetOrCreate(canvasRect).Show(plantingService)` 实例化 `Resources/Prefabs/Farm/WarehouseHubPanel.prefab` 并置顶。该预制体内部承担全屏背景（沿用 `AirUI/ChiFan_test`）+ 可关闭半透明遮罩 + 26 个 150×150 果实槽（绑定 `PlayerFruitBag`）+ 275×116 `StaminaBarSlot` + 三按钮（吃 / 一键吃饱 / 开始）+ 右上角关闭按钮，关闭与原版语义一致（不改变底栏选中项）。打开时同样 `SetAsLastSibling()` 置于本层子树最前。**家园仓库与主线层「确定」入口共用同一预制体实例**，无需为不同入口区分子树。
+**English (since v3.253):** **`JiaYuanHomeFeatureLayer` stays permanently inactive** under the main-HUD flow. Warehouse entry moves to §9.14.11 `HomeTabPanel/TopRightActions`; Order entry is hidden with the layer this release. `OnOpenChanged` still force-closes order modal / `WarehouseHubPanel` when leaving to avoid leftover overlays.
 
-**English:** When `newKey == "JiaYuan"`, show **`JiaYuanHomeFeatureLayer`** on the main canvas (sibling of `BottomNavBar`, `SetSiblingIndex` below the bar). It hosts two temporary entry buttons: **`OrderEntryButton`** anchored **left-of-center, raised** (defaults: `anchor=(0,0.5)`, `anchoredPosition=(74,246)`, `sizeDelta=(140,140)`), sprite **`Resources.Load<Sprite>("AirUI/DingDan")`**; **`WarehouseEntryButton`** anchored **right-of-center, same vertical** (`anchor=(1,0.5)`, `anchoredPosition=(-74,246)`, `sizeDelta=(140,140)`), sprite **`Resources.Load<Sprite>("AirUI/CangKu")`**. When `newKey != "JiaYuan"`, hide the whole layer and force-close any open order modal and warehouse screen.
+**English (legacy v3.35–v3.41, reference):** Layer used to show on `JiaYuan` with Order + Warehouse buttons; warehouse opened §9.8.13 `WarehouseHubPanel` since v3.41.
 
-**English (order modal):** Tapping **Orders** opens **`OrderModal`** (dim mask ~`0.55` alpha, tap-to-close). A centered **`OrderPanel`** (~`960×1500`) shows **`Resources.Load<Sprite>("AirUI/DingDan_1")`** with `preserveAspect = true`; a **top-right** close control on the panel closes the modal. Opening calls `SetAsLastSibling()` on the modal within the layer.
+**中文：** 实现类型为 **`PetDemo.UI.JiaYuanHomeFeatureEntriesView`**，由 **`AirMainMenuRuntimeBuilder.BuildBottomNavBar`** 在 `ShangDianScreen` 构建之后调用 **`BuildInto(canvasRect, barView, plantingService)`**（自 v3.41 起含 `IPlantingService`；自 v3.253 起本层不再构建/接线仓库按钮，`plantingService` 仅用于切离时关 `WarehouseHubPanel`）；订阅 `OnOpenChanged` 并在 `OnDestroy` 解除订阅。
 
-**English (warehouse full-screen, since v3.41):** Tapping **Warehouse** opens the **unified `WarehouseHubPanel` prefab** (see §9.8.13): `JiaYuanHomeFeatureEntriesView` no longer code-builds a fullscreen `Image(ChiFan_test) + CloseButton`; instead it instantiates `Resources/Prefabs/Farm/WarehouseHubPanel.prefab` via `WarehouseHubPanelView.GetOrCreate(canvasRect).Show(plantingService)` and brings it to the front. That prefab carries the fullscreen background (still `AirUI/ChiFan_test`) + a dismissable dim layer + 26 fruit slots of 150×150 (bound to `PlayerFruitBag`) + a 275×116 `StaminaBarSlot` + the three bottom buttons (Eat / Eat-to-Full / Start) + a top-right Close button; the close path preserves the legacy semantics (bottom-nav selection unchanged). Opening still calls `SetAsLastSibling()`. **The home warehouse and the main-story OK entry share the same prefab instance**, with no per-entry subtree branching.
-
-**中文：** 实现类型为 **`PetDemo.UI.JiaYuanHomeFeatureEntriesView`**，由 **`AirMainMenuRuntimeBuilder.BuildBottomNavBar`** 在 `ShangDianScreen` 构建之后调用 **`BuildInto(canvasRect, barView, plantingService)`**（自 v3.41 起增加 `IPlantingService plantingService` 入参，用于透传给 §9.8.13 `WarehouseHubPanelView`）；订阅 `OnOpenChanged` 并在 `OnDestroy` 解除订阅。`plantingService` 允许为 `null`，仅会导致仓库按钮被点击时 `Debug.LogWarning` 并不弹面板。
-
-**English:** Implemented as **`PetDemo.UI.JiaYuanHomeFeatureEntriesView`**, constructed from **`AirMainMenuRuntimeBuilder.BuildBottomNavBar`** after `ShangDianScreen` via **`BuildInto(canvasRect, barView, plantingService)`** (since v3.41 the call gains an `IPlantingService plantingService` parameter, forwarded to §9.8.13 `WarehouseHubPanelView`); subscribes to `OnOpenChanged` and unsubscribes on `OnDestroy`. `plantingService` is allowed to be `null`, in which case tapping the warehouse button logs a warning without showing the panel.
+**English:** Implemented as **`PetDemo.UI.JiaYuanHomeFeatureEntriesView`** via **`BuildInto(canvasRect, barView, plantingService)`**; since v3.253 the layer does not build/wire the warehouse button (`plantingService` only closes leftover hub on nav change).
 
 #### 9.8.12 食物仓库与体力补充 / Food Warehouse and Stamina Recovery (v3.40)
 
@@ -2329,12 +2666,12 @@ P1 预留：`foods.csv` 配表化、`StartButton` 接入真实战斗入口、多
 **中文：** 预制体路径固定为 **`Assets/Resources/Prefabs/Farm/WarehouseHubPanel.prefab`**；`WarehouseHubPanelView.GetOrCreate(canvasRect)` 在画布下查找已有节点（`Find("WarehouseHubPanel")`）或调用 `Resources.Load<GameObject>("Prefabs/Farm/WarehouseHubPanel")` + `Instantiate(prefab, canvasRect, false)`；缺失预制体时记 `Debug.LogError` 并返回 `null`（**不**做代码兜底，避免重复维护两套布局）。`Show(plantingService)` 调用 `gameObject.SetActive(true)` 与 `SetAsLastSibling()`，并保存 `IPlantingService` 引用、订阅 `OnFruitBagChanged / OnStaminaChanged`；`Hide()` 反向 `SetActive(false)`，订阅在 `OnDestroy` 中解除以避免悬挂。
 
 - **入口 A — 主线饿肚子确定**：`MainStoryLineScreenView` 在饿肚子提示框点击「确定」时，沿用 v3.40 的桥接 `FoodWarehouseModalView.Show(plantingService)`；自 v3.41 起 `FoodWarehouseModalView` 内部委托给 `WarehouseHubPanelView.GetOrCreate(canvasRect).Show(plantingService)`。
-- **入口 B — 家园仓库按钮**：`JiaYuanHomeFeatureEntriesView` 仓库按钮 `onClick` 直接调用 `WarehouseHubPanelView.GetOrCreate(canvasRect).Show(plantingService)`。`BuildInto` 在 v3.41 起新增 `IPlantingService plantingService` 入参（详见 §9.8.11 末段）。
+- **入口 B — 家园页签仓库按钮（自 v3.253）**：创角界面 `HomeTabPanel/TopRightActions/WarehouseEntryButton` 触发 `HomeTabPanelView.OnWarehouseRequested` → 宿主 `CharacterCreationScreenView` 调用 `WarehouseHubPanelView.GetOrCreate(mainCanvasRect).Show(plantingService)`；Show 前将面板升至 **`MainUiSortTier.HudPopup`**，以免被创角层（同为 HudPopup）压住。~~旧路径：`JiaYuanHomeFeatureEntriesView` 仓库按钮~~（自 v3.253 下线）。
 
 **English:** Prefab path is fixed at **`Assets/Resources/Prefabs/Farm/WarehouseHubPanel.prefab`**. `WarehouseHubPanelView.GetOrCreate(canvasRect)` first looks up an existing child (`Find("WarehouseHubPanel")`) or instantiates the resource (`Resources.Load + Instantiate(prefab, canvasRect, false)`); missing prefab logs an error and returns `null` (no code fallback). `Show(plantingService)` activates the GO + `SetAsLastSibling()`, stores the service reference, and subscribes `OnFruitBagChanged / OnStaminaChanged`. `Hide()` deactivates; subscriptions are released in `OnDestroy`.
 
 - **Entry A — Main-story OK:** `MainStoryLineScreenView` calls `FoodWarehouseModalView.Show(plantingService)` (v3.40 bridge); since v3.41 the bridge delegates to `WarehouseHubPanelView.GetOrCreate(canvasRect).Show(plantingService)`.
-- **Entry B — Home warehouse button:** `JiaYuanHomeFeatureEntriesView` directly calls `WarehouseHubPanelView.GetOrCreate(canvasRect).Show(plantingService)`. `BuildInto` gains an `IPlantingService plantingService` parameter (see §9.8.11 footer).
+- **Entry B — Home-tab warehouse button (since v3.253):** `HomeTabPanel/TopRightActions/WarehouseEntryButton` → `OnWarehouseRequested` → host opens `WarehouseHubPanelView` on MainCanvas, elevating sort tier to **`HudPopup`** first. ~~Legacy `JiaYuanHomeFeatureEntriesView` warehouse button retired in v3.253.~~
 
 ##### 9.8.13.2 节点结构 / Prefab Node Hierarchy
 
@@ -2452,7 +2789,7 @@ int    EatFruitToFull(string plantConfigId);       // 循环 EatOneFruit，合�
 | 种子仓库 | `PlayerSeedBag` | §9.4 | 主界面种子图标 / 农田点击 | 独立 / Independent |
 | 肥料仓库 | `PlayerFertilizerBag` | §9.7 | 主界面肥料图标 | 独立 / Independent |
 | 果实背包入口（主界面） | `PlayerFruitBag` | §9.9 | 主界面 ShouHuo-0 图标 | **保留并与本章节并行**，只读列表入口 / Kept in parallel; read-only list |
-| 家园 + 食物仓库（合并） | `PlayerFruitBag` + `RoleStats.stamina` | **§9.8.13（本节）** | 家园「仓库」按钮 / 主线层「前往 → 确定」 | **统一预制体**；替代 v3.40 的 `FoodWarehouseModal` 与 v3.35 的 `JiaYuanWarehouseFullscreen` |
+| 家园 + 食物仓库（合并） | `PlayerFruitBag` + `RoleStats.stamina` | **§9.8.13（本节）** | HomeTab「仓库」按钮（v3.253）/ 主线层「前往 → 确定」 | **统一预制体**；替代 v3.40 的 `FoodWarehouseModal` 与 v3.35 的 `JiaYuanWarehouseFullscreen` |
 | ~~食物仓库（v3.40 独立面板）~~ | ~~`PlayerFoodBag`~~ | ~~§9.8.12~~ | ~~主线层「前往 → 确定」~~ | **自 v3.41 起合并到 §9.8.13；API 保留但 UI 不再使用** |
 
 **实现优先级 / Priority：**
@@ -2893,7 +3230,7 @@ public enum FriendListMode
 
 **中文：** `GameSession` 新增 `List<FriendProfile> friends` 与 `CharacterCreationState characterCreation` 两字段（[Models.cs](PetDemo_2/Assets/Scripts/Core/Models.cs)）。
 
-**中文：** **静态好友目录** 由 `PetDemo.Core.FriendCatalog.BuildDefault()` 产出：约 12-16 位好友，混合在线/离线，亲密度分布跨越 80 阈值（部分 ≥80 可直接创建、部分 <80 需提升）；头像循环引用 `AirUI/WanJia_icon_1..10`（素材位于 `Assets/Resources/AirUI/WanJia_icon_1.png`～`WanJia_icon_10.png`；缺图回退纯色）。新存档初始化时调用，写入 `session.friends`。
+**中文：** **会话好友目录（v3.258）：** 新存档优先 `TopFriendCatalog.CreateSessionList()`（自 `TopFriends.csv` 深拷贝，含 `gender`→`isFemale`、`hasPartner` 等）；缺表时回退 `FriendCatalog.BuildDefault()`（内置种子亦含 gender/hasPartner，与 CSV 演示数据对齐）。约 12-16 位好友，混合在线/离线，亲密度分布跨越 80 阈值；头像循环引用 `AirUI/WanJia_icon_1..10`（缺图回退纯色）。读档后须 `ApplyCsvStaticFields` 回填 CSV 静态字段（存档 DTO 可不持久化这些配置列）。
 
 #### 9.14.3 好友列表排序与阈值 / Sorting and Threshold
 
@@ -2927,7 +3264,7 @@ bool TryAddRoleExp(int amount, out List<int> leveledToLevels); // v3.208：加�
 
 #### 9.14.6 装配与导航流程 / Assembly and Flow
 
-**中文：** 在 `AirMainMenuRuntimeBuilder.Build()` 末尾（底栏与家园层构建完成后）调用 `CharacterCreationScreenView.BuildInto(canvasRect, PlantingService.Instance)` 与 §9.15 `AppScreenView.BuildInto`，均置 `MainUiSortTier.HudPopup`；**自 v3.143 起默认 `Show()` 的是创角界面**（`OpenCharacterCreationScreen()`），APP 界面预构建但不自动显示。APP/创角期间须调用 `MainHudLayerRoot.SetVisible(false)` 隐藏整个 HUD 层，并调用 `JiaYuanWorldScreenView.SetWorldScreenEnabled(false)`；订阅 **`OnNavigateToBottomNav(string navKey)`** → `Hide()` 并恢复 HUD 与世界层后 `bottomNavBar.SetOpenKey(navKey)`（`GongHui` / `JiaYuan` / `ZhuXian`，见 §9.14.10）。**自 v3.138 起**，创角界面 `ScreenCloseButton`（72×72「×」，与 §9.14.9 关闭按钮范式一致；**自 v3.199 起锚定左上角**，`anchor/pivot = (0,1)`，`anchoredPosition ≈ (20, -20)`）点击触发 `OnCloseRequested` → 隐藏创角界面并 `AppScreenView.Show()` 回退 APP 首页（HUD/世界层保持隐藏）。**自 v3.191 起**：当 `ZhuanQianPopup` 可见时，`ScreenCloseButton` **不**离开创角回 APP，改为关闭 `ZhuanQianPopup` 并 `OpenHomeTabPanel()`（底栏保持「家园」页签高亮）。**自 v3.122 起**（**v3.158** 扩展至公会 Tab），玩家已在家园或公会 Tab 时还可通过 §9.8.15 `TopDingBar` 点击再次打开创角界面（复用上述隐藏/恢复流程，不新增独立导航栈）。
+**中文：** 在 `AirMainMenuRuntimeBuilder.Build()` 末尾（底栏与家园层构建完成后）调用 `CharacterCreationScreenView.BuildInto(canvasRect, PlantingService.Instance)` 与 §9.15 `AppScreenView.BuildInto`，均置 `MainUiSortTier.HudPopup`；**自 v3.143 起默认 `Show()` 的是创角界面**（`OpenCharacterCreationScreen()`），APP 界面预构建但不自动显示。APP/创角期间须调用 `MainHudLayerRoot.SetVisible(false)` 隐藏整个 HUD 层，并调用 `JiaYuanWorldScreenView.SetWorldScreenEnabled(false)`；订阅 **`OnNavigateToBottomNav(string navKey)`** → `Hide()` 并恢复 HUD 与世界层后 `bottomNavBar.SetOpenKey(navKey)`（`GongHui` / `JiaYuan` / `ZhuXian`，见 §9.14.10）。**自 v3.138 起**，创角界面 `ScreenCloseButton`（72×72「×」，与 §9.14.9 关闭按钮范式一致；**自 v3.199 起锚定左上角**，`anchor/pivot = (0,1)`，`anchoredPosition ≈ (20, -20)`）点击触发 `OnCloseRequested` → 隐藏创角界面并 `AppScreenView.Show()` 回退 §9.15 APP **PageHome**（HUD/世界层保持隐藏）。**自 v3.241 起**：打开任意内容面板（`HomeTabPanel` / `DressUpPanel` / `TrainingPanel` / `ZhuanQianPopup` 等）后，须调用 `ElevateScreenCloseButton()` 将创角根 `ScreenCloseButton` 提到内容面板之上（仍置于 `AddButtonBackdrop`/`AddButton` 之下），并在每次 `Show`/切换页签时**重新绑定** `onClick`，避免被内容层 `SetAsLastSibling` 盖住导致点击无效。**自 v3.191 起**：当 `ZhuanQianPopup` 可见时，`ScreenCloseButton` **不**离开创角回 APP，改为关闭 `ZhuanQianPopup` 并 `OpenHomeTabPanel()`（底栏保持「家园」页签高亮）。**自 v3.122 起**（**v3.158** 扩展至公会 Tab），玩家已在家园或公会 Tab 时还可通过 §9.8.15 `TopDingBar` 点击再次打开创角界面（复用上述隐藏/恢复流程，不新增独立导航栈）。
 
 ```mermaid
 flowchart TD
@@ -3034,6 +3371,8 @@ flowchart TD
    | `price` | 道具价格（整数） |
    | `sortOrder` | 展示排序（在 Tab 内**由大到小**排序；相同则按配置表行序稳定） |
    | `description` | 道具介绍文本（点击道具弹出的介绍界面后续使用） |
+   | `useButtonLabel` | **自 v3.244 起**：选中该道具后「使用」按钮上显示的文案；**留空则回退显示「使用」** |
+   | `applyResource` | **自 v3.244 起（v3.245 扩展路径）**：点击「使用」后写入会话的玩家 Spine 路径，须指向 **`SkeletonDataAsset`**（不可为 Atlas）。支持：① `Resources` 相对路径（可不含 `.asset`）；② 工程 `Assets/...` 路径（**Editor** 下经 `AssetDatabase` 加载，可带 `.asset`）。**留空表示点击无效果**；路径无效时等同无效果并 `Warning` |
 
 2. **排序规则**：`DressUpItemCatalog.GetItemsByTab(tabIndex)` 取该 Tab 全部道具，按 `sortOrder` **降序**、并列按 CSV **原行序**稳定排序后返回。
 3. **道具单元结构（自 v3.160 起：独立预制体）**：单元改为**独立预制体** `Resources/Prefabs/Farm/DressUpItemCell.prefab`（由 `DressUpItemCellPrefabGenerator` 经 `DressUpPanelLayout.BuildDressUpItemCellRoot` 生成），`DressUpPanelView` 运行时 `Resources.Load<GameObject>("Prefabs/Farm/DressUpItemCell")` 实例化进 `ItemContent` 并 `DressUpItemCellView.Bind` 填充数据；缺 prefab 时回退 `BuildDressUpItemCellRoot` 运行时模板（与 TopFriendCell 范式一致）。层级（自上而下内容 + 最上层选中叠加）：
@@ -3045,6 +3384,10 @@ flowchart TD
 4. **统一背景**：所有 Tab 内道具单元根背景图 `AirUI/ZhuangBan_sheetBJ2`（预制体烘焙；运行时 Bind 仍可回退加载）。
 5. **网格与滚动**：每行**固定 3 个**道具，超出换行（`GridLayoutGroup`，`FixedColumnCount=3` + `ContentSizeFitter` 竖向）；超出镜头部分可通过**竖向滑动**（`ScrollRect`）拖动道具列表。容器层级 `ShopBg → ItemScroll(ScrollRect) → Viewport(Mask) → ItemContent(GridLayoutGroup)`；道具单元由 `DressUpPanelView.PopulateItems` 按配置表实例化 prefab。
 6. **点击钩子**：点击道具背景或图标触发 `DressUpPanelView.OnItemClicked(config)`。**自 v3.152 起**，当 `activeTab ∈ {0,1}` 时将 `PlayerRole` 切换为 `config.icon`；Tab3 不改变 `PlayerRole`。**自 v3.153 起**，Tab2 点击触发 Spine 动作预览；`dz_001` 额外编排 `work_2`。**自 v3.160 起（替代 v3.154 背景变暗）**，当 `activeTab ∈ {0,1,2}` 时显示被点击单元 `SelectionOverlay`（`common_bg_2`）；同 Tab **单选互斥**；Tab3 点击不改变单元视觉；切换页签重建网格时选中态清除。**自 v3.160 起 Tab0 默认选中**：打开/切到 Tab0（装扮）时，网格渲染完成后自动选中**排序后第一个**道具（`GetItemsByTab(0)[0]`，当前为 `zb_001`），显示 `SelectionOverlay`，并将 `PlayerRole` 预览为该道具 `icon`（与手动点击一致）。Tab1/2/3 **不**自动默认选中。介绍界面**暂不实现**（当前仅日志占位）。
+7. **「使用」按钮（自 v3.244 起；v3.245 路径扩展；v3.246 可点性；v3.249 布局）**：选中任意 `DressUpItemCell`（含 Tab0 默认选中、任意 Tab 手动点击）后，在 `TopHalf → PlayerRole` 底边显示 `UseButton`（文案 = `useButtonLabel`，空则「使用」；锚点/轴心为底边中心 `(0.5,0)/(0.5,0)`，**`anchoredPosition.y = -100`（PosY=-100）**）。切 Tab 清空选中或 `Hide()` 时隐藏。点击 `UseButton`：若当前道具 `applyResource` **非空**且能经 `PlayerSpineAppearanceResolver.TryLoadSkeletonData` 加载（Resources 或 Editor 下 `Assets/` 工程路径），则 `IPlantingService.TryEquipPlayerSpine(applyResource)` 写入 `RoleStats.equippedPlayerSpineResource` 并触发 **`OnPlayerAppearanceChanged`**，同时在本面板 `PlayerRole` 上预览装备 Spine；否则 **无任何效果**（无效路径 `Warning`）。当前仅 Spine 可被「使用」。消费者（创角 `DisplayArea`、家园 `MainRoleCunminPresenter`、`HomeTabPanel`、`TrainingPanel`、公会 `GuildPlayer`、庄园 `ManorPlayer`；**自 v3.251 起**另含 `InvasionBattleModal_2` 的 `PlayerSlot/RoleStand` 与同局九宫格**我方** Role 单位在 `Show()`/`Rebuild` 时）按 `PlayerSpineAppearanceResolver` 应用主角 Spine（空字段回退 `Prefabs/Air/Hero_Role_cunmin` 探针；**v3.252**：敌方不得套用）。
+8. **装备成功后的本面板 Spine 预览布局（自 v3.249 起；v3.250 PosY）**：`OnUseClicked` 装备成功并构建 `PlayerRole/EquippedSpine` 后：
+   - `TopHalf → PlayerRole` 的 Inspector **Top = 95**（拉伸锚点下 `offsetMax.y = -95`）；拆除预览 / 切 Tab / `Hide()` 时恢复 `offsetMax.y = 0`。
+   - `EquippedSpine` 的 `localScale.x/y = 0.75`，`anchoredPosition = (0, -200)`（**PosY=-200**），`sizeDelta` 仍为 `(720, 1200)`。
 
 **中文（Tab2 Spine 动作预览，自 v3.153 起）：** Tab2 点击道具后，`DressUpActionSpinePresenter` 在 `PlayerRole` / `FriendRole` 挂点下运行时构建 `SkeletonGraphic` 子节点 `ActionSpine`，并禁用父节点 `Image`（保留组件以便 Tab0/Tab1 恢复）。
 
@@ -3074,7 +3417,9 @@ flowchart TD
     G -->|Tab0/Tab1| P["PlayerRole 切换为 config.icon 预览立绘"]
     G -->|Tab2| S["Spine 预览 standby_1; dz_001 编排 work_2"]
     G -->|Tab0/1/2| Sel["ItemCell SelectionOverlay common_bg_2"]
-    E -->|Tab0 默认| DefSel["自动选中第一个道具+预览 icon"]
+    G --> UseBtn["显示 UseButton 文案=useButtonLabel"]
+    UseBtn -->|点击且 applyResource 有效| Equip["TryEquipPlayerSpine → OnPlayerAppearanceChanged"]
+    E -->|Tab0 默认| DefSel["自动选中第一个道具+预览 icon+UseButton"]
     G -->|Tab3| G2["介绍界面(后续补充) 当前仅日志"]
     B -->|切到其它页签| F[收起并恢复 DisplayArea]
 ```
@@ -3104,17 +3449,17 @@ flowchart TD
 
 **中文（自 v3.159 起，页签双态图标；v3.185 全页签图片化）：** 每个页签按钮（`IntimacyTab` / `DressUpButton` / `HomeTabButton` / `EnterHomeButton` / `RoleAddFavorButton`）含 **`IconOpen`** / **`IconClosed`** 两个拉伸填满槽位的 `Image` 子节点（`preserveAspect=true`）；**全部 5 个页签**的 open/closed sprite 由 `CharacterCreationScreenLayout` 在构建与 `RefreshBottomTabBarPresentation` 时按上表加载。**`Label` 子节点已废弃**（v3.185 构建时不再创建；旧 prefab 运行时 `HideTabButtonLabels` 隐藏）。`CharacterCreationScreenView.SetTabHighlight(button, active)` **仅切换 `IconOpen`/`IconClosed` 显隐**（同一时刻至多一个页签 `IconOpen` 可见），**不再修改根 `Image.color`**（开关态背景均不变色）。`EnsureBottomTabButton` 在 `WireOnce` 时启用透明命中区（根 `Image` 可禁用/透明）、`Button.transition = None`，并关闭图标 `raycastTarget` 以免挡点击。子节点缺失时静默跳过，兼容旧 prefab。
 
-**中文（自 v3.184；v3.207 修订）：** 创角内嵌公会（`EnterCharacterCreationEmbed` / `BindEmbeddedGongHui` / `ShowGongHuiEmbeddedPanel`）**主路径已废弃**；`EnterHomeButton` 与主底栏 `GongHui` 汇合为 EnterHomeHud（见 §9.8）。API 可保留作兼容，但运行时 EnterHome / 小镇寻找不再调用嵌入。`GongHuiScreenView.SwitchToBottomNav` 在 EnterHomeHud 下直接切主 `BottomNavBar`（恢复显示并 `SetOpenKey`），不再依赖 `characterCreationHost.RequestExitToBottomNav` 的嵌入分支。
+**中文（自 v3.184；v3.207 修订）：** 创角内嵌公会（`EnterCharacterCreationEmbed` / `BindEmbeddedGongHui` / `ShowGongHuiEmbeddedPanel`）**主路径已废弃**；`EnterHomeButton` 与主底栏 `GongHui` 汇合为 EnterHomeHud（见 §9.8）。API 可保留作兼容，但运行时 EnterHome / 小镇寻找不再调用嵌入。`GongHuiScreenView.SwitchToBottomNav` 在 EnterHomeHud / 主 HUD 下直接对主 `BottomNavBar` **仅** `SetOpenKey`（**禁止** `SetActive(true)`，对齐 §9.8 v3.237 / v3.239），不再依赖 `characterCreationHost.RequestExitToBottomNav` 的嵌入分支。
 
-**中文（自 v3.141，保留供其它入口）：`EnterHomeTopPanel` 跳转列表** — 结构镜像 `IntimacyTopPanel`（`EnterHomeScrollView` / `Viewport` / `EnterHomeContent` / `EnterHomeNavCellTemplate`），固定 **6 条**（非动态数据）；**不再由 `EnterHomeButton` 触发**，仍供任务列表「前往」等经 `OnNavigateToBottomNav` 跳转：
+**中文（自 v3.141，保留供其它入口；v3.245 修订交互）：`EnterHomeTopPanel` 跳转列表** — 结构镜像 `IntimacyTopPanel`（`EnterHomeScrollView` / `Viewport` / `EnterHomeContent` / `EnterHomeNavCellTemplate`）；**自 v3.243 起由「更多游戏」入口打开**，列表项为 `EnterHomeNavEntries`（狼来了 / 人狼纷争 / 修仙）；**不再由 `EnterHomeButton` 触发**。
 
-| navKey | 显示名 | 对应底栏槽位 | 图标资源（缺图回退纯色） |
-|--------|--------|--------------|--------------------------|
-| `GongHui` | 社区 | `BottomNavSlot_GongHui` | `AirUI/Game_ZuDui` |
-| `JiaYuan` | 农场 | `BottomNavSlot_JiaYuan` | `AirUI/Game_NongChang` |
-| `ZhuXian` | 冒险 | `BottomNavSlot_ZhuXian` | `AirUI/Game_MaoXian` |
+| navKey | 显示名 | 图标资源（缺图回退纯色） |
+|--------|--------|--------------------------|
+| `LangLai` | 狼来了 | `AirUI/Game_LangLai` |
+| `FenZheng` | 人狼纷争 | `AirUI/Game_FenZheng` |
+| `XiuXian` | 修仙 | `AirUI/Game_XiuXian` |
 
-每条 `EnterHomeNavCell` 采用与 `TopFriendCell` 相同的长框样式（背景 `AirUI/TopFriendCellBJ`），**固定尺寸 1014×290**（`CharacterCreationScreenLayout.EnterHomeCellWidth` / `EnterHomeCellHeight`；`EnterHomeContent` 的 `VerticalLayoutGroup.childForceExpandWidth=false` 以保持宽度），左侧图标 + 名称，**右侧「前往」按钮**；点击「前往」→ `Hide()` 创角界面 → `OnNavigateToBottomNav(navKey)` → 装配层 `RestoreFromOverlay(navKey)` 恢复 HUD/世界层并 `SetOpenKey`。
+每条 `EnterHomeNavCell` 采用与 `TopFriendCell` 相同的长框样式（背景 `AirUI/TopFriendCellBJ`），**固定尺寸 1014×290**，左侧图标 + 名称，**右侧「前往」`NavigateButton`**。**自 v3.245 起**：`NavigateButton` **点击无效果**（占位，不调用 `OnNavigateToBottomNav`）。当 `EnterHomeTopPanel` 可见时，创角根 **`ScreenCloseButton`** → `Hide()` + **`OnEnterHomeHudRequested(false)`** 回退 **`GongHuiScreen`**（EnterHomeHud），**不**回 APP PageHome。
 
 **中文：** `IntimacyTopPanel` / `EnterHomeTopPanel` 与 `BottomTabBar` 均由 [CharacterCreationScreenLayout.cs](PetDemo_2/Assets/Scripts/UI/CharacterCreationScreenLayout.cs) 编排进 prefab，`View` 按节点名 `EnsureFieldsFromHierarchy` 绑定并控制页签切换与列表填充。每条 `TopFriendCell` 右侧「去Ta家」经 `View.OnVisitFriendHome` 事件由 `AirMainMenuRuntimeBuilder` 接入 `FriendHomeScreenView.ShowFor`（仍默认 `navKey=JiaYuan`）。结构调整后须执行菜单 `Tools/PetDemo/Generate Character Creation Screen Prefab` 重新生成预制体。
 
@@ -3157,10 +3502,11 @@ flowchart TD
    - **`InfoContent`**：
      - **`HexAttrsPage`**（默认显示，自 **v3.188**）：**不再**使用 `HexRadarChart` / `HexLabels`。改为 `AttrGrid` **两列三行**（共 6 项，从左到右、从上到下：智商→记忆→想象→体魄→魅力→情商）。每项节点 `AttrItem_{0..5}` = **属性图标** `Icon`（`AirUI/SX_1_ZhiShang_B` … `SX_6_QingShang_B`）+ **属性数值** `Value`（`Text`，**不显示**中文属性名）。数值来自局外 `RoleStats` 成长字段：`intelligence/memory/imagination/physique/charm/emotionalIntelligence`（由 §B.21 等级表在创角默认 / 旧档回填时写入）。
      - **`CurrentPlaceholderPage`**（自 **v3.201**）：含与 `HexAttrsPage` 同结构的 `AttrGrid`（`AttrItem_{0..5}` = `Icon` + `Value`）。`AttrItem_{i}.Value` **直接同步** `HexAttrsPage` 同索引 `AttrItem_{i}.Value` 的展示数值（`RefreshHexAttrs` 写入 HexAttrs 后镜像到 Current 页）；其余占位 UI（如背景图）可保留。
-5. **右上功能按钮 `TopRightActions`（自 v3.190）**：锚定面板根节点**右上角**（`anchor/pivot = (1,1)`，边距约 `24`），**竖排**两枚图标按钮（尺寸约 `120×120`，间距约 `16`，`preserveAspect=true`）：
+5. **右上功能按钮 `TopRightActions`（自 v3.190；v3.253 下移 + 仓库）**：锚定面板根节点**右上角**（`anchor/pivot = (1,1)`，`PosX = -margin`≈`-24`，**自 v3.253 起 `PosY = -218`**），**竖排三枚**图标按钮（尺寸约 `120×120`，间距约 `16`，`preserveAspect=true`；自上而下）：
    - **`RankingButton`（排行榜）**：图标 `AirUI/ZJM_PaiHangbang_1`；可点击；本期仅 `Button.ColorTint` 按下变色反馈，**不打开任何界面、不切换页签**。
    - **`DailyTaskButton`（每日任务）**：图标 `AirUI/ZJM_RenWu_1`；点击后触发 `HomeTabPanelView.OnDailyTaskRequested`，由宿主 `CharacterCreationScreenView.OpenAddFavorTab()` 打开既有 `ZhuanQianPopup`（**自 v3.194 起**：与底栏 `RoleAddFavorButton`/训练页签**解耦**，仅此入口打开加好感；打开后底栏仍为家园 IconOpen，见 §9.14.10）。
-6. **关闭按钮 `ScreenCloseButton`（自 v3.193；v3.199 移至左上角）**：锚定面板根节点**左上角**（与 §9.14.6 / §9.14.9 关闭按钮范式一致：`72×72`，`anchor/pivot = (0,1)`，`anchoredPosition ≈ (20, -20)`，「×」文案或等价 Sprite）。点击触发 `HomeTabPanelView.OnCloseRequested` → 宿主 `CharacterCreationScreenView.OnScreenCloseClicked()`（与创角根 `ScreenCloseButton` 同路径）：关闭创角界面并 `AppScreenView.Show()` 回退 §9.15 APP **PageHome**（HUD/世界层保持隐藏）。家园页签可见时 `ZhuanQianPopup` 已隐藏，本按钮**不**承担 ZhuanQian 特例；该特例仍由创角根 `ScreenCloseButton` 处理（§9.14.6 / §9.14.10 v3.191）。
+   - **`WarehouseEntryButton`（仓库，自 v3.253）**：位于 `DailyTaskButton` **正下方**；图标 `AirUI/CangKu`；点击触发 `HomeTabPanelView.OnWarehouseRequested` → 宿主打开 §9.8.13 `WarehouseHubPanel`（与原家园层仓库入口同一面板；Show 前升至 `HudPopup`）。`HomeTabPanelLayout.EnsureTopRightActions` 对旧预制体幂等校正 PosY / 补建仓库钮 / 按 3 格重算栈高。
+6. **关闭按钮 `ScreenCloseButton`（自 v3.193；v3.199 移至左上角；v3.241 可点性）**：锚定面板根节点**左上角**（与 §9.14.6 / §9.14.9 关闭按钮范式一致：`72×72`，`anchor/pivot = (0,1)`，`anchoredPosition ≈ (20, -20)`，「×」文案或等价 Sprite）。点击触发 `HomeTabPanelView.OnCloseRequested` → 宿主 `CharacterCreationScreenView.OnScreenCloseClicked()`（与创角根 `ScreenCloseButton` 同路径）：关闭创角界面并 `AppScreenView.Show()` 回退 §9.15 APP **PageHome**（HUD/世界层保持隐藏）。**自 v3.241 起**：每次 `Show()` 须将本按钮提到面板内 `TopLeftStaminaHud` 之下、其余内容之上并重新绑定 `onClick`；同时宿主仍会 `ElevateScreenCloseButton()` 保证创角根关闭钮可点（双路径均可回 PageHome）。家园页签可见时 `ZhuanQianPopup` 已隐藏，本按钮**不**承担 ZhuanQian 特例；该特例仍由创角根 `ScreenCloseButton` 处理（§9.14.6 / §9.14.10 v3.191）。
 7. **左上体力 HUD `TopLeftStaminaHud`（自 v3.204）**：锚定面板根节点**左上角**、位于 `ScreenCloseButton` **右侧**（`anchor/pivot = (0,1)`，`anchoredPosition ≈ (108, -20)`）；子节点 `StaminaBarSlot` 尺寸 **`275×116`**（与 §9.8.13 统一仓库体力槽一致）。**自 v3.205 起**，`StaminaBarSlot` 可在 `HomeTabPanel.prefab` 内**预先嵌入** `StaminaBar.prefab` 子实例（编辑器拖入并调 RectTransform）；`Show()` 时 `HomeTabPanelView.EnsureStaminaBar()` 调用 `StaminaBarView.GetOrCreateIn(slot, role, service)`——**若槽内已有 `StaminaBarView` 则复用并 `Bind`/`SubscribeService`，否则** `BuildInto` 实例化 `Resources/Prefabs/Farm/StaminaBar.prefab`（缺失则代码回退）。`HomeTabPanelView` 可选序列化字段 `staminaBar` 直接引用嵌入实例。`Bind` 订阅 `IPlantingService.OnStaminaChanged` 实时刷新。新档初始 `stamina=0`（§5），体力条仅显示背景+刻度+左侧 `TiLi_0` 图标。`siblingIndex` 置于 `ScreenCloseButton` 之上，避免被遮挡。
 8. **增加经验按钮 `AddExpButton`（自 v3.208）**：位于 `TopLeftStaminaHud` 内、`StaminaBarSlot` **右侧**（黑底白字「增加经验」，约 `140×64`，间距约 `16`）。点击后按当前等级 `expToNextLevel` 的 **40%**（`max(1, floor(expToNextLevel * 0.4))`）调用 `IPlantingService.TryAddRoleExp`；若发生升级则排队打开 §9.14.13 `RoleLevelUpPanel`（连升多级时按级依次展示，OK 推进下一级）。
 
@@ -3190,7 +3536,7 @@ flowchart TD
 
 **中文（接口）：**
 
-- `PetDemo.UI.HomeTabPanelView` / `PetDemo.UI.HomeTabPanelLayout`（`GetOrCreate` / `Bind(IPlantingService)` / `Show` / `Hide` / `RefreshAll`；气泡逻辑内嵌于 `Show`/`Hide`/点击回调；自 **v3.190** 另有事件 `OnDailyTaskRequested`；自 **v3.193** 另有事件 `OnCloseRequested` 与根级 `ScreenCloseButton`；自 **v3.206** 另有开局营救：`ApplyDeathLastFrame` / `RoleClickHitbox` / `CompleteOpeningRescue` 联动）。
+- `PetDemo.UI.HomeTabPanelView` / `PetDemo.UI.HomeTabPanelLayout`（`GetOrCreate` / `Bind(IPlantingService)` / `Show` / `Hide` / `RefreshAll`；气泡逻辑内嵌于 `Show`/`Hide`/点击回调；自 **v3.190** 另有事件 `OnDailyTaskRequested`；自 **v3.193** 另有事件 `OnCloseRequested` 与根级 `ScreenCloseButton`；自 **v3.206** 另有开局营救：`ApplyDeathLastFrame` / `RoleClickHitbox` / `CompleteOpeningRescue` 联动；自 **v3.253** 另有 `OnWarehouseRequested` + `TopRightActions` 三钮 / `PosY=-218`）。
 - `PetDemo.UI.CharacterCreationScreenView.OpenAddFavorTab()`（自 **v3.190**：公开打开加好感/`ZhuanQianPopup`；**自 v3.194 起仅**供家园「每日任务」使用，底栏 `RoleAddFavorButton` 改开 §9.14.12 训练面板）。
 - `PetDemo.Core.HomeTabBubbleConfig` / `PetDemo.Core.HomeTabBubbleCatalog`（`Load` / `GetEligible` / `ClearCache` / `BuildDefault`）。
 - `PetDemo.EditorTools.HomeTabPanelPrefabGenerator`（`Tools/PetDemo/Generate Home Tab Panel Prefab`）。
@@ -3211,11 +3557,21 @@ flowchart TD
      - **进行中**：课程图标 + 名称 + 倒计时（`mm:ss`，基于墙钟 `endUnixMs`，支持离线重进）。
      - **倒计时结束**：倒计时位置改为按钮「完成」；点击后结算（见下），并将增益属性图标飞向左部角色位置（复用/扩展 `RewardFlyFx`）。
 2. **中部 `FilterSection`（筛操作区，单行）**
-   - 一行展示 6 项属性图标（左→右）：`AirUI/SX_1_ZhiShang_A`、`SX_2_JiYi_A`、`SX_3_XiangXiang_B`、`SX_4_TiPo_A`、`SX_5_MeiLi_A`、`SX_6_QingShang_A`。
-   - **已加入筛选**：属性图标正常亮度，并在图标**右下角**叠加 `AirUI/common_bg_5`。
-   - **未加入筛选**：属性图标变暗（无角标）。
-   - 点击切换加入/剔除；筛选状态写入存档 `TrainingSession.activeFilterMask`（6bit，bit0=智力…bit5=情商）。
-   - **匹配规则（OR）**：若 mask=0（未选任何）→ 显示全部课程；否则课程 `filterTags` 与选中属性编号有**任一交集**即显示，否则隐藏。
+   - 一行展示 **1 项 `All` + 6 项属性图标**（左→右，共 7 项、居中排布）：`All`=`AirUI/SX_0_All_A`；随后 `AirUI/SX_1_ZhiShang_A`、`SX_2_JiYi_A`、`SX_3_XiangXiang_B`、`SX_4_TiPo_A`、`SX_5_MeiLi_A`、`SX_6_QingShang_A`。`All` 项（`FilterAll`）样式与属性项一致（图标 + `SelectedHighlight` 圆环 + `SelectedBadge` 角标）。
+   - **`All` 语义（v3.233）**：代表"所有属性全部激活"的显示状态（=显示全部课程）；仅用视图层布尔 `allFilterActive` 表示，**不持久化**、不改存档。
+   - **默认激活规则**：每次打开面板（`Show()`）默认激活 `All`，即 `allFilterActive=true` 且 `activeFilterMask=0`（不记忆上次筛选）。
+   - **已加入筛选**：图标正常亮度；在图标**上层居中**叠加 `AirUI/common_bg_15`（黄色发光空心圆环）作为**选中激活高亮**（`SelectedHighlight`，尺寸略大于图标使圆环环绕、中空处透出图标），并在图标**右下角**叠加 `AirUI/common_bg_5`（`SelectedBadge`，保留）。
+   - **未加入筛选**：图标变暗（无圆环、无角标）。
+   - **`All` 与属性互斥样式（仅样式）**：`All` 激活时仅 `All` 显示选中样式，6 项属性图标全部显示未选中样式（变暗）；某属性被激活时 `All` 显示未选中样式。
+   - **点击交互**：
+     - 点击 `All` → `allFilterActive=true`、`mask=0`（属性全部变暗）。
+     - `All` 激活状态下点击某属性 i → `allFilterActive=false`、`mask=1<<i`（**仅**该属性激活）。
+     - 非 `All` 状态点击属性 → 现有加入/剔除切换（OR 多选）。
+   - **课程可见规则**：
+     - `allFilterActive=true` → 显示全部课程。
+     - `allFilterActive=false` 且 `mask==0`（未选任何属性）→ 隐藏全部课程，并在 `CourseSection` **中心**显示白色文字「未选中任何属性，请点击下方的属性项图标」（`EmptyFilterHint`，字号 **42**）。
+     - 否则（`mask!=0`）→ OR 匹配：课程 `filterTags` 与选中属性编号有**任一交集**即显示，否则隐藏。
+   - 注：`RoleTrainingCourseCatalog.MatchesFilter` 目录级约定不变（`mask=0` 视为全通过），上述"空状态"由视图层单独处理。
 3. **下部 `CourseSection`（双列课程列表）**
    - **`CourseScroll`（`ScrollRect`）**：相对 `CourseSection` 中心锚点 `anchorMin/Max=(0.5,0.5)`、`pivot=(0.5,0.5)`；**`PosY=40`**、**`Width=1080`**、**`Height=870`**（`anchoredPosition.y` / `sizeDelta`）；`TrainingPanelLayout` 常量 `CourseScrollPosY` / `CourseScrollWidth` / `CourseScrollHeight`。
    - 内容网格：每行 **2** 个课程格；数据来自 §B.22 `Configs/Farm/role_training_courses.csv`。
@@ -3237,7 +3593,7 @@ flowchart TD
 - `PetDemo.EditorTools.TrainingPanelPrefabGenerator`（`Tools/PetDemo/Generate Training Panel Prefab`）。
 - `CharacterCreationScreenView.OpenTrainingPanel()`（底栏训练页签）。
 
-**English:** Standalone `TrainingPanel` prefab for the character-creation Favor-tab button (v3.194): top role + active AFK course / idle hint / Complete CTA; mid single-row OR attribute filter with `common_bg_5` badge; bottom 2-column course grid from §B.22 with lock overlay `common_bg_Suo` α=0.9; one concurrent session persisted on save; complete applies gains/penalties and flies gain icons to the role mount.
+**English:** Standalone `TrainingPanel` prefab for the character-creation Favor-tab button (v3.194): top role + active AFK course / idle hint / Complete CTA; mid single-row OR attribute filter — a leading `All` item (`FilterAll`, icon `SX_0_All_A`) plus 6 attribute icons; a selected item shows a centered `common_bg_15` glow ring overlay (`SelectedHighlight`, drawn above the icon, hollow so the icon shows through) plus the retained bottom-right `common_bg_5` badge (`SelectedBadge`); bottom 2-column course grid from §B.22 with lock overlay `common_bg_Suo` α=0.9; one concurrent session persisted on save; complete applies gains/penalties and flies gain icons to the role mount. **v3.233:** `FilterAll` (view-only `allFilterActive`, not persisted) is the default active state on open (mask reset to 0) and means "show all courses"; `All` and the attribute icons are mutually exclusive in styling only; clicking an attribute while `All` is active activates only that attribute (`mask=1<<i`); when no attribute is selected and `All` is off, all courses hide and a centered white size-42 `EmptyFilterHint` ("未选中任何属性，请点击下方的属性项图标") is shown in `CourseSection`.
 
 #### 9.14.13 主角升级全屏面板 / Role Level-Up Panel (v3.208 / v3.210)
 
@@ -3402,6 +3758,42 @@ function executeUnifiedAction():
 
 | 版本 / Ver | 日期 / Date | 说明 / Notes |
 |------------|-------------|--------------|
+| 3.262 | 2026-07-15 | **庄园建造弹图**：§9.8.19——`Button-JianZao` 打开底部对齐的 `AirUI/WDZY_ZS_UI_1`（原生 1080×766）；`BuildOverlay` 兄弟结构 Dim（空白关闭）+ Image（拦截射线）；`Hide` 同步关层；骨架/预制体生成器同步。 / **Manor build overlay:** JianZao shows bottom native-size sheet; blank dismiss. |
+| 3.261 | 2026-07-14 | **庄园 Partner Spine 0.27 + 游走选点避障**：§9.8.19 / §9.8.9.15——Partner `NpcSpine` 用 `GuildPlayerLocalScale (0.27,0.27,1)`；`TryPickWaypoint` 排除脚底盒与 `GuildObstacleArea` 相交的目标点（公会/庄园共用）。 / **Manor partner scale 0.27 + wander skip obstacle waypoints.** |
+| 3.260 | 2026-07-14 | **庄园 Obstacles 碰撞**：§9.8.19——`Obstacles/Obstacle_*`（`GuildObstacleArea`）预制体可编占位；主角与 Partner 游走复用公会分轴 AABB + 贴墙滑动；`BuildSceneSkeleton` 默认 4 个矩形。 / **Manor Obstacles:** editable GuildObstacleArea placeholders; same collision as guild for player + wander. |
+| 3.259 | 2026-07-14 | **庄园 Partner NPC + Waypoints**：§9.8.18.3 / §9.8.19——已结伴入口 `Show(partnerFriendId)`；预制体 `Npcs/PartnerNpc` + `Waypoints`；npcId 取会话伴侣（Catalog 无匹配 → `friend-01`）；复用公会 Spine/NamePlate/跟随/动作图标/游走；PartnerNpc 运行时 reparent 到 `Characters/` 做深度排序。 / **Manor partner NPC + waypoints:** session partner id drives prefab marker; guild NPC pipeline; editable Waypoints. |
+| 3.258 | 2026-07-14 | **邀请伴侣 GenderIcon 读 CSV**：§9.8.18.3 / §9.14.2——根因是 `GetFriends()`/`FriendCatalog.BuildDefault` 未带 `isFemale`；改为 `TopFriendCatalog.CreateSessionList` 初始化、`ApplyCsvStaticFields` 读档/拉列表时合并 CSV；`FriendCatalog` 回退种子补 gender/hasPartner。InvitePartner `GenderIcon`：`male`→`friends_icon_man`，`female`→`friends_icon_woman`。 / **Invite gender icons from CSV:** merge TopFriends static fields into session friends. |
+| 3.257 | 2026-07-14 | **公会 NPC Spine 配置化**：§9.8.9 第 4 点 / §9.8.9.9 / §9.8.9.7——`Npcs/` 下模型按 `GuildNpcMarker.npcId` 读 `TopFriends.csv` 的 `spinePrefab` 探针构建；缺配置回退 `skeletonKind`；跟随快照 `skeletonPrefab` 同步优先写 CSV 路径。`TopFriendCatalog.TryGetById` + `GuildSpineCharacterBuilder.ResolveSkeletonDataAssetFromPrefabPath`。 / **Guild NPC Spine from CSV:** spawn + follow snapshot by TopFriends.spinePrefab keyed by npcId; kind enum as fallback. |
+| 3.256 | 2026-07-14 | **角色 Spine 探针预制体**：§9.5——新增 `Resources/Prefabs/Air/Hero_Role_csnvhai`、`Hero_Role_cslieren`（结构对齐 `Hero_Role_langmeiren`，分别引用 `Role_csnvhai` / `Role_cslieren` 的 `SkeletonDataAsset`）；供 `Resources.Load` / 好友 `spinePrefab` / 装扮等探针使用。 / **Role Spine probe prefabs:** add csnvhai + cslieren Resources probes mirroring langmeiren layout. |
+| 3.255 | 2026-07-14 | **邀请伴侣好友行性别图标**：§9.8.18.3 / §9.8.18.3.1——`FriendRowTemplate` 的 `GenderText` 改为 `GenderIcon`（`Image`）；按 `TopFriends.csv` `gender` 显示 `AirUI/friends_icon_man` / `friends_icon_woman`（对齐 §9.14.8），不再用「男/女」文字；`InvitePartnerModalView` + 预制体 / 回退骨架同步。 / **Invite-partner gender icon:** FriendRow uses GenderIcon Image from CSV gender. |
+| 3.254 | 2026-07-14 | **庄园门装饰深度按脚底**：§9.8.19.2.1——明确 `GuildWorldDepthSorter` 用 `RectTransform.position`（枢轴）而非 Sprite Custom Pivot；Men_1/Men_2 `pivot=(0.5,0)` + 位姿补偿；`EnsureDecoration` 幂等。 / **Manor door depth by feet:** Image props use RectTransform feet pivot; Sprite pivot alone ignored by sorter. |
+| 3.253 | 2026-07-14 | **主 HUD 布局 + 仓库入口迁 HomeTab**：§9 / §9.7——`SeedWarehouseButton`/`FertilizeEntryButton` PosY `290`→`140`；§9.8.11——`JiaYuanHomeFeatureLayer` 永久隐藏（订单随层隐藏）；§9.14.11——`TopRightActions` PosY=`-218`，竖排第三钮 `WarehouseEntryButton`（`AirUI/CangKu`）→ `OnWarehouseRequested` 开 §9.8.13 仓库（Show 前升 `HudPopup`）；§9.8.13 入口 B 改此路径。 / **Main HUD layout + warehouse to HomeTab:** seed/fertilize Y→140; hide JiaYuanHomeFeatureLayer; HomeTab TopRightActions Y=-218 + warehouse button → WarehouseHub. |
+| 3.252 | 2026-07-14 | **九宫格敌方骨骼误用玩家装扮修复**：§12.11.4——装扮 Resolver **仅**作用于 `side==Ally && kind==Role`；敌方继续用 `invasion_units.csv` 的 `skeletonPrefab`（敌方运行时 `kind` 复用 Role 占位不得覆盖外观）。 / **Fix grid enemies using player dress-up Spine:** Resolver only for ally Role; enemies keep CSV prefab. |
+| 3.251 | 2026-07-14 | **冒险 RoleStand 跟随装扮装备**：§12.11.4 / §9.14.9——`InvasionBattleModal_2` 构建 `PlayerSlot/RoleStand`（及同局九宫格 Role）时经 `PlayerSpineAppearanceResolver` 读会话装备 Spine，不再固定默认 `Hero_Role_cunmin`。 / **Adventure RoleStand follows dress-up equip:** resolve equipped Spine at Show/Rebuild. |
+| 3.250 | 2026-07-14 | **装扮 EquippedSpine PosY**：§9.14.9——装备预览 `EquippedSpine.anchoredPosition.y` 由 `-120` 改为 **`-200`**。 / **Dress-up EquippedSpine PosY:** `-120` → `-200`. |
+| 3.249 | 2026-07-14 | **装扮 UseButton / 装备预览布局**：§9.14.9——`UseButton` `PosY=-100`；装备 Spine 成功后 `PlayerRole` Top=95（`offsetMax.y=-95`）、`EquippedSpine` Scale=`(0.75,0.75)`；拆除预览时恢复 Top。 / **Dress-up Use/equip layout:** UseButton PosY -100; on equip PlayerRole Top=95 + EquippedSpine scale 0.75. |
+| 3.245 | 2026-07-14 | **更多游戏列表无跳转 + 关闭回公会**：§9.8.9.10 / §9.14.10——`EnterHomeScrollView` 内 `NavigateButton` 点击无效果；`EnterHomeTopPanel` 可见时 `ScreenCloseButton` → `OnEnterHomeHudRequested` 回退 `GongHuiScreen`，不回 APP。 / **More-games list:** NavigateButtons no-op; ScreenClose returns to GongHui EnterHomeHud. |
+| 3.248 | 2026-07-14 | **庄园 ManorPlayer 跟随装扮装备**：§9.8.19——`CompanionManorScreenView.BindPlantingService` 订阅 `OnPlayerAppearanceChanged`；生成/刷新主角用 `PlayerSpineAppearanceResolver` + `TryReplaceSkeletonData`（对齐公会 GuildPlayer）。 / **Manor player follows dress-up equip:** same appearance pipeline as GuildPlayer. |
+| 3.247 | 2026-07-14 | **公会 GuildPlayer 跟随装扮装备**：§9.8.9.4——`GongHuiScreenView.BindPlantingService` 订阅 `OnPlayerAppearanceChanged`；生成/刷新主角时用 `PlayerSpineAppearanceResolver`；`GuildSpineCharacterBuilder.TryReplaceSkeletonData` 就地换骨。 / **Guild player follows dress-up equip:** apply equipped Spine to GuildPlayer on spawn + appearance event. |
+| 3.246 | 2026-07-14 | **装扮「使用」按钮可点 + 本面板 Spine 预览**：§9.14.9——`UseButton` 改锚在 `PlayerRole` 内部底边（避免被 `BottomHalf` 挡住）；装备成功后在装扮 `PlayerRole` 预览 Spine；打开面板清 CSV 缓存。 / **Dress-up Use clickable + in-panel Spine preview:** button inset inside PlayerRole; preview equipped Spine on success. |
+| 3.245 | 2026-07-14 | **装扮 applyResource 支持 Assets/ 路径**：§9.14.9——`PlayerSpineAppearanceResolver.TryLoadSkeletonData` 支持 Editor 下 `Assets/.../*_SkeletonData.asset`；修正 `hh_001` 误填 Atlas。 / **Dress-up applyResource Assets/ paths:** Editor AssetDatabase load; fix hh_001 Atlas→SkeletonData. |
+| 3.244 | 2026-07-14 | **装扮「使用」按钮 + CSV 扩展**：§9.14.9——`DressUpItems.csv` 增 `useButtonLabel`/`applyResource`；选中 Cell 于 `PlayerRole` 下方显示 `UseButton`；点击后若 Spine 路径有效则写入 `RoleStats.equippedPlayerSpineResource` 并 `OnPlayerAppearanceChanged`，创角/家园/HomeTab/训练重建主角；空路径无效果。 / **Dress-up Use button + CSV:** equip player Spine via session field + appearance event. |
+| 3.243 | 2026-07-14 | **更多游戏不开 HomeTabPanel**：§9.8.9.10——`MoreGamesButton` 改为 `ShowMoreGames()`，展示 `EnterHomeTopPanel` 游戏列表（狼来了/人狼纷争/修仙），禁止默认 `Show()`→`HomeTabPanel`。 / **More-games entry:** open `EnterHomeTopPanel` via `ShowMoreGames()`, not default home tab. |
+| 3.242 | 2026-07-14 | **邀请伴侣弹窗预制体化**：§9.8.18.3.1——`InvitePartnerModalView` 对齐 §8.1：优先实例化 `Prefabs/Farm/InvitePartnerModal`；列表行用隐藏 `FriendRowTemplate` 克隆；布局/样式由预制体承担；缺资源时 `BuildModalSkeleton` 回退 + `LogWarning`；Editor 菜单 `Tools/PetDemo/Generate Invite Partner Modal Prefab`。 / **InvitePartnerModal prefab-first:** Resources prefab + FriendRowTemplate clone; runtime skeleton only as fallback; generator menu. |
+| 3.241 | 2026-07-14 | **创角 ScreenClose 回 PageHome**：§9.14.6 / §9.14.11——内容面板 `SetAsLastSibling` 曾盖住左上 `ScreenCloseButton` 导致点击无效；`CharacterCreationScreenView.ElevateScreenCloseButton` 在打开 `HomeTabPanel`/`DressUpPanel`/`TrainingPanel`/`ZhuanQianPopup` 后将关闭钮提到内容层之上（仍低于加号黑底），并每次重新绑定 `onClick`→`OnCloseRequested`→`AppScreenView.Show()`（PageHome）；`HomeTabPanelView` 同步置顶/重绑面板内关闭钮。 / **CC ScreenClose → PageHome:** elevate close above content panels + rebind click; HomeTab panel close hardened. |
+| 3.240 | 2026-07-14 | **主线体力 HUD 右上 + 返回公会**：§9.8.8——`MainStoryStaminaHud` 由左上改为**右上**（`anchor/pivot=(1,1)`，`anchoredPosition=(-20,-20)`）；左上新增 **`BackButton`**（`AirUI/common_bg_9`，`120×120`，`preserveAspect`），点击 `SetOpenKey(GongHui)` 返回 EnterHomeHud / `GongHuiScreen`（禁止显示 BottomNavBar）。`MainStoryLineScreenView.BuildInto` 同步。 / **Main-story stamina HUD top-right + back to guild:** relocate `MainStoryStaminaHud` to top-right; add top-left `BackButton` (`common_bg_9`) that `SetOpenKey(GongHui)`. |
+| 3.239 | 2026-07-14 | **主线界面强制隐藏 BottomNavBar**：§9.8.8 / §9.8.8.2 / §9.14.10——`MainStoryLineScreen` 显示时 `BottomNavBar` **必须保持隐藏**（对齐 §9.8 v3.237 永久隐藏）；`GongHuiScreenView.SwitchToBottomNav`（含 Building_1 / WF_XuanShang → `ZhuXian`）**禁止** `SetActive(true)`，仅 `SetOpenKey`；`MainStoryLineScreenView` 显示时兜底再 `SetActive(false)`。 / **Hide BottomNavBar on MainStoryLineScreen:** must stay hidden when ZhuXian layer shows; SwitchToBottomNav never re-activates the bar; MainStoryLineScreenView force-hides on show. |
+| 3.238 | 2026-07-14 | **伴侣庄园可走场景（BLZY）**：§9.8.18 已结伴入口由 Toast 改为打开新 §9.8.19 `CompanionManorScreenView`（公会全屏子层）；2×2 背景 `AirUI/BLZY_r*_c*`；摇杆移动复用公会控制器；`BLZY_men1`/`BLZY_men_2` 与玩家同挂 `Characters/` 并 `GuildWorldDepthSorter`；`BackButton` + 公会隐藏时清理；预制体 `CompanionManorScreenPanel` + Editor 生成器。 / **Companion Manor walkable scene:** partnered entry opens §9.8.19 overlay; 2×2 BLZY tiles; joystick + depth-sorted door props; prefab + generator. |
+| 3.237 | 2026-07-14 | **全局隐藏 BottomNavBar + 统一操作钮下移**：§9.8 / §9.8.1——`BottomNavBar` 构建并 `EnsureInitialized` 后永久 `SetActive(false)`，任何路径不得再显示；EnterHomeHud 仅互斥 HUD `BottomTabBar`，离开时不再 `SetActive(true)` 底栏；逻辑态仍由 `SetOpenKey`/`OnOpenChanged` 驱动。§9.2——`UnifiedActionButton` `anchoredPosition` 由 `(0,-660)` 改为 **`(0,-820)`**（贴画面下沿）；预制体 / fallback / `FarmGridPrefabGenerator` 同步。 / **Permanently hide BottomNavBar + lower UnifiedActionButton:** §9.8 — bar stays built but never shown; EnterHomeHud no longer re-activates it; §9.2 — unified button PosY `-660`→`-820`. |
+| 3.236 | 2026-07-14 | **伴侣小屋迁入公会**：§9.8.18 宿主由 `JiaYuanWorldScreen`/`JiaYuanWorldContent` 改为 `GongHuiScreenPanel`；删除家园透明建筑与 FriendEntry 正上方 JiaYuan 门控 HUD 入口；入口改为公会右上 `CompanionCottageEntryButton`（`WfZhuangYuan` 下方，`CompanionCabin_Icon`）+ `Building_4`「前往」（`navTargetKey=CompanionCottage` → `TriggerEntry`，不切家园）；§9.8.9.13 增补 Building_4；§9.8.9.14 右上由 4→5 项；`BindCompanionCottage` + `AirMainMenuRuntimeBuilder` 改装配。清理时机改为公会层隐藏。 / **Companion Cottage moves to GongHui:** host on `GongHuiScreenPanel`; remove JiaYuan world/HUD entry; top-right 5th button + Building_4 `CompanionCottage` nav; cleanup on guild hide. |
+| 3.235 | 2026-07-14 | **公会建筑名牌按钮文案统一为「前往」**：§9.8.9.13——`Buildings/*/NamePlate/ActionButton/Label` 文案由「功能」改为「**前往**」；`GuildSceneUiFactory.BuildingActionButtonLabel` + `SetBuildingActionButtonLabel`；`GuildBuildingMarker.BuildPlate` / `WireActionButton` 强制同步。 / **Guild building plate CTA = "前往":** §9.8.9.13 — `ActionButton/Label` unified to **"前往"** (was "功能"); factory constant + sync on bake/wire. |
+| 3.234 | 2026-07-14 | **效果/小怪战胜利跳过结算弹窗**：§12.11.10.1——九宫格嵌入战结算按战斗类型分支：**仅 BOSS 战（`evt_fight_boss`）胜利才弹出** `EmbeddedResultOverlay/ResultDialog` 奖励结算界面；**效果/小怪战（非 BOSS）胜利不弹出**，播完胜利动画后直接 `onEmbeddedEnded(true)` 进入战后流程（恢复 `PartyStandRoot` → 继续「下一天」）。`InvasionBattleView.ShowEmbeddedResultDialog` 按 `GridBattleSession.pendingEventId == GridEncounterBuilder.EventFightBoss` 判定，`playerWon && !isBoss` 时短路回调；失败分支不变。 / **Effect/small battle win skips result dialog:** §12.11.10.1 — grid embedded settlement shows `EmbeddedResultOverlay/ResultDialog` only for BOSS wins; non-BOSS wins skip it and go straight to the post-battle flow. Short-circuited in `ShowEmbeddedResultDialog` when `playerWon && !isBoss` (boss detected via `pendingEventId == EventFightBoss`); loss unchanged. |
+| 3.233 | 2026-07-14 | **公会右上玩法按钮下移**：§9.8.9.14 `TopRightWorkflowLayer/TopRightWorkflowActions` 的 `anchoredPosition.y` 由 `-24` 改为 `-150`（`PosX` 仍为 `-margin`=`-24`），使竖排按钮整体下移避开顶部；`GongHuiScreenLayout.EnsureTopRightWorkflowActions` 常量对齐并对旧预制体运行时校正；建议重生成 `GongHuiScreenPanel.prefab`。 / **Guild top-right workflow buttons lowered:** §9.8.9.14 `TopRightWorkflowActions` `anchoredPosition.y` `-24`→`-150`; layout apply on existing prefabs; regen prefab. |
+| 3.232 | 2026-07-13 | **训练筛选属性选中高亮圆环**：§9.14.12 `FilterSection` 的每个 `FilterAttr_i` 新增子节点 `SelectedHighlight`（`AirUI/common_bg_15` 黄色发光空心圆环，居中叠加在图标上层、尺寸略大于图标环绕、中空透出图标、`raycastTarget=false`），选中（加入筛选）时显示、取消时隐藏；原右下角 `SelectedBadge`（`common_bg_5`）保留同时显示。`TrainingPanelLayout` 新增常量与 `EnsureFilterHighlight` 旧预制体运行时补齐；`TrainingPanelView.filterHighlights` + `RefreshFilterVisuals` 切换；建议重生成 `TrainingPanel.prefab`。 / **Training filter attr selected highlight ring:** §9.14.12 each `FilterAttr_i` gains a `SelectedHighlight` child (`common_bg_15` yellow glow ring, centered above the icon, slightly larger so it surrounds it, hollow center, non-raycast) shown when selected and hidden otherwise; bottom-right `SelectedBadge` (`common_bg_5`) retained. `TrainingPanelLayout` new constants + `EnsureFilterHighlight` backfill; `TrainingPanelView.filterHighlights` + `RefreshFilterVisuals` toggle; regen prefab recommended. |
+| 3.231 | 2026-07-13 | **公会场景角色 Y 轴深度遮挡**：新增 §9.8.9.16——公会场景主角与全部 NPC 的互遮关系由「静态 sibling」改为「按 `GongHuiWorldContent` 局部 Y 动态决定」（**Y 越低越靠下越靠前**，语义同 §9.1.4 家园）。**实现方式与家园不同**：不引入嵌套 `Canvas.overrideSorting`（避免破坏公会屏顶层「全景按钮/摇杆/TipsToast」覆盖关系），改用**同父容器 `Npcs/` 内 sibling 重排**。前置改动：主角 Spine 由挂 `GongHuiWorldContent` 改挂 **`Npcs/` 组**（与各 `GuildNpcMarker` 同级），坐标系/镜头跟随不变。新增 `GuildWorldDepthSorter`（挂 `GongHuiScreen` 根，`EnsureSceneSpawned` 装配，`LateUpdate` 按 Y 降序赋 sibling，顺序未变则跳过）。 / **Guild scene character Y-depth occlusion:** new §9.8.9.16 — protagonist + all NPCs occlude by local Y in `GongHuiWorldContent` (**lower = front**, same semantics as §9.1.4). **Unlike home world**, uses **sibling reorder within `Npcs/`** instead of nested `Canvas.overrideSorting` (to preserve guild top-layer UI ordering). Prereq: player Spine now mounts under **`Npcs/`** (sibling of `GuildNpcMarker`), coords/camera unchanged. New `GuildWorldDepthSorter` on `GongHuiScreen`, wired in `EnsureSceneSpawned`, `LateUpdate` Y-desc sibling sort (skips when order unchanged). |
+| 3.227 | 2026-07-13 | **BOSS 战胜利返回主线界面（改路由）**：§12.11.10——嵌入 BOSS 战（`battle_boss`）胜利后不再打开 §9.8.8.6 `LevelSelectScreenPanel`，改为 `Hide()` 关闭 `InvasionBattleModal_2` 并经**新增** `MainStoryLineScreenView.ShowMainStoryScreen()` 返回 §9.8.8 主线界面 `MainStoryLineScreen`（底栏切至「主线」Tab `ZhuXian` 并 `LevelSelectScreenPanelView.HideIfAny()`）。`InvasionBattleModal2View.OnEmbeddedBattleEnded` BOSS 胜分支由 `ShowLevelSelectPanel()` 改调 `ShowMainStoryScreen()`；`ShowLevelSelectPanel()` 保留不再被 Modal_2 调用。 / **BOSS victory returns to main story screen (re-route):** §12.11.10 — after embedded BOSS win, no longer open `LevelSelectScreenPanel`; instead `Hide()` the modal and call new `MainStoryLineScreenView.ShowMainStoryScreen()` to select the `ZhuXian` tab and hide any level-select panel. |
+| 3.226 | 2026-07-13 | **怪物战斗显示比例（`displayScale`）**：§B.9 / §12.5 / §12.14.9——`invasion_units.csv` 新增**可选列 `displayScale`**（`1`=原始、`1.5`=放大 50%；缺列/空/`<=0` 回退 `1.0` 并 `LogWarning`）；`InvasionUnitConfig` 与 `BattleUnitRuntime` 各增 `float displayScale=1`；`InvasionConfigCatalog.LoadInvasionUnitsFromCsv` 解析该列，`GridEncounterBuilder.CreateEnemyRuntime` 透传至运行时；九宫格渲染 `TryBuildGridUnitVisual` 以 `GridCharacterScale × displayScale` 设置 `UnitAnchor.localScale`，实现怪物/BOSS 战斗中按配置临时放大。仅影响九宫格战斗展示（§12.3 全屏 legacy 1v1 不在范围）。 / **Monster battle display scale (`displayScale`):** §B.9 / §12.5 / §12.14.9 — new optional `displayScale` column in `invasion_units.csv` (`1`=original, `1.5`=+50%; missing/empty/`<=0` → `1.0` with warning); `InvasionUnitConfig` and `BattleUnitRuntime` gain `float displayScale=1`; parsed by `InvasionConfigCatalog`, passed through `GridEncounterBuilder`, applied in grid render as `GridCharacterScale × displayScale`. Grid battle only. |
+| 3.225 | 2026-07-13 | **修复战斗 Spine「有节点无外形」（变体皮肤未应用）**：§12.14.9 / §12.7——`InvasionBattleView.TryBuildSkeletonGraphic` 与 `DetailAttributeModalView.TryBuildSkeletonGraphic` 在探针阶段除 `SkeletonDataAsset` 外**新增读取源预制体 `SkeletonAnimation.initialSkinName`**；`SkeletonGraphic` 经 `AddSkeletonGraphicComponent` 构建成功后，若该皮肤名非空且存在于 `Skeleton.Data`，则运行时 `Skeleton.SetSkin(name)` + `SetSlotsToSetupPose()` + `LateUpdate()` 应用之（方案2：构建后应用，不改 `AddSkeletonGraphicComponent`）。修复典型如 `Pets/Monster_102_Hamy Alsapphire`（`initialSkinName=V3`，默认皮肤为空）被配置为敌方/BOSS 骨骼时渲染为空、且因 `SkeletonGraphic.IsValid==true` 连占位色块都不出现的问题。皮肤缺失时 `LogWarning` 并跳过（保持默认皮肤）。 / **Fix invisible battle Spines (variant skin not applied):** §12.14.9 / §12.7 — `TryBuildSkeletonGraphic` (Invasion + DetailAttribute) now also reads the prefab's `SkeletonAnimation.initialSkinName` and, after building the `SkeletonGraphic`, applies it at runtime via `Skeleton.SetSkin` + `SetSlotsToSetupPose` + `LateUpdate` when the named skin exists (option 2: apply post-build). Fixes e.g. `Monster_102_Hamy Alsapphire` (`initialSkinName=V3`, empty default skin) rendering nothing with no fallback block. Missing skin logs a warning and keeps the default skin. |
 | 3.224 | 2026-07-10 | **九宫格战场 Top 边距**：§12.14.9——嵌入 `TopArea` 的 `GridBattleField` 拉伸后 **Top=200**（`offsetMax.y=-200`），整体下移避开顶部留白/关闭钮。 / **Grid field top inset:** embedded `GridBattleField` Top=200 (`offsetMax.y=-200`). |
 | 3.223 | 2026-07-10 | **修复九宫格战角色不可见**：§12.14.9——`UnitAnchor` 嵌套 `Canvas.overrideSorting` 的 `sortingOrder` 改为 **`parentCanvas.sortingOrder + row×10 + col`**（禁止写绝对小值落入世界带 `0..499` 被 HUD `1000+` 盖住）；新建 Canvas 须写入 Spine 所需 `additionalShaderChannels`（`TexCoord1|Normal|Tangent`），并在构建 `SkeletonGraphic` **之前**挂好该 Canvas；补齐 `GraphicRaycaster`。 / **Fix invisible grid-battle Spines:** parent-relative sortingOrder; Spine shader channels on nested canvas; create canvas before SkeletonGraphic. |
 | 3.222 | 2026-07-10 | **冒险 Spine 层级/移动/队友骨骼修复**：(1) §12.14.9——九宫格战单位 `SkeletonGraphic` 按槽位行 `Slot_r3 > Slot_r2 > Slot_r1` 设置 `Canvas.overrideSorting`（`sortingOrder = row×10 + col`），下方行遮挡上方行；(2) §12.14.15 / §12.11.5——「下一天」移动过场**全队**（Role + FollowerNpc）同步播 `move_1` 后恢复待机；(3) §9.8.9.7 / §12.14.1.1——`GuildHomeVisitState` 快照除 `npcId` 外同步 `skeletonPrefab`（`GuildNpcMarker.SkeletonKind`→`Hero_Role_langmeiren`/`Hero_Role_cunmin`），冒险读队不再因公会场景 inactive 而回退狼人骨骼。 / **Adventure Spine fixes:** grid row depth sort r3>r2>r1; next-day move anim for full party; visit snapshot stores skeleton prefab per follower. |
@@ -3791,6 +4183,8 @@ struct InvasionUnitConfig {
   string displayName;   // 显示名 / display name
   int    attack;        // 单次攻击造成的固定伤害 / fixed damage per attack
   int    maxHp;         // 总血量上限 / max HP
+  string skeletonPrefab; // 外观骨骼 Resources 路径（可空）/ skeleton prefab path (nullable)
+  float  displayScale = 1; // （v3.226）战斗中显示比例，1=原始、1.5=放大50% / battle display scale
 }
 
 // InvasionPhase — 入口图标 / 全局阶段
@@ -3880,6 +4274,7 @@ class BattleUnitRuntime {
   bool         isBattleDead;     // 本场是否暂死（currentHp<=0 后 true）/ battle-death flag
   string       displayName;
   string       skeletonPrefab;   // 外观 Resources 路径；Role 用主角骨骼 / appearance prefab path
+  float        displayScale = 1; // （v3.226）战斗展示比例（来自 InvasionUnitConfig.displayScale）/ battle display scale
 }
 
 // GridBattleSession — 多单位阵型战运行时状态（§12.14）
@@ -4064,10 +4459,12 @@ interface IInvasionService {
 
 #### 12.11.4 玩家角色展示 / Player Character Display
 
-**中文：** 上部玩家角色以 **`SkeletonGraphic`** 运行时构建（与 §9.5 `MainRoleCunminPresenter` / §12.7 `InvasionBattleView.TryBuildSkeletonGraphic` 同方法）：实例化预制体探针 `Resources/Prefabs/Air/Hero_Role_cunmin`（v3.48+ 内嵌 `Role_cslangren` 骨骼）读取 `SkeletonDataAsset`，在 `PlayerSlot` 下创建 `SkeletonGraphic` 并循环播放首个 `standby/idle` 动画。缺骨骼/缺 Shader 时回退占位色块 + `LogWarning`，不阻断界面。  
+**中文：** 上部玩家角色以 **`SkeletonGraphic`** 运行时构建（与 §9.5 `MainRoleCunminPresenter` / §12.7 `InvasionBattleView.TryBuildSkeletonGraphic` 同方法）：默认实例化预制体探针 `Resources/Prefabs/Air/Hero_Role_cunmin`（v3.48+ 内嵌 `Role_cslangren` 骨骼）读取 `SkeletonDataAsset`，在 `PlayerSlot` 下创建 `SkeletonGraphic` 并循环播放首个 `standby/idle` 动画。缺骨骼/缺 Shader 时回退占位色块 + `LogWarning`，不阻断界面。  
 **中文（v3.173 补充）：** 内层 `Skeleton` 节点默认 `localScale.x` 取负（`new Vector3(-1, 1, 1)`）实现**水平镜像 1 次**（与 §12.3 `InvasionBattleView.BuildPlayerSlot` 同朝向路径，无需额外顶点镜像组件）；默认循环播放**待机**（动画名候选链 `standby_1`→`standby`→`idle`→`exclusive_2`→`animation`→骨骼首条）。构建成功后 `View` 保存 `SkeletonGraphic` 引用（`playerSkeleton`）以便 §12.11.5 切换移动/待机动画。  
-**English:** The top player is built as a **`SkeletonGraphic`** at runtime (same as §9.5 `MainRoleCunminPresenter` / §12.7 `InvasionBattleView.TryBuildSkeletonGraphic`): instantiate the prefab probe `Resources/Prefabs/Air/Hero_Role_cunmin` (v3.48+ embeds `Role_cslangren`), read its `SkeletonDataAsset`, create a `SkeletonGraphic` under `PlayerSlot`, and loop the first `standby/idle` animation. Missing skeleton/shader falls back to a color block + `LogWarning` without blocking.  
-**English (v3.173):** The inner `Skeleton` node defaults its `localScale.x` to negative (`new Vector3(-1, 1, 1)`) for a **single horizontal mirror** (same facing path as §12.3 `InvasionBattleView.BuildPlayerSlot`, no extra vertex-mirror component needed), and loops the **idle** animation (candidate chain `standby_1`→`standby`→`idle`→`exclusive_2`→`animation`→first). On success the `View` keeps the `SkeletonGraphic` reference (`playerSkeleton`) to swap move/idle animations for §12.11.5.
+**中文（自 v3.251 起，装扮装备跟随；v3.252 澄清）：** 构建 `PlayerSlot/RoleStand`（及同局九宫格战**我方** Role 单位：`side == Ally && kind == Role`）时，骨骼优先经 `PlayerSpineAppearanceResolver.Resolve(IPlantingService.GetEquippedPlayerSpineResource())` 解析（§9.14.9）：会话已装备装扮 Spine 则用该 `SkeletonDataAsset`；空或加载失败回退默认主角预制体探针。**敌方单位**即便 `kind` 字段复用 `Role` 占位，也**必须**走 `invasion_units.csv` 的 `skeletonPrefab`（§B.9），**不得**套用玩家装扮装备。名册 `RunAllyEntry.skeletonPrefab` 对 Role 仍可保留默认预制体路径作兼容兜底，**视觉以 Resolver 结果为准**。本局 `Show()`→`RebuildPartyStandVisuals` 时固化外观；局内不订阅 `OnPlayerAppearanceChanged`（装扮界面与本 modal 互斥）。  
+**English:** The top player is built as a **`SkeletonGraphic`** at runtime (same as §9.5 `MainRoleCunminPresenter` / §12.7 `InvasionBattleView.TryBuildSkeletonGraphic`): by default instantiate the prefab probe `Resources/Prefabs/Air/Hero_Role_cunmin` (v3.48+ embeds `Role_cslangren`), read its `SkeletonDataAsset`, create a `SkeletonGraphic` under `PlayerSlot`, and loop the first `standby/idle` animation. Missing skeleton/shader falls back to a color block + `LogWarning` without blocking.  
+**English (v3.173):** The inner `Skeleton` node defaults its `localScale.x` to negative (`new Vector3(-1, 1, 1)`) for a **single horizontal mirror** (same facing path as §12.3 `InvasionBattleView.BuildPlayerSlot`, no extra vertex-mirror component needed), and loops the **idle** animation (candidate chain `standby_1`→`standby`→`idle`→`exclusive_2`→`animation`→first). On success the `View` keeps the `SkeletonGraphic` reference (`playerSkeleton`) to swap move/idle animations for §12.11.5.  
+**English (since v3.251; clarified v3.252):** `PlayerSlot/RoleStand` and the **ally** grid Role unit resolve Spine via `PlayerSpineAppearanceResolver` + equipped session path; **enemies always use `invasion_units.csv` skeletonPrefab**, never the player's equipped dress-up Spine. Appearance is fixed at `Show()` / `RebuildPartyStandVisuals` (no mid-run `OnPlayerAppearanceChanged`).
 
 **中文（v3.213 增补，探索期全队站立）：** `Show()` 初始化 `RunPartyRoster` 后调用 **`RebuildPartyStandVisuals(RunPartyRoster roster)`**（建议实现于 `InvasionBattleModal2View`）：在 `TopArea/PartyStandRoot` 下为名册**每名**成员创建 `SkeletonGraphic`（Role 仍可使用 `PlayerSlot` 作中心锚点，队友按 §12.14.15 左右错开）；战斗嵌入时隐藏 `PartyStandRoot`，战斗结束销毁嵌入层后**重建**。详见 §12.14.15。  
 **English (v3.213):** After roster init, `RebuildPartyStandVisuals` builds all party stand Spines under `PartyStandRoot`; hidden during grid battle; rebuilt after battle ends. See §12.14.15.
@@ -4230,7 +4627,7 @@ InvasionEventRewardKind pendingBattleKind;  // Battle 事件奖励种类（已�
    - `GridEncounterBuilder.BuildEnemies(pendingEventId, battleSeed)` 按上表刷怪；
    - `InvasionBattleView.BuildEmbeddedGrid(...)`；胜后 `SyncRosterHpAfterBattle`（§12.14.6.2）；
    - 隐藏探索期 `PartyStandRoot`。
-3. **结算：** 同既有规则——小怪胜继续「下一天」；BOSS 胜回关卡选择；负关闭本局。
+3. **结算：** 小怪胜继续「下一天」；**BOSS 胜（v3.227）→ `Hide()` 关闭 `InvasionBattleModal_2` 并返回 §9.8.8 主线界面 `MainStoryLineScreen`**（经 `MainStoryLineScreenView.ShowMainStoryScreen()` 选中底栏「主线」Tab 并关闭关卡选择层，**不再**打开 §9.8.8.6 `LevelSelectScreenPanel`）；负关闭本局。
 
 **解耦要点 / Decoupling：** §12.3 全屏 `InvasionBattleView`（非 embedded grid）行为不变。
 
@@ -4252,6 +4649,9 @@ InvasionEventRewardKind pendingBattleKind;  // Battle 事件奖励种类（已�
 
 **中文（v3.213 增补，多单位战结算 UI）：** 多单位战（`evt_fight_small_2`）**复用**本节 `EmbeddedResultOverlay/ResultDialog`（§12.11.10.1），**不扩展**队员 HP 列表或阵亡摘要；与 legacy 1v1 相同：**胜/负标题** + **「点击关闭」**提示。胜后：`SyncRosterHpAfterBattle` → 恢复探索期 `PartyStandRoot`（§12.14.15）→ 小怪继续「下一天」。  
 **English (v3.213):** Multi-unit battle reuses the simple win/lose `ResultDialog`; no per-member HP list; after win, sync roster HP and rebuild `PartyStandRoot`.
+
+**中文（v3.234 增补，效果/小怪战胜利跳过结算弹窗）：** 九宫格嵌入战结算按战斗类型分支：**仅 BOSS 战（`evt_fight_boss`）** 胜利时才弹出 `EmbeddedResultOverlay/ResultDialog` 奖励结算界面；**效果/小怪战（`evt_fight_small_1/2` 等非 BOSS）胜利时不弹出**结算弹窗，播完胜利动画后直接进入战后流程（回调 `onEmbeddedEnded(true)` → 恢复探索期 `PartyStandRoot` → `SetNextDayButtonMode(Normal)` 继续「下一天」）。判定依据 `GridBattleSession.pendingEventId == GridEncounterBuilder.EventFightBoss`；实现于 `InvasionBattleView.ShowEmbeddedResultDialog`——`playerWon && !isBoss` 时短路直接回调。**失败分支不变**（效果战/BOSS 战失败仍显示「失败...」弹窗）。  
+**English (v3.234):** Grid embedded settlement branches by battle type: **only BOSS battles (`evt_fight_boss`) show the `EmbeddedResultOverlay/ResultDialog`** on victory; **effect/small battles (non-BOSS) skip the dialog on victory**, proceeding directly to the post-battle flow after the win animation (`onEmbeddedEnded(true)` → rebuild `PartyStandRoot` → next-day). Determined by `GridBattleSession.pendingEventId == GridEncounterBuilder.EventFightBoss`, short-circuited in `InvasionBattleView.ShowEmbeddedResultDialog` when `playerWon && !isBoss`. **Loss behavior unchanged.**
 
 **English:** On embedded battle settlement, `ResultDialog` is **not** parented under `EmbeddedBattle` (which would inherit `EmbeddedScale=0.75` and fail to cover `MiddleArea`/`BottomArea`/`SkillStrip`/`CloseButton`). Instead `InvasionBattleView.InstantiateEmbeddedResultOverlay(resultOverlayHost)` creates **`EmbeddedResultOverlay`** under the `InvasionBattleModal_2` root `panelRt` (full-screen stretch, hidden by default), brought to front via `SetAsLastSibling()` on show. Layering bottom→top: (1) **`DimBackdrop`** — full-screen black `Image` **`RGBA(0,0,0,0.72)`**, `raycastTarget=true`; (2) **`ResultDialog`** — reuses the existing prefab, **centered fullscreen** with runtime layout override `856×883`, scale `(1,1,1)` (prefab defaults unchanged for §12.3 fullscreen). Child text nodes are also overridden at embedded instantiation time (**v3.176**): `ResultText` `PosY=175`, `fontSize=64`, bold; `HintText` `PosY=-340`, `fontSize=40`, bold — via `ApplyEmbeddedResultDialogTextLayout` at the end of `InstantiateEmbeddedResultOverlay`. `LaunchEmbeddedBattle()` passes `panelRt` as `resultOverlayHost`; `OnDestroy` cleans up the overlay.
 
@@ -4638,6 +5038,8 @@ void AcquireSkillForAllPartyMembers(RunPartyRoster roster, string skillId);
 - **（v3.224）布局**：`GridBattleField` 在 `TopArea` 内全宽拉伸，**Top=200**（Inspector 语义：`offsetMax.y=-200`；常量 `GridBattleConstants.GridBattleFieldTopInsetPx`），Bottom/Left/Right 仍为 0。
 - **（v3.213）战斗开始**：**隐藏** `PartyStandRoot`（及 `PlayerSlot` 探索期站立层）；**战斗结束**销毁嵌入层后调用 `RebuildPartyStandVisuals` **恢复**探索期全队站立（§12.14.15）。
 - 每 occupied 槽：运行时 `SkeletonGraphic`（基底 `GridCharacterScaleBase=0.30` × **`BattleSpineDisplayScaleMultiplier=1.15`**）+ 槽位小型 HP 条（复用 §12.3 血条样式：`fillAmount = currentHp/maxHp`；**挂 `slotRt` 中心，Y 偏移 `-20px`**，即 Spine 中心正下方 20px）。
+- **（v3.226）单位显示比例**：每单位 `UnitAnchor.localScale` 在基底 `GridCharacterScale` 上再乘 **`unit.displayScale`**（来自 §B.9 `invasion_units.csv` 的 `displayScale`，经 `BattleUnitRuntime.displayScale` 流转）：`s = GridCharacterScale × max(0.01, unit.displayScale)`；我方 `(-s, s, 1)`（水平镜像），敌方 `FantaziaMonsterDisplay.BoostedMirroredUniform(s)`（仍叠加 Fantazia 1.2 镜像放大）。默认 `1.0` 不改变现状，主要用于怪物/BOSS 战斗中临时放大。
+- **（v3.225）变体皮肤同步**：`TryBuildSkeletonGraphic` 探针阶段除读取 `SkeletonDataAsset` 外，**必须**一并读取源预制体 `SkeletonAnimation.initialSkinName`（在 `Destroy(probe)` 前缓存）。`SkeletonGraphic` 经 `SkeletonGraphic.AddSkeletonGraphicComponent` 构建成功后，若皮肤名非空且 `Skeleton.Data.FindSkin(name) != null`，运行时应用 `Skeleton.SetSkin(name)` → `Skeleton.SetSlotsToSetupPose()` → `SkeletonGraphic.LateUpdate()`（强制重建网格）。**动机**：部分 Fantazia 怪物（如 `Monster_102_Hamy Alsapphire`）把可见附件挂在变体皮肤（`V3`）上、默认皮肤为空；若不应用皮肤，`SkeletonGraphic` 顶点为空 → 有 RectTransform 节点但**无外形**，且因 `IsValid==true` **不触发**占位色块（详见 §9.5.1.3 同类要求）。皮肤名不存在时 `LogWarning` 跳过、保留默认皮肤。同一修复适用于 §12.7 全屏 1v1 与 `DetailAttributeModalView`。
 - **（v3.222 / v3.223）Spine 绘制层级**：按 `GridBattleField` 槽位行 **`Slot_r3 > Slot_r2 > Slot_r1`**（下行遮挡上行）；实现为各单位 `UnitAnchor` 上 `Canvas.overrideSorting=true`，`sortingOrder = parentCanvas.sortingOrder + row × GridRowSortStep + col`（`GridRowSortStep=10`；**相对父 Canvas**，避免绝对小值落入 §9.8.17 世界带被 HUD 盖住）。新建嵌套 Canvas 须带 Spine 通道 `additionalShaderChannels |= TexCoord1|Normal|Tangent`，且在实例化 `SkeletonGraphic` **之前**挂好；并 `MainHudLayerRoot.EnsureGraphicRaycaster`。`GridBattleFieldLayout` 另按行重排槽位 sibling（r1→r3 递增置顶）。
 - 行动表现：攻击者移向 **目标槽前方中线邻近点** → 播 `attack_1` → 命中瞬间扣血 + 红字飘字 → 回位（时长沿用 `BattleAnimationSpec`：`moveToCenterSeconds=0.25` 等）。
 - **按速度排序的行动在 UI 上依次播放**（非整回合即时结算）；胜负判定仍按 §12.14.6.1.1 **每次命中后立即**检查。
@@ -5430,8 +5832,8 @@ PlantingService.kInitialGuidancePresets : readonly list of GuidanceTilePreset
 
 #### B.9.1 字段定义 / Field Definitions
 
-**中文：** 配置表 `invasion_units.csv` 提供 §12「怪物入侵系统」每个战斗单位的静态参数。含 `player`、`enemy_small`（小怪）、`boss_langren`（BOSS）三条（v3.172 起新增 `enemy_small` 与 `skeletonPrefab` 列）；可按相同表头追加多种敌人或多名玩家用单位，运行时由 `InvasionConfigCatalog.LoadInvasionUnitsFromCsv()` 装载并以 `unitId` 索引。  
-**English:** The `invasion_units.csv` table provides static parameters for each combat unit in §12 "Monster Invasion System". It ships `player`, `enemy_small`, and `boss_langren` (v3.172 adds `enemy_small` and the `skeletonPrefab` column); more enemies or alternative player units can be appended using the same header, loaded at runtime by `InvasionConfigCatalog.LoadInvasionUnitsFromCsv()` and indexed by `unitId`.
+**中文：** 配置表 `invasion_units.csv` 提供 §12「怪物入侵系统」每个战斗单位的静态参数。含 `player`、`enemy_small`（小怪）、`boss_langren`（BOSS）三条（v3.172 起新增 `enemy_small` 与 `skeletonPrefab` 列；v3.226 起新增可选列 `displayScale`）；可按相同表头追加多种敌人或多名玩家用单位，运行时由 `InvasionConfigCatalog.LoadInvasionUnitsFromCsv()` 装载并以 `unitId` 索引。  
+**English:** The `invasion_units.csv` table provides static parameters for each combat unit in §12 "Monster Invasion System". It ships `player`, `enemy_small`, and `boss_langren` (v3.172 adds `enemy_small` and the `skeletonPrefab` column; v3.226 adds the optional `displayScale` column); more enemies or alternative player units can be appended using the same header, loaded at runtime by `InvasionConfigCatalog.LoadInvasionUnitsFromCsv()` and indexed by `unitId`.
 
 | 字段 / Field | 类型 / Type | 默认值 / Default | 说明 / Notes |
 |---|---|---|---|
@@ -5440,26 +5842,27 @@ PlantingService.kInitialGuidancePresets : readonly list of GuidanceTilePreset
 | `attack` | int | — | 单次攻击造成的固定伤害；忽略防御 / fixed damage per attack, defense ignored |
 | `maxHp` | int | — | 总血量上限；战斗开始时 `currentHp = maxHp` / max HP cap; `currentHp = maxHp` at battle start |
 | `skeletonPrefab` | string | 否 / no（可空）| **（v3.172 新增）** 该敌方单位的骨骼预制体 Resources 路径（供 §12.11.10 嵌入战斗按单位切换敌人形象）；空则由调用方回退默认。例：`Pets/Monster_1_Salamander`、`Prefabs/Air/Hero_Role_cunmin` / enemy skeleton prefab resources path for §12.11.10 embedded battle; empty → caller default |
+| `displayScale` | float | `1.0`（可选列）| **（v3.226 新增）** 战斗中该单位骨骼的显示比例：`1`=原始大小、`1.5`=放大 50%；在基底 `GridCharacterScale` 上再相乘（§12.14.9）。缺列/空/非法（`<=0`）回退 `1.0` 并 `LogWarning`。主要用于怪物/BOSS 临时放大 / battle display scale multiplier; `1`=original, `1.5`=+50%; multiplied on top of base scale (§12.14.9); missing/empty/invalid (`<=0`) → `1.0` with warning |
 
 #### B.9.2 Demo 默认数据 / Demo Default Data
 
 **中文：** 默认数据；玩家攻击高血厚，单回合胜负压力低，便于 Demo 验收；`enemy_small`（小怪）与 `boss_langren`（BOSS）供 §12.11.10 嵌入小战斗/BOSS 战使用（玩家侧数值改由 `runStats` 提供，`player` 行仅供 §12.3 全屏战斗回退）：  
 **English:** Defaults; the player out-damages/out-tanks for easy demos; `enemy_small` and `boss_langren` drive §12.11.10 embedded small/boss battles (player stats now come from `runStats`; the `player` row only backs the §12.3 fullscreen fallback):
 
-| `unitId` | `displayName` | `attack` | `maxHp` | `skeletonPrefab` |
-|---|---|---:|---:|---|
-| `player` | Role | 12 | 80 | （空 / empty） |
-| `enemy_small` | 小怪 | 6 | 40 | `Pets/Monster_1_Salamander` |
-| `boss_langren` | 狼人入侵者 | 8 | 60 | `Prefabs/Air/Hero_Role_cunmin` |
+| `unitId` | `displayName` | `attack` | `maxHp` | `skeletonPrefab` | `displayScale` |
+|---|---|---:|---:|---|---:|
+| `player` | Role | 12 | 80 | （空 / empty） | 1 |
+| `enemy_small` | 小怪 | 6 | 40 | `Pets/Monster_1_Salamander` | 1 |
+| `boss_langren` | 狼人入侵者 | 8 | 60 | `Prefabs/Air/Hero_Role_cunmin` | 1 |
 
 **中文：** **CSV 等价表达**（即 `invasion_units.csv` 内容）：  
 **English:** **CSV equivalent** (the actual content of `invasion_units.csv`):
 
 ```text
-unitId, displayName, attack, maxHp, skeletonPrefab
-player, Role, 12, 80,
-enemy_small, 小怪, 6, 40, Pets/Monster_1_Salamander
-boss_langren, 狼人入侵者, 8, 60, Prefabs/Air/Hero_Role_cunmin
+unitId, displayName, attack, maxHp, skeletonPrefab, displayScale
+player, Role, 12, 80, , 1
+enemy_small, 小怪, 6, 40, Pets/Monster_1_Salamander, 1
+boss_langren, 狼人入侵者, 8, 60, Prefabs/Air/Hero_Role_cunmin, 1
 ```
 
 #### B.9.3 加载流程与回退 / Loading and Fallback

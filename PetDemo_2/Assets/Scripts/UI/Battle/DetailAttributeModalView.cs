@@ -256,6 +256,8 @@ namespace PetDemo.UI.Battle
             var srcAnim = probe.GetComponent<SkeletonAnimation>()
                 ?? probe.GetComponentInChildren<SkeletonAnimation>(true);
             var dataAsset = srcAnim != null ? srcAnim.skeletonDataAsset : null;
+            // SPEC §12.14.9 (v3.225)：缓存预制体权威皮肤名，构建后运行时应用，避免变体皮肤未生效导致「有节点无外形」。
+            string initialSkinName = srcAnim != null ? srcAnim.initialSkinName : null;
             Destroy(probe);
 
             if (dataAsset == null)
@@ -290,8 +292,28 @@ namespace PetDemo.UI.Battle
             }
 
             skel.raycastTarget = false;
+            ApplyInitialSkin(skel, initialSkinName);
             PlayIdleLoop(skel);
             parent.localScale = new Vector3(CharacterScale, CharacterScale, 1f);
+        }
+
+        // SPEC §12.14.9 / §9.5.1.3 (v3.225)：SkeletonGraphic 构建后同步预制体权威 initialSkinName，
+        // 避免变体皮肤（如 V3）未应用、默认皮肤为空时渲染为空（有节点无外形）。
+        private static void ApplyInitialSkin(SkeletonGraphic skel, string skinName)
+        {
+            if (skel == null || string.IsNullOrEmpty(skinName))
+                return;
+            var skeleton = skel.Skeleton;
+            if (skeleton == null || skeleton.Data == null)
+                return;
+            if (skeleton.Data.FindSkin(skinName) == null)
+            {
+                UnityEngine.Debug.LogWarning("[DetailAttributeModalView] 皮肤不存在，保留默认皮肤：" + skinName);
+                return;
+            }
+            skeleton.SetSkin(skinName);
+            skeleton.SetSlotsToSetupPose();
+            skel.LateUpdate();
         }
 
         private static void PlayIdleLoop(SkeletonGraphic skel)

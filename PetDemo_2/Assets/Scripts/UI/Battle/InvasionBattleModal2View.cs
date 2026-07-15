@@ -1,7 +1,7 @@
 // SPEC §12.11：新战斗界面 InvasionBattleModal_2（预制体化 + 「下一天」事件玩法）。
 // 职责：
 //   1) 预制体优先 / 代码回退地构建全屏 modal：上(角色展示)/中(属性)/下(事件日志+下一天)三段，共用背景 AirUI/ZhanDou_0；
-//   2) 上部运行时以 SkeletonGraphic 构建玩家 Role_cslangren（与 §9.5 / §12.7 同方法）；
+//   2) 上部运行时以 SkeletonGraphic 构建玩家（默认 Role_cslangren；v3.251 起优先会话装扮装备骨骼）；
 //   3) 中部读取「玩法局内属性副本」（Show() 时克隆 RoleStats；事件奖励只改副本、不写回存档）；
 //   4) 点击「下一天」→ day+1 → 天数表加权随机抽 1 个 eventId → 事件表解析明细 → 事件日志按 /n 拆多条九宫格卡展示；
 //      期间「下一天」按钮灰置直到展示完成，随后按事件类型切换按钮态（战斗/抽奖换素材换字，其余恢复常态）。
@@ -868,11 +868,11 @@ namespace PetDemo.UI.Battle
             SetExplorationPartyVisible(true);
             RebuildPartyStandVisuals();
 
-            // SPEC §12.11.10 (v3.181)：BOSS 胜 → 关闭探索界面并返回关卡选择；小怪胜 → 继续「下一天」。
+            // SPEC §12.11.10 (v3.227)：BOSS 胜 → 关闭探索界面并返回主线界面 MainStoryLineScreen；小怪胜 → 继续「下一天」。
             if (pendingBattleKind == InvasionEventRewardKind.BattleBoss)
             {
                 Hide();
-                MainStoryLineScreenView.ShowLevelSelectPanel();
+                MainStoryLineScreenView.ShowMainStoryScreen();
             }
             else
             {
@@ -1161,32 +1161,16 @@ namespace PetDemo.UI.Battle
             if (parent == null || member == null)
                 return null;
 
-            string prefabPath = string.IsNullOrEmpty(member.skeletonPrefab)
-                ? RunPartyRosterFactory.DefaultRoleSkeletonPrefab
-                : member.skeletonPrefab;
-
-            var prefab = Resources.Load<GameObject>(prefabPath);
-            if (prefab == null)
-            {
-                UnityEngine.Debug.LogWarning(
-                    "[InvasionBattleModal2View] 缺少队员骨骼预制体：Resources/" + prefabPath
-                    + "（" + member.displayName + "），回退占位。");
-                BuildNamedFallbackBlock(parent, nodeName, anchoredPosition);
-                return null;
-            }
-
-            var probe = Instantiate(prefab);
-            probe.SetActive(false);
-            var srcAnim = probe.GetComponent<SkeletonAnimation>()
-                ?? probe.GetComponentInChildren<SkeletonAnimation>(true);
-            var dataAsset = srcAnim != null ? srcAnim.skeletonDataAsset : null;
-            Destroy(probe);
-
+            // SPEC §12.11.4（v3.251）：Role 优先会话装扮装备骨骼；Follower 仍走 skeletonPrefab 探针。
+            SkeletonDataAsset dataAsset = ResolveMemberSkeletonData(member);
             if (dataAsset == null)
             {
+                string prefabPath = string.IsNullOrEmpty(member.skeletonPrefab)
+                    ? RunPartyRosterFactory.DefaultRoleSkeletonPrefab
+                    : member.skeletonPrefab;
                 UnityEngine.Debug.LogWarning(
-                    "[InvasionBattleModal2View] 预制体 " + prefabPath + " 无 SkeletonDataAsset（"
-                    + member.displayName + "），回退占位。");
+                    "[InvasionBattleModal2View] 无法解析队员骨骼（" + member.displayName +
+                    "），path=" + prefabPath + "，回退占位。");
                 BuildNamedFallbackBlock(parent, nodeName, anchoredPosition);
                 return null;
             }
@@ -1222,6 +1206,35 @@ namespace PetDemo.UI.Battle
             skel.raycastTarget = false;
             TryPlayFirstLoopAnimation(skel);
             return skel;
+        }
+
+        /// <summary>SPEC §12.11.4（v3.251）：Role → PlayerSpineAppearanceResolver；其余 → 预制体探针。</summary>
+        private SkeletonDataAsset ResolveMemberSkeletonData(RunAllyEntry member)
+        {
+            if (member == null)
+                return null;
+
+            if (member.kind == BattleUnitKind.Role)
+            {
+                string equipped = service != null ? service.GetEquippedPlayerSpineResource() : null;
+                return PlayerSpineAppearanceResolver.Resolve(equipped);
+            }
+
+            string prefabPath = string.IsNullOrEmpty(member.skeletonPrefab)
+                ? RunPartyRosterFactory.DefaultRoleSkeletonPrefab
+                : member.skeletonPrefab;
+
+            var prefab = Resources.Load<GameObject>(prefabPath);
+            if (prefab == null)
+                return null;
+
+            var probe = Instantiate(prefab);
+            probe.SetActive(false);
+            var srcAnim = probe.GetComponent<SkeletonAnimation>()
+                ?? probe.GetComponentInChildren<SkeletonAnimation>(true);
+            var dataAsset = srcAnim != null ? srcAnim.skeletonDataAsset : null;
+            Destroy(probe);
+            return dataAsset;
         }
 
         private static void BuildNamedFallbackBlock(

@@ -42,9 +42,18 @@ namespace PetDemo.UI
 
         private void Start()
         {
+            EnsureInitialized();
+        }
+
+        /// <summary>
+        /// SPEC §9.8（v3.237）：永久隐藏前须调用，避免 inactive 跳过 Start 导致 OpenIndex 未初始化。
+        /// 创角覆盖层期间 HUD 隐藏时 Start 也会延迟；若此前已 SetOpenKey，保留 OpenIndex，不回落 defaultOpenIndex。
+        /// </summary>
+        public void EnsureInitialized()
+        {
+            if (started)
+                return;
             SubscribeButtons();
-            // SPEC §9.8：创角覆盖层期间 HUD 隐藏，Start 会延迟到 RestoreFromOverlay 首次 SetVisible(true) 之后。
-            // 若此前已通过 SetOpenKey 写入目标 Tab，须保留 OpenIndex，不可再强制回落 defaultOpenIndex（JiaYuan）。
             int idx = OpenIndex >= 0
                 ? OpenIndex
                 : Mathf.Clamp(defaultOpenIndex, 0, Mathf.Max(0, ButtonCount - 1));

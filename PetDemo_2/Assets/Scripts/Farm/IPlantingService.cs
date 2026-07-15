@@ -47,6 +47,14 @@ namespace PetDemo.Farm
         int GetHarvestablePlantCount();
         RoleStats GetRoleStats();
 
+        // ---- SPEC §9.14.9 (v3.244)：装扮装备玩家 Spine ----
+        // GetEquippedPlayerSpineResource：返回 RoleStats.equippedPlayerSpineResource（可能空）。
+        // TryEquipPlayerSpine：path 非空且 Resources.Load SkeletonDataAsset 成功则写入并触发
+        //   OnPlayerAppearanceChanged；空/加载失败返回 false（无写入、无事件）。
+        string GetEquippedPlayerSpineResource();
+        bool TryEquipPlayerSpine(string resourcesSkeletonDataPath);
+        event Action OnPlayerAppearanceChanged;
+
         // ---- SPEC §9.14：创角界面好友与创角状态 ----
         // GetFriends：返回当前会话好友列表（只读视图）。
         // GetCharacterCreation：返回创角状态（created / partnerFriendId）。

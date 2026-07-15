@@ -40,6 +40,7 @@ namespace PetDemo.Core
             int idxOnline = table.IndexOfHeader("online");
             int idxAvatarFrame = table.IndexOfHeader("avatarFrame");
             int idxSpine = table.IndexOfHeader("spinePrefab");
+            int idxHasPartner = table.IndexOfHeader("hasPartner");
 
             if (idxId < 0 || idxName < 0)
             {
@@ -74,6 +75,7 @@ namespace PetDemo.Core
                     online = idxOnline >= 0 && ParseBool(row.Get(idxOnline)),
                     avatarFrameResource = idxAvatarFrame >= 0 ? (row.Get(idxAvatarFrame) ?? "") : "",
                     spinePrefabPath = idxSpine >= 0 ? (row.Get(idxSpine) ?? "") : "",
+                    hasPartner = idxHasPartner >= 0 && ParseBool(row.Get(idxHasPartner)),
                 };
                 list.Add(profile);
             }
@@ -89,10 +91,110 @@ namespace PetDemo.Core
             return cache;
         }
 
+        /// <summary>按 id 查找好友配置（线性扫描缓存；未命中返回 false）。</summary>
+        public static bool TryGetById(string id, out FriendProfile profile)
+        {
+            profile = null;
+            if (string.IsNullOrEmpty(id))
+                return false;
+
+            var list = Load();
+            if (list == null)
+                return false;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (list[i] != null && string.Equals(list[i].id, id, System.StringComparison.Ordinal))
+                {
+                    profile = list[i];
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// SPEC §9.14.2 / §9.8.18.3（v3.258）：新会话好友列表（CSV 深拷贝，可安全变更 intimacy 而不污染缓存）。
+        /// </summary>
+        public static List<FriendProfile> CreateSessionList()
+        {
+            var source = Load();
+            var list = new List<FriendProfile>(source != null ? source.Count : 0);
+            if (source == null)
+                return list;
+            for (int i = 0; i < source.Count; i++)
+            {
+                var src = source[i];
+                if (src == null || string.IsNullOrEmpty(src.id))
+                    continue;
+                list.Add(CloneProfile(src));
+            }
+            return list;
+        }
+
+        /// <summary>
+        /// SPEC §9.8.18.3（v3.258）：按 id 把 CSV 配置态字段写回会话好友（亲密度/在线等运行态保留）。
+        /// </summary>
+        public static void ApplyCsvStaticFields(IList<FriendProfile> friends)
+        {
+            if (friends == null || friends.Count == 0)
+                return;
+
+            var source = Load();
+            if (source == null || source.Count == 0)
+                return;
+
+            var byId = new Dictionary<string, FriendProfile>(source.Count);
+            for (int i = 0; i < source.Count; i++)
+            {
+                var src = source[i];
+                if (src == null || string.IsNullOrEmpty(src.id) || byId.ContainsKey(src.id))
+                    continue;
+                byId[src.id] = src;
+            }
+
+            for (int i = 0; i < friends.Count; i++)
+            {
+                var friend = friends[i];
+                if (friend == null || string.IsNullOrEmpty(friend.id))
+                    continue;
+                if (!byId.TryGetValue(friend.id, out var cfg) || cfg == null)
+                    continue;
+
+                friend.isFemale = cfg.isFemale;
+                friend.hasPartner = cfg.hasPartner;
+                friend.intimacyInterrupted = cfg.intimacyInterrupted;
+                friend.avatarFrameResource = cfg.avatarFrameResource ?? "";
+                friend.spinePrefabPath = cfg.spinePrefabPath ?? "";
+                if (!string.IsNullOrEmpty(cfg.displayName))
+                    friend.displayName = cfg.displayName;
+                if (!string.IsNullOrEmpty(cfg.avatarResource))
+                    friend.avatarResource = cfg.avatarResource;
+            }
+        }
+
         /// <summary>清空缓存（便于编辑器下重载配置）。</summary>
         public static void ClearCache()
         {
             cache = null;
+        }
+
+        private static FriendProfile CloneProfile(FriendProfile src)
+        {
+            return new FriendProfile
+            {
+                id = src.id,
+                displayName = src.displayName,
+                avatarResource = src.avatarResource,
+                online = src.online,
+                intimacy = src.intimacy,
+                isFemale = src.isFemale,
+                intimacyInterrupted = src.intimacyInterrupted,
+                avatarFrameResource = src.avatarFrameResource,
+                spinePrefabPath = src.spinePrefabPath,
+                hasPartner = src.hasPartner,
+            };
         }
 
         private static bool ParseBool(string raw)

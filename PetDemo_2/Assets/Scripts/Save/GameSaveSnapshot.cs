@@ -95,11 +95,19 @@ namespace PetDemo.Save
                 ? snapshot.uiProgress.ToModel()
                 : new UiProgress();
 
-            // SPEC §9.14.4：好友列表为空（旧档/缺字段）时回退默认目录。
+            // SPEC §9.14.4 / §9.8.18.3（v3.258）：空列表回退 CSV 会话拷贝；非空则回填 gender/hasPartner 等配置列。
             var friends = FriendProfileSave.ToList(snapshot.friends);
-            session.friends = (friends != null && friends.Count > 0)
-                ? friends
-                : FriendCatalog.BuildDefault();
+            if (friends != null && friends.Count > 0)
+            {
+                TopFriendCatalog.ApplyCsvStaticFields(friends);
+                session.friends = friends;
+            }
+            else
+            {
+                session.friends = TopFriendCatalog.CreateSessionList();
+                if (session.friends == null || session.friends.Count == 0)
+                    session.friends = FriendCatalog.BuildDefault();
+            }
             session.characterCreation = snapshot.characterCreation != null
                 ? snapshot.characterCreation.ToModel()
                 : new CharacterCreationState();

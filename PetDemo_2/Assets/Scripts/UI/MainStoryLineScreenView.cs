@@ -1,6 +1,7 @@
 // SPEC §9.8.8 (v3.40)：底部导航「主线 / ZhuXian」打开时显示的全屏关卡选择层。
 // 旧 LevelSlot_1/2/3 已下线；本期改为「章节标记点 + 前往按钮 + 饿肚子提示框」三段式。
-// SPEC §9.8.8 (v3.47)：左上角体力 HUD；每次进入主线或统一仓库 Hide 后刷新。
+// SPEC §9.8.8 (v3.47)：体力 HUD；每次进入主线或统一仓库 Hide 后刷新。
+// SPEC §9.8.8 (v3.240)：体力 HUD 改右上；左上 BackButton（common_bg_9）返回 GongHui。
 using System;
 using PetDemo.Battle;
 using PetDemo.Core;
@@ -18,6 +19,7 @@ namespace PetDemo.UI
         public const string ResChapterPinUnselected = "AirUI/ZhuXian_1_0";
         public const string ResChapterPinSelected = "AirUI/ZhuXian_1_1";
         public const string ResGoButton = "AirUI/ZhanDouKaiShi";
+        public const string ResBackButton = "AirUI/common_bg_9";
         public const string ZhuXianNavKey = "ZhuXian";
 
         // SPEC §9.8.8.1：ChapterPin Demo 默认坐标与尺寸。
@@ -28,16 +30,20 @@ namespace PetDemo.UI
         private static readonly Vector2 GoButtonSize = new Vector2(120f, 120f);
         private const float GoButtonOffsetY = -200f;
 
+        // SPEC §9.8.8 (v3.240)：左上角返回公会。
+        private static readonly Vector2 BackButtonSize = new Vector2(120f, 120f);
+        private static readonly Vector2 BackButtonPos = new Vector2(20f, -20f);
+
         // SPEC §9.8.8.4：饿肚子提示框文案与样式。
         private const string HungryDialogText = "阿狼还饿着肚子，需要吃饱了才能上路！";
 
         // SPEC §9.8.8.4 (v3.105)：与 §12.9 单场扣费、§9.8.13.5「开始」显示阈值一致。
         private const int HungryDialogStaminaThreshold = InvasionService.BattleStaminaCostPerEncounter;
 
-        // SPEC §9.8.8 (v3.47)：左上角体力 HUD（与 §9.8.12.4 StaminaBarView 复用；槽高与 §9.8.13 仓库 275×116 一致）。
+        // SPEC §9.8.8 (v3.47 / v3.240)：右上角体力 HUD（与 §9.8.12.4 StaminaBarView 复用；槽高与 §9.8.13 仓库 275×116 一致）。
         private static readonly Vector2 MainStoryStaminaHudSize = new Vector2(300f, 168f);
         private static readonly Vector2 MainStoryStaminaBarSlotSize = new Vector2(275f, 116f);
-        private static readonly Vector2 MainStoryStaminaHudAnchoredPos = new Vector2(20f, -20f);
+        private static readonly Vector2 MainStoryStaminaHudAnchoredPos = new Vector2(-20f, -20f);
 
         private RectTransform rootRt;
         private BottomNavBarView bottomNav;
@@ -105,11 +111,34 @@ namespace PetDemo.UI
             emptyBtn.targetGraphic = emptyImg;
             emptyBtn.onClick.AddListener(view.OnEmptyAreaClicked);
 
-            // SPEC §9.8.8 (v3.47)：左上角体力 HUD（须在 EmptyAreaCloseButton 之上，避免被透明层遮挡）。
-            var staminaHudRt = BottomNavAttachedScreenLayout.CreateChildRect(root, "MainStoryStaminaHud",
+            // SPEC §9.8.8 (v3.240)：左上角返回公会（须在 EmptyAreaCloseButton 之上）。
+            var backRt = BottomNavAttachedScreenLayout.CreateChildRect(root, "BackButton",
                 new Vector2(0f, 1f), new Vector2(0f, 1f),
+                BackButtonPos, BackButtonSize);
+            backRt.pivot = new Vector2(0f, 1f);
+            var backImg = backRt.gameObject.AddComponent<Image>();
+            backImg.preserveAspect = true;
+            var backSprite = Resources.Load<Sprite>(ResBackButton);
+            if (backSprite != null)
+            {
+                backImg.sprite = backSprite;
+                backImg.color = Color.white;
+            }
+            else
+            {
+                UnityEngine.Debug.LogWarning("[MainStoryLineScreenView] 缺失精灵：" + ResBackButton);
+                backImg.color = new Color(0.14f, 0.16f, 0.22f, 0.92f);
+            }
+            var backBtn = backRt.gameObject.AddComponent<Button>();
+            backBtn.transition = Selectable.Transition.None;
+            backBtn.targetGraphic = backImg;
+            backBtn.onClick.AddListener(view.OnBackToGongHuiClicked);
+
+            // SPEC §9.8.8 (v3.47 / v3.240)：右上角体力 HUD（须在 EmptyAreaCloseButton 之上，避免被透明层遮挡）。
+            var staminaHudRt = BottomNavAttachedScreenLayout.CreateChildRect(root, "MainStoryStaminaHud",
+                new Vector2(1f, 1f), new Vector2(1f, 1f),
                 MainStoryStaminaHudAnchoredPos, MainStoryStaminaHudSize);
-            staminaHudRt.pivot = new Vector2(0f, 1f);
+            staminaHudRt.pivot = new Vector2(1f, 1f);
             view.staminaBarSlotRt = BottomNavAttachedScreenLayout.CreateChildRect(staminaHudRt, "MainStoryStaminaBarSlot",
                 new Vector2(0f, 1f), new Vector2(0f, 1f),
                 Vector2.zero, MainStoryStaminaBarSlotSize);
@@ -201,6 +230,44 @@ namespace PetDemo.UI
             instance.EnsureLevelSelectPanelShown();
         }
 
+        /// <summary>
+        /// SPEC §12.11.10 (v3.227)：嵌入 BOSS 战胜利后，从 <see cref="InvasionBattleModal2View"/> 返回主线界面。
+        /// 选中底栏「主线」Tab（<see cref="ZhuXianNavKey"/>）并关闭关卡选择层。
+        /// </summary>
+        public static void ShowMainStoryScreen()
+        {
+            if (instance == null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[MainStoryLineScreenView] ShowMainStoryScreen: 主线层未初始化，无法返回主线界面。");
+                return;
+            }
+            instance.EnsureMainStoryScreenShown();
+        }
+
+        private void EnsureMainStoryScreenShown()
+        {
+            // 关闭关卡选择层，回到主线界面本体。
+            LevelSelectScreenPanelView.HideIfAny();
+
+            if (bottomNav != null)
+            {
+                // 切换底栏至「主线」Tab；若已在主线 Tab，则直接确保根节点可见。
+                if (!string.Equals(bottomNav.OpenKey, ZhuXianNavKey, StringComparison.Ordinal))
+                {
+                    bottomNav.SetOpenKey(ZhuXianNavKey);
+                    return;
+                }
+            }
+
+            if (rootRt != null)
+                rootRt.gameObject.SetActive(true);
+            EnsureBottomNavBarHidden();
+            SetChapterPinSelected(true);
+            RefreshMainStoryStamina();
+            RefreshArenaEntryVisibility();
+        }
+
         private void EnsureLevelSelectPanelShown()
         {
             if (canvasRectCache == null)
@@ -222,6 +289,8 @@ namespace PetDemo.UI
                 rootRt.gameObject.SetActive(show);
             if (show)
             {
+                // SPEC §9.8.8（v3.239）：主线界面显示时强制隐藏 BottomNavBar。
+                EnsureBottomNavBarHidden();
                 // SPEC §9.8.8.1：每次显示时默认选中。
                 SetChapterPinSelected(true);
                 RefreshMainStoryStamina();
@@ -235,6 +304,25 @@ namespace PetDemo.UI
                 if (foodWarehouseModal != null && foodWarehouseModal.IsShown)
                     foodWarehouseModal.Hide();
             }
+        }
+
+        /// <summary>SPEC §9.8.8（v3.239）：主线层可见时兜底隐藏底栏（对齐 §9.8 v3.237 永久隐藏）。</summary>
+        private void EnsureBottomNavBarHidden()
+        {
+            if (bottomNav != null && bottomNav.gameObject.activeSelf)
+                bottomNav.gameObject.SetActive(false);
+        }
+
+        /// <summary>SPEC §9.8.8（v3.240）：返回公会 EnterHomeHud / GongHuiScreen。</summary>
+        private void OnBackToGongHuiClicked()
+        {
+            if (bottomNav == null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[MainStoryLineScreenView] OnBackToGongHuiClicked: bottomNav 为空，无法返回公会。");
+                return;
+            }
+            bottomNav.SetOpenKey(GongHuiScreenView.GongHuiNavKey);
         }
 
         private void OnEmptyAreaClicked()

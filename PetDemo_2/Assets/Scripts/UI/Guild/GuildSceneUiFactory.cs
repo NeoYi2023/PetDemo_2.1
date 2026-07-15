@@ -7,6 +7,8 @@ namespace PetDemo.UI
     public static class GuildSceneUiFactory
     {
         public const string NpcInteractButtonLabel = "拉手";
+        /// <summary>SPEC §9.8.9.13 (v3.235)：建筑名牌 ActionButton/Label 统一文案。</summary>
+        public const string BuildingActionButtonLabel = "前往";
         private const float NpcPlateWidth = 360f;
         private const float NpcPlateHeight = 180f;
         private const float ResponseAreaPlateHeight = 140f;
@@ -133,6 +135,20 @@ namespace PetDemo.UI
             if (plateRt == null)
                 return;
             var labelTr = plateRt.Find("InteractButton/Label");
+            if (labelTr == null)
+                return;
+            var text = labelTr.GetComponent<Text>();
+            if (text != null)
+                text.text = label;
+        }
+
+        /// <summary>SPEC §9.8.9.13 (v3.235)：建筑名牌 ActionButton/Label 强制同步为「前往」。</summary>
+        public static void SetBuildingActionButtonLabel(
+            RectTransform plateRt, string label = BuildingActionButtonLabel)
+        {
+            if (plateRt == null)
+                return;
+            var labelTr = plateRt.Find("ActionButton/Label");
             if (labelTr == null)
                 return;
             var text = labelTr.GetComponent<Text>();

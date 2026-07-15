@@ -1,5 +1,5 @@
-// SPEC §9.8.11：底部导航「家园 / JiaYuan」打开时显示的订单入口 + 仓库入口，及对应弹窗。
-// 自 v3.41 起，仓库按钮改为实例化 §9.8.13 「统一仓库预制体 `WarehouseHubPanel`」，不再代码搭建全屏背景。
+// SPEC §9.8.11：底部导航「家园 / JiaYuan」功能层（订单弹窗残留关闭）。
+// 自 v3.253 起：主 HUD 流程下 JiaYuanHomeFeatureLayer 永久隐藏；仓库入口迁至 HomeTabPanel。
 using System;
 using PetDemo.Farm;
 using PetDemo.UI.Farm;
@@ -14,19 +14,15 @@ namespace PetDemo.UI
         public const string JiaYuanNavKey = "JiaYuan";
         public const string ResOrderEntryIcon = "AirUI/DingDan";
         public const string ResOrderPanelSprite = "AirUI/DingDan_1";
-        public const string ResWarehouseEntryIcon = "AirUI/CangKu";
 
         private const float EntryButtonSize = 105f;
         private const float OrderEntryPosX = 94f;
         private const float OrderEntryPosY = -674f;
-        private const float WarehouseEntryPosX = -808f;
-        private const float WarehouseEntryPosY = -674f;
 
         private RectTransform layerRootRt;
         private RectTransform orderModalRt;
         private RectTransform canvasRectCache;
         private BottomNavBarView bottomNav;
-        private IPlantingService plantingService;
 
         public static JiaYuanHomeFeatureEntriesView BuildInto(
             RectTransform canvasRect,
@@ -35,6 +31,9 @@ namespace PetDemo.UI
         {
             if (canvasRect == null || barView == null)
                 return null;
+
+            // plantingService 保留入参签名（与 BuildBottomNavBar 透传兼容）；v3.253 后本层不再打开仓库。
+            _ = plantingService;
 
             var rootGo = new GameObject("JiaYuanHomeFeatureLayer", typeof(RectTransform));
             var root = rootGo.GetComponent<RectTransform>();
@@ -45,7 +44,7 @@ namespace PetDemo.UI
             if (barRt != null)
                 root.SetSiblingIndex(barRt.GetSiblingIndex());
 
-            // 左侧：订单（SPEC §9.8.11 v3.83：PosX=94, PosY=-674, 105×105）
+            // 订单入口保留节点结构（层永久隐藏，本期不可见）。
             var orderEntryRt = CreateChildRect(root, "OrderEntryButton",
                 new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
                 new Vector2(OrderEntryPosX, OrderEntryPosY), new Vector2(EntryButtonSize, EntryButtonSize));
@@ -69,31 +68,7 @@ namespace PetDemo.UI
             orderEntryBtn.transition = Selectable.Transition.None;
             orderEntryBtn.targetGraphic = orderEntryImg;
 
-            // 右侧：仓库（SPEC §9.8.11 v3.83：PosX=-808, PosY=-674, 105×105）
-            var whEntryRt = CreateChildRect(root, "WarehouseEntryButton",
-                new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
-                new Vector2(WarehouseEntryPosX, WarehouseEntryPosY), new Vector2(EntryButtonSize, EntryButtonSize));
-            whEntryRt.pivot = new Vector2(0.5f, 0.5f);
-            var whEntryImg = whEntryRt.gameObject.AddComponent<Image>();
-            var whEntrySprite = Resources.Load<Sprite>(ResWarehouseEntryIcon);
-            if (whEntrySprite != null)
-            {
-                whEntryImg.sprite = whEntrySprite;
-                whEntryImg.preserveAspect = true;
-            }
-            else
-            {
-                whEntryImg.color = new Color(0.25f, 0.22f, 0.3f, 0.9f);
-                UnityEngine.Debug.LogWarning(
-                    "[JiaYuanHomeFeatureEntriesView] 缺少仓库入口图 Resources/" + ResWarehouseEntryIcon + "。");
-            }
-
-            whEntryImg.raycastTarget = true;
-            var whEntryBtn = whEntryRt.gameObject.AddComponent<Button>();
-            whEntryBtn.transition = Selectable.Transition.None;
-            whEntryBtn.targetGraphic = whEntryImg;
-
-            // 订单弹窗：遮罩 + DingDan_1 + 右上角关闭
+            // 订单弹窗：遮罩 + DingDan_1 + 右上角关闭（层隐藏时不可达；保留结构供未来迁入口）。
             var orderModal = CreateChildRect(root, "OrderModal",
                 Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             StretchFull(orderModal);
@@ -162,6 +137,7 @@ namespace PetDemo.UI
                 orderModal.gameObject.SetActive(true);
             });
 
+            // SPEC §9.8.11 v3.253：永久隐藏本层（主 HUD 不再显示订单/仓库浮层）。
             root.gameObject.SetActive(false);
 
             var view = rootGo.AddComponent<JiaYuanHomeFeatureEntriesView>();
@@ -169,58 +145,33 @@ namespace PetDemo.UI
             view.orderModalRt = orderModal;
             view.canvasRectCache = canvasRect;
             view.bottomNav = barView;
-            view.plantingService = plantingService;
-
-            // 仓库按钮：自 v3.41 起改为打开 §9.8.13 统一仓库预制体（WarehouseHubPanelView）。
-            whEntryBtn.onClick.AddListener(view.OpenUnifiedWarehouse);
 
             barView.OnOpenChanged += view.OnBottomNavOpenChanged;
             view.OnBottomNavOpenChanged(barView.OpenIndex, barView.OpenKey);
             return view;
         }
 
-        private void OpenUnifiedWarehouse()
-        {
-            if (canvasRectCache == null)
-            {
-                UnityEngine.Debug.LogWarning("[JiaYuanHomeFeatureEntriesView] 仓库按钮：canvasRect 为空");
-                return;
-            }
-            if (plantingService == null)
-            {
-                UnityEngine.Debug.LogWarning(
-                    "[JiaYuanHomeFeatureEntriesView] 仓库按钮：plantingService 为空，无法打开统一仓库。" +
-                    "请检查 AirMainMenuRuntimeBuilder.BuildInto 是否已透传 IPlantingService。");
-                return;
-            }
-            var hub = WarehouseHubPanelView.GetOrCreate(canvasRectCache);
-            if (hub == null)
-                return;
-            hub.Show(plantingService);
-        }
-
         private void OnBottomNavOpenChanged(int index, string key)
         {
-            bool jiaYuan = !string.IsNullOrEmpty(key) &&
-                           string.Equals(key, JiaYuanNavKey, StringComparison.Ordinal);
-            if (layerRootRt != null)
-                layerRootRt.gameObject.SetActive(jiaYuan);
+            _ = index;
+            _ = key;
 
-            if (!jiaYuan)
+            // SPEC §9.8.11 v3.253：主 HUD 流程下层永不激活。
+            if (layerRootRt != null)
+                layerRootRt.gameObject.SetActive(false);
+
+            if (orderModalRt != null)
+                orderModalRt.gameObject.SetActive(false);
+
+            // 切离时主动收起统一仓库，避免残留遮挡（与原 v3.35 语义一致）。
+            if (canvasRectCache != null)
             {
-                if (orderModalRt != null)
-                    orderModalRt.gameObject.SetActive(false);
-                // 自 v3.41 起，仓库面板由 WarehouseHubPanelView 托管，
-                // 切离 JiaYuan 时主动收起，避免残留遮挡（与原 v3.35 语义一致）。
-                if (canvasRectCache != null)
+                var existing = canvasRectCache.Find(WarehouseHubPanelView.PanelObjectName);
+                if (existing != null)
                 {
-                    var existing = canvasRectCache.Find(WarehouseHubPanelView.PanelObjectName);
-                    if (existing != null)
-                    {
-                        var hub = existing.GetComponent<WarehouseHubPanelView>();
-                        if (hub != null && hub.IsShown)
-                            hub.Hide();
-                    }
+                    var hub = existing.GetComponent<WarehouseHubPanelView>();
+                    if (hub != null && hub.IsShown)
+                        hub.Hide();
                 }
             }
         }

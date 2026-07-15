@@ -17,9 +17,10 @@ namespace PetDemo.UI
         public const string ExpFillResource = "AirUI/Lv_bg_005";
         public const string ExpFrameResource = "AirUI/Lv_bg_006";
         public const string SpeechBubbleResource = "AirUI/DialogBox_1";
-        // SPEC §9.14.11 v3.190：右上功能按钮
+        // SPEC §9.14.11 v3.190 / v3.253：右上功能按钮
         public const string RankingButtonResource = "AirUI/ZJM_PaiHangbang_1";
         public const string DailyTaskButtonResource = "AirUI/ZJM_RenWu_1";
+        public const string WarehouseEntryButtonResource = "AirUI/CangKu";
 
         private static readonly Color SolidBackgroundColor = new Color(0.10f, 0.12f, 0.18f, 1f);
         private static readonly Color TabFallbackColor = new Color(0.3f, 0.28f, 0.24f, 1f);
@@ -35,10 +36,12 @@ namespace PetDemo.UI
         private const float InfoTabBarHeight = 72f;
         private static readonly Vector2 RoleMountSize = new Vector2(720f, 1000f);
 
-        // SPEC §9.14.11 v3.190：右上竖排功能按钮
+        // SPEC §9.14.11 v3.190 / v3.253：右上竖排功能按钮
         public static readonly Vector2 TopRightButtonSize = new Vector2(120f, 120f);
         public const float TopRightMargin = 24f;
         public const float TopRightButtonGap = 16f;
+        public const float TopRightActionsPosY = -218f;
+        public const int TopRightSlotCount = 3;
 
         // SPEC §9.14.11 v3.193 / v3.199：根级关闭按钮（与创角 §9.14.6 范式一致，左上角）
         public static readonly Vector2 ScreenCloseButtonSize = new Vector2(72f, 72f);
@@ -424,32 +427,72 @@ namespace PetDemo.UI
             }
         }
 
-        /// <summary>SPEC §9.14.11 v3.190：右上竖排「排行榜」「每日任务」图标按钮。</summary>
+        /// <summary>SPEC §9.14.11 v3.190 / v3.253：右上竖排「排行榜」「每日任务」「仓库」图标按钮。</summary>
         public static RectTransform BuildTopRightActions(RectTransform rootRt)
         {
             if (rootRt == null)
                 return null;
 
-            var existing = rootRt.Find("TopRightActions") as RectTransform;
-            if (existing != null)
-                return existing;
+            return EnsureTopRightActions(rootRt);
+        }
 
-            float stackHeight = TopRightButtonSize.y * 2f + TopRightButtonGap;
-            var actionsRt = CreateChild(rootRt, "TopRightActions",
-                new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(1f, 1f),
-                new Vector2(-TopRightMargin, -TopRightMargin),
-                new Vector2(TopRightButtonSize.x, stackHeight));
+        /// <summary>
+        /// SPEC §9.14.11 v3.253：幂等校正 TopRightActions PosY、栈高与 WarehouseEntryButton。
+        /// </summary>
+        public static RectTransform EnsureTopRightActions(RectTransform rootRt)
+        {
+            if (rootRt == null)
+                return null;
 
-            BuildTopRightIconButton(actionsRt, "RankingButton", RankingButtonResource,
-                new Vector2(0f, -TopRightButtonSize.y * 0.5f));
-            BuildTopRightIconButton(actionsRt, "DailyTaskButton", DailyTaskButtonResource,
-                new Vector2(0f, -(TopRightButtonSize.y + TopRightButtonGap + TopRightButtonSize.y * 0.5f)));
+            float stackHeight = TopRightButtonSize.y * TopRightSlotCount
+                + TopRightButtonGap * (TopRightSlotCount - 1);
+
+            var actionsRt = rootRt.Find("TopRightActions") as RectTransform;
+            if (actionsRt == null)
+            {
+                actionsRt = CreateChild(rootRt, "TopRightActions",
+                    new Vector2(1f, 1f), new Vector2(1f, 1f),
+                    new Vector2(1f, 1f),
+                    new Vector2(-TopRightMargin, TopRightActionsPosY),
+                    new Vector2(TopRightButtonSize.x, stackHeight));
+            }
+            else
+            {
+                actionsRt.anchoredPosition = new Vector2(-TopRightMargin, TopRightActionsPosY);
+                actionsRt.sizeDelta = new Vector2(TopRightButtonSize.x, stackHeight);
+            }
+
+            EnsureTopRightIconButton(actionsRt, "RankingButton", RankingButtonResource,
+                TopRightButtonAnchoredPos(0));
+            EnsureTopRightIconButton(actionsRt, "DailyTaskButton", DailyTaskButtonResource,
+                TopRightButtonAnchoredPos(1));
+            EnsureTopRightIconButton(actionsRt, "WarehouseEntryButton", WarehouseEntryButtonResource,
+                TopRightButtonAnchoredPos(2));
 
             return actionsRt;
         }
 
-        private static void BuildTopRightIconButton(
+        private static Vector2 TopRightButtonAnchoredPos(int index)
+        {
+            float y = -(index * (TopRightButtonSize.y + TopRightButtonGap) + TopRightButtonSize.y * 0.5f);
+            return new Vector2(0f, y);
+        }
+
+        private static RectTransform EnsureTopRightIconButton(
+            RectTransform parent, string name, string resourcePath, Vector2 anchoredPos)
+        {
+            var existing = parent.Find(name) as RectTransform;
+            if (existing != null)
+            {
+                existing.anchoredPosition = anchoredPos;
+                existing.sizeDelta = TopRightButtonSize;
+                return existing;
+            }
+
+            return BuildTopRightIconButton(parent, name, resourcePath, anchoredPos);
+        }
+
+        private static RectTransform BuildTopRightIconButton(
             RectTransform parent, string name, string resourcePath, Vector2 anchoredPos)
         {
             var btnRt = CreateChild(parent, name,
@@ -473,6 +516,7 @@ namespace PetDemo.UI
             colors.colorMultiplier = 1f;
             colors.fadeDuration = 0.08f;
             btn.colors = colors;
+            return btnRt;
         }
 
         /// <summary>SPEC §9.14.11 v3.188：构建 / 补建 AttrGrid（2 列 × 3 行，图标+数值）。</summary>

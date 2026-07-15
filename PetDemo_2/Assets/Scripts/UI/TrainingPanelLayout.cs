@@ -10,8 +10,15 @@ namespace PetDemo.UI
     {
         public const string SolidBackgroundResource = "";
         public const string FilterBadgeResource = "AirUI/common_bg_5";
+        public const string FilterHighlightResource = "AirUI/common_bg_15";
         public const string LockIconResource = "AirUI/common_bg_Suo";
         public const string DecorBackgroundResource = "AirUI/common_bg_11";
+        // SPEC §9.14.12 (v3.233)：筛选行首「All」项图标与空状态提示。
+        public const string FilterAllIconResource = "AirUI/SX_0_All_A";
+        public const string FilterAllObjectName = "FilterAll";
+        public const string EmptyFilterHintObjectName = "EmptyFilterHint";
+        public const string EmptyFilterHintText = "未选中任何属性，请点击下方的属性项图标";
+        public const int EmptyFilterHintFontSize = 42;
 
         public const int FilterAttrCount = 6;
         public const int CourseColumns = 2;
@@ -33,6 +40,7 @@ namespace PetDemo.UI
         private static readonly Vector2 RoleMountSize = new Vector2(420f, 580f);
         public static readonly Vector2 FilterIconSize = new Vector2(96f, 96f);
         public static readonly Vector2 FilterBadgeSize = new Vector2(36f, 36f);
+        public static readonly Vector2 FilterHighlightSize = new Vector2(112f, 112f);
         public static readonly Vector2 CourseCellSize = new Vector2(460f, 220f);
         public static readonly Vector2 CourseIconSize = new Vector2(128f, 128f);
         public static readonly Vector2 LockIconSize = new Vector2(72f, 72f);
@@ -143,6 +151,17 @@ namespace PetDemo.UI
             completeRt.gameObject.SetActive(false);
         }
 
+        /// <summary>SPEC §9.14.12 (v3.233)：筛选行槽位数 = All(1) + 属性(6)。</summary>
+        public const int FilterSlotCount = FilterAttrCount + 1;
+
+        /// <summary>第 slotIndex 个槽位的居中 X（slot0=All，slot i+1=FilterAttr_i）。</summary>
+        public static float FilterSlotX(int slotIndex)
+        {
+            float totalWidth = FilterSlotCount * FilterIconSize.x + (FilterSlotCount - 1) * FilterIconGap;
+            float startX = -totalWidth * 0.5f + FilterIconSize.x * 0.5f;
+            return startX + slotIndex * (FilterIconSize.x + FilterIconGap);
+        }
+
         private static void BuildFilterSection(RectTransform rootRt)
         {
             var filter = CreateChild(rootRt, "FilterSection",
@@ -150,34 +169,121 @@ namespace PetDemo.UI
                 new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
             StretchFull(filter);
 
-            float totalWidth = FilterAttrCount * FilterIconSize.x + (FilterAttrCount - 1) * FilterIconGap;
-            float startX = -totalWidth * 0.5f + FilterIconSize.x * 0.5f;
-
+            BuildFilterItem(filter, FilterAllObjectName, FilterAllIconResource, FilterSlotX(0));
             for (int i = 0; i < FilterAttrCount; i++)
             {
-                float x = startX + i * (FilterIconSize.x + FilterIconGap);
-                var itemRt = CreateChild(filter, "FilterAttr_" + i,
-                    new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f), new Vector2(x, 0f), FilterIconSize);
-
-                var iconImg = itemRt.gameObject.AddComponent<Image>();
-                ApplySpriteOrColor(iconImg, RoleTrainingCourseCatalog.FilterAttrIconPaths[i],
-                    new Color(0.45f, 0.5f, 0.6f, 1f), preserveAspect: true);
-                iconImg.raycastTarget = true;
-
-                var btn = itemRt.gameObject.AddComponent<Button>();
-                btn.targetGraphic = iconImg;
-                btn.transition = Selectable.Transition.None;
-
-                var badgeRt = CreateChild(itemRt, "SelectedBadge",
-                    new Vector2(1f, 0f), new Vector2(1f, 0f),
-                    new Vector2(1f, 0f), new Vector2(-4f, 4f), FilterBadgeSize);
-                var badgeImg = badgeRt.gameObject.AddComponent<Image>();
-                ApplySpriteOrColor(badgeImg, FilterBadgeResource,
-                    new Color(0.9f, 0.75f, 0.2f, 1f), preserveAspect: true);
-                badgeImg.raycastTarget = false;
-                badgeRt.gameObject.SetActive(false);
+                BuildFilterItem(filter, "FilterAttr_" + i,
+                    RoleTrainingCourseCatalog.FilterAttrIconPaths[i], FilterSlotX(i + 1));
             }
+        }
+
+        /// <summary>构建一项筛选图标（图标 + Button + SelectedHighlight + SelectedBadge）。</summary>
+        private static RectTransform BuildFilterItem(RectTransform filter, string name, string iconPath, float x)
+        {
+            var itemRt = CreateChild(filter, name,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f), new Vector2(x, 0f), FilterIconSize);
+
+            var iconImg = itemRt.gameObject.AddComponent<Image>();
+            ApplySpriteOrColor(iconImg, iconPath, new Color(0.45f, 0.5f, 0.6f, 1f), preserveAspect: true);
+            iconImg.raycastTarget = true;
+
+            var btn = itemRt.gameObject.AddComponent<Button>();
+            btn.targetGraphic = iconImg;
+            btn.transition = Selectable.Transition.None;
+
+            BuildFilterHighlight(itemRt);
+
+            var badgeRt = CreateChild(itemRt, "SelectedBadge",
+                new Vector2(1f, 0f), new Vector2(1f, 0f),
+                new Vector2(1f, 0f), new Vector2(-4f, 4f), FilterBadgeSize);
+            var badgeImg = badgeRt.gameObject.AddComponent<Image>();
+            ApplySpriteOrColor(badgeImg, FilterBadgeResource,
+                new Color(0.9f, 0.75f, 0.2f, 1f), preserveAspect: true);
+            badgeImg.raycastTarget = false;
+            badgeRt.gameObject.SetActive(false);
+
+            return itemRt;
+        }
+
+        /// <summary>选中激活高亮圆环（`common_bg_15`）：居中叠加在图标上层，中空处透出图标。</summary>
+        private static RectTransform BuildFilterHighlight(RectTransform item)
+        {
+            var highlightRt = CreateChild(item, "SelectedHighlight",
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, FilterHighlightSize);
+            var highlightImg = highlightRt.gameObject.AddComponent<Image>();
+            ApplySpriteOrColor(highlightImg, FilterHighlightResource,
+                new Color(1f, 0.85f, 0.25f, 1f), preserveAspect: true);
+            highlightImg.raycastTarget = false;
+            highlightRt.gameObject.SetActive(false);
+            return highlightRt;
+        }
+
+        /// <summary>旧版 prefab 缺少 SelectedHighlight 时运行时补齐（SPEC §9.14.12 v3.232）。</summary>
+        public static GameObject EnsureFilterHighlight(RectTransform item)
+        {
+            if (item == null)
+                return null;
+
+            var existing = item.Find("SelectedHighlight");
+            if (existing != null)
+                return existing.gameObject;
+
+            return BuildFilterHighlight(item).gameObject;
+        }
+
+        /// <summary>
+        /// SPEC §9.14.12 (v3.233)：旧版 prefab 缺 `FilterAll` 时运行时补建，并按 7 槽重排整行（幂等）。
+        /// 返回 `FilterAll` 项。
+        /// </summary>
+        public static GameObject EnsureFilterRow(RectTransform filterSection)
+        {
+            if (filterSection == null)
+                return null;
+
+            var allItem = filterSection.Find(FilterAllObjectName) as RectTransform;
+            if (allItem == null)
+                allItem = BuildFilterItem(filterSection, FilterAllObjectName, FilterAllIconResource, FilterSlotX(0));
+
+            RepositionFilterItem(allItem, FilterSlotX(0));
+            for (int i = 0; i < FilterAttrCount; i++)
+            {
+                var attr = filterSection.Find("FilterAttr_" + i) as RectTransform;
+                RepositionFilterItem(attr, FilterSlotX(i + 1));
+            }
+
+            return allItem != null ? allItem.gameObject : null;
+        }
+
+        private static void RepositionFilterItem(RectTransform item, float x)
+        {
+            if (item == null)
+                return;
+            item.anchorMin = new Vector2(0.5f, 0.5f);
+            item.anchorMax = new Vector2(0.5f, 0.5f);
+            item.pivot = new Vector2(0.5f, 0.5f);
+            item.anchoredPosition = new Vector2(x, 0f);
+        }
+
+        /// <summary>
+        /// SPEC §9.14.12 (v3.233)：`CourseSection` 中心「未选中任何属性」提示（白色、字号 42，默认隐藏）。
+        /// 旧版 prefab 缺该文字时运行时补建。
+        /// </summary>
+        public static Text EnsureEmptyFilterHint(RectTransform courseSection)
+        {
+            if (courseSection == null)
+                return null;
+
+            var existing = courseSection.Find(EmptyFilterHintObjectName);
+            if (existing != null)
+                return existing.GetComponent<Text>();
+
+            var hint = CreateText(courseSection, EmptyFilterHintObjectName, EmptyFilterHintText,
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900f, 200f),
+                EmptyFilterHintFontSize, TextAnchor.MiddleCenter, TextColor);
+            hint.gameObject.SetActive(false);
+            return hint;
         }
 
         private static void BuildCourseSection(RectTransform rootRt)

@@ -392,6 +392,12 @@ namespace PetDemo.Core
         public int currentExp = 0;
         public int expToNextLevel = 100;
 
+        /// <summary>
+        /// SPEC §9.14.9（v3.244）：已装备的玩家 Spine 资源（Resources 相对路径 → SkeletonDataAsset）。
+        /// 空 = 各界面回退默认 Hero_Role_cunmin 探针骨骼。
+        /// </summary>
+        public string equippedPlayerSpineResource = "";
+
         public static RoleStats CreateDefault()
         {
             var role = new RoleStats();
@@ -532,6 +538,9 @@ namespace PetDemo.Core
         public bool intimacyInterrupted;    // 亲密度是否中断：true=Xing_2_1，false=Xing_2
         public string avatarFrameResource;  // 头像框 Resources 路径，留空=无头像框
         public string spinePrefabPath;      // 模型 Spine 预制体 Resources 路径
+
+        // SPEC §9.8.18（v3.213）：是否已有伴侣（伴侣小屋好友筛选用；true=不可被邀请）。
+        public bool hasPartner;
     }
 
     /// <summary>SPEC §9.14.2（v3.203）：亲密度页签好友列表展示模式。</summary>
@@ -620,6 +629,8 @@ namespace PetDemo.Core
         public int maxHp;
         // SPEC §B.9 (v3.172)：该敌方单位的骨骼预制体 Resources 路径（供 §12.11.10 嵌入战斗按单位切换敌人形象）；可空。
         public string skeletonPrefab;
+        // SPEC §B.9 (v3.226)：战斗中显示比例（1=原始，1.5=放大 50%）；缺列/空/<=0 回退 1.0。
+        public float displayScale = 1f;
     }
 
     // SPEC §12.5：入口图标 / 全局阶段。
