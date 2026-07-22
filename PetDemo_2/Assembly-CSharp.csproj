@@ -59,6 +59,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Scripts\Farm\PestControlConfigCatalog.cs" />
+    <Compile Include="Assets\Scripts\Core\PlayerSpineAppearanceResolver.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\PestControlGridView.cs" />
     <Compile Include="Assets\Scripts\UI\SkeletonGraphicVertexMirror.cs" />
     <Compile Include="Assets\Scripts\Battle\InvasionService.cs" />
@@ -83,8 +84,10 @@
     <Compile Include="Assets\Scripts\UI\Farm\PlantSpineAnimationPlayer.cs" />
     <Compile Include="Assets\Scripts\Core\CsvTable.cs" />
     <Compile Include="Assets\Scripts\UI\LevelSelectLevelInfoOverlayView.cs" />
+    <Compile Include="Assets\Scripts\UI\Guild\GuildWaypointMarker.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\PetBagSpineGraphicBuilder.cs" />
     <Compile Include="Assets\Scripts\Farm\PestControlValueColorCatalog.cs" />
+    <Compile Include="Assets\Scripts\UI\Companion\ManorFloatingFrameProximityController.cs" />
     <Compile Include="Assets\Scripts\UI\MainStoryArenaEntryView.cs" />
     <Compile Include="Assets\Scripts\Battle\GridBattleSessionFactory.cs" />
     <Compile Include="Assets\Scripts\UI\BottomNavBarView.cs" />
@@ -106,6 +109,7 @@
     <Compile Include="Assets\Scripts\UI\Farm\PlantSpineGraphicBuilder.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\InvasionBattleRewardRowView.cs" />
     <Compile Include="Assets\Scripts\Battle\GridEncounterBuilder.cs" />
+    <Compile Include="Assets\Scripts\UI\Companion\InvitePartnerModalView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\SeedWarehouseListView.cs" />
     <Compile Include="Assets\Scripts\Core\TaskListConfigCatalog.cs" />
     <Compile Include="Assets\Scripts\UI\LevelSelectScreenPanelView.cs" />
@@ -118,6 +122,7 @@
     <Compile Include="Assets\Scripts\Save\GameSaveCoordinator.cs" />
     <Compile Include="Assets\Scripts\Battle\InvasionEventConfigCatalog.cs" />
     <Compile Include="Assets\Scripts\Battle\GridBattleTargetSelector.cs" />
+    <Compile Include="Assets\Scripts\UI\Guild\GuildWorldDepthSorter.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GongHuiScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\PetPreviewRig.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GuildSceneUiFactory.cs" />
@@ -137,6 +142,7 @@
     <Compile Include="Assets\Scripts\UI\Friend\FriendListPanelView.cs" />
     <Compile Include="Assets\Scripts\UI\HarvestViewPanInput.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GuildPanoramaController.cs" />
+    <Compile Include="Assets\Scripts\UI\Companion\ManorFloatingFrameFireworkController.cs" />
     <Compile Include="Assets\Scripts\Battle\BattlePartyAssembler.cs" />
     <Compile Include="Assets\Scripts\UI\DressUpPanelView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\FertilizerWarehousePanelView.cs" />
@@ -161,8 +167,10 @@
     <Compile Include="Assets\Scripts\Save\GameBootContext.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\DetailAttributeModalView.cs" />
     <Compile Include="Assets\Scripts\Battle\GridBattleDriver.cs" />
+    <Compile Include="Assets\Scripts\UI\Companion\CompanionCottageView.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GuildObstacleArea.cs" />
     <Compile Include="Assets\Scripts\UI\LevelSelectLevelSlotView.cs" />
+    <Compile Include="Assets\Scripts\UI\Companion\ManorFloatingFrameMarker.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GuildPlayerController.cs" />
     <Compile Include="Assets\Scripts\UI\JiaYuanHomeFeatureEntriesView.cs" />
     <Compile Include="Assets\Scripts\Core\InvasionRewardGrantHelper.cs" />
@@ -182,11 +190,13 @@
     <Compile Include="Assets\Scripts\UI\SaveSlotPickerView.cs" />
     <Compile Include="Assets\Scripts\UI\App\AppScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\PetInteractionHudView.cs" />
+    <Compile Include="Assets\Scripts\UI\Guild\GuildNpcWanderController.cs" />
     <Compile Include="Assets\Scripts\UI\BottomNavButtonView.cs" />
     <Compile Include="Assets\Scripts\Battle\GridBattleInterfaces.cs" />
     <Compile Include="Assets\Scripts\Battle\GridBattleSeedUtil.cs" />
     <Compile Include="Assets\Scripts\Battle\SkillConfigCatalog.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\UnifiedActionButtonView.cs" />
+    <Compile Include="Assets\Scripts\UI\Battle\SlotReelMatchHighlightFx.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GuildProximityController.cs" />
     <Compile Include="Assets\Scripts\UI\FantaziaMonsterDisplay.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\InvasionBattleResultDialogView.cs" />
@@ -209,6 +219,7 @@
     <Compile Include="Assets\Scripts\UI\Guild\GuildSceneGeometry.cs" />
     <Compile Include="Assets\Scripts\UI\MainStoryLineScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\HarvestViewEntryView.cs" />
+    <Compile Include="Assets\Scripts\UI\Companion\CompanionManorScreenView.cs" />
     <Compile Include="Assets\Scripts\Battle\GridBattleFieldLayout.cs" />
     <Compile Include="Assets\Scripts\UI\RoleGrowthTabBarView.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GuildHomeVisitState.cs" />
@@ -216,6 +227,7 @@
     <Compile Include="Assets\Scripts\UI\Farm\EnchantScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\SowActionButtonView.cs" />
     <Compile Include="Assets\Scripts\UI\CharacterCreationScreenLayout.cs" />
+    <Compile Include="Assets\Scripts\UI\Companion\CompanionManorBackgroundBuilder.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\RoleGrowthPetBagWarehouseView.cs" />
     <Compile Include="Assets\Scripts\UI\CharacterCreationFriendCellView.cs" />
     <Compile Include="Assets\Scripts\UI\BottomNavAttachedScreenLayout.cs" />
@@ -232,14 +244,6 @@
     <Compile Include="Assets\Scripts\UI\Farm\FruitWarehouseListView.cs" />
     <Compile Include="Assets\Scripts\UI\SkeletonGraphicUiMaterialFactory.cs" />
     <Compile Include="Assets\Scripts\Battle\IBattleCombatDriver.cs" />
-    <Compile Include="Assets\Scripts\UI\Guild\GuildNpcWanderController.cs" />
-    <Compile Include="Assets\Scripts\UI\Guild\GuildWaypointMarker.cs" />
-    <Compile Include="Assets\Scripts\UI\Guild\GuildWorldDepthSorter.cs" />
-    <Compile Include="Assets\Scripts\UI\Companion\InvitePartnerModalView.cs" />
-    <Compile Include="Assets\Scripts\UI\Companion\CompanionCottageView.cs" />
-    <Compile Include="Assets\Scripts\UI\Companion\CompanionManorScreenView.cs" />
-    <Compile Include="Assets\Scripts\UI\Companion\CompanionManorBackgroundBuilder.cs" />
-    <Compile Include="Assets\Scripts\Core\PlayerSpineAppearanceResolver.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />

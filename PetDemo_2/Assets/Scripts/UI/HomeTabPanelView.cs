@@ -31,7 +31,8 @@ namespace PetDemo.UI
         private const string StandbyClipName = "standby_1";
         private const string OpeningRescueBubbleText = "好饿哦~~~好饿哦~~~";
 
-        private static readonly Color TabActiveColor = new Color(0.26f, 0.55f, 0.85f, 1f);
+        // SPEC §9.14.11 v3.272：打开态白色；关闭态深灰棕。
+        private static readonly Color TabActiveColor = Color.white;
         private static readonly Color TabNormalColor = new Color(0.3f, 0.28f, 0.24f, 1f);
 
         private static HomeTabPanelView instance;
@@ -43,8 +44,11 @@ namespace PetDemo.UI
         [SerializeField] private Text expText;
         [SerializeField] private Button hexAttrsTab;
         [SerializeField] private Button currentTab;
+        [SerializeField] private GameObject infoContent;
         [SerializeField] private GameObject hexAttrsPage;
         [SerializeField] private GameObject currentPlaceholderPage;
+        [SerializeField] private RectTransform characterZone;
+        [SerializeField] private RectTransform levelExpRow;
         [SerializeField] private Image[] attrIcons = new Image[HomeTabPanelLayout.GrowthAttrCount];
         [SerializeField] private Text[] attrValues = new Text[HomeTabPanelLayout.GrowthAttrCount];
         [SerializeField] private Text[] currentPlaceholderAttrValues = new Text[HomeTabPanelLayout.GrowthAttrCount];
@@ -64,8 +68,12 @@ namespace PetDemo.UI
         private SkeletonGraphic roleSkeletonGraphic;
         private bool wired;
         private bool roleBuilt;
-        private int activeInfoTabIndex;
+        /// <summary>SPEC §9.14.11 v3.272：-1=双关，0=HexAttrs，1=Current。</summary>
+        private int activeInfoTabIndex = -1;
         private float expTrackWidth;
+        private bool levelExpRowOpenOffsetsCached;
+        private Vector2 levelExpRowOpenOffsetMin;
+        private Vector2 levelExpRowOpenOffsetMax;
 
         private List<HomeTabBubbleConfig> bubbleQueue;
         private int bubbleQueueIndex = -1;
@@ -160,7 +168,10 @@ namespace PetDemo.UI
             transform.SetAsLastSibling();
             EnsureRoleSpine();
             RefreshAll();
-            SelectInfoTab(0);
+            // SPEC §9.14.11 v3.272：折叠前先缓存 prefab 打开态偏移；进入家园页默认双关。
+            EnsureLayoutZoneRefs();
+            CacheLevelExpRowOpenOffsetsIfNeeded();
+            SelectInfoTab(-1);
             BeginSpeechBubbleQueue();
             ElevateScreenCloseButton();
         }
@@ -241,12 +252,12 @@ namespace PetDemo.UI
             if (hexAttrsTab != null)
             {
                 hexAttrsTab.onClick.RemoveAllListeners();
-                hexAttrsTab.onClick.AddListener(() => SelectInfoTab(0));
+                hexAttrsTab.onClick.AddListener(() => ToggleInfoTab(0));
             }
             if (currentTab != null)
             {
                 currentTab.onClick.RemoveAllListeners();
-                currentTab.onClick.AddListener(() => SelectInfoTab(1));
+                currentTab.onClick.AddListener(() => ToggleInfoTab(1));
             }
 
             if (speechBubbleButton != null)
@@ -360,13 +371,27 @@ namespace PetDemo.UI
             }
         }
 
+        /// <summary>SPEC §9.14.11 v3.272：同钮开关；点另一钮互斥打开。</summary>
+        private void ToggleInfoTab(int index)
+        {
+            if (activeInfoTabIndex == index)
+                SelectInfoTab(-1);
+            else
+                SelectInfoTab(index);
+        }
+
+        /// <summary>SPEC §9.14.11 v3.272：index=-1 双关；0=HexAttrs；1=Current。</summary>
         private void SelectInfoTab(int index)
         {
             activeInfoTabIndex = index;
+            bool anyOpen = index >= 0;
+
+            SetActiveSafe(infoContent, anyOpen);
             SetActiveSafe(hexAttrsPage, index == 0);
             SetActiveSafe(currentPlaceholderPage, index == 1);
             SetTabVisual(hexAttrsTab, index == 0);
             SetTabVisual(currentTab, index == 1);
+            ApplyInfoFoldLayout(anyOpen);
         }
 
         private static void SetTabVisual(Button button, bool active)
@@ -376,6 +401,88 @@ namespace PetDemo.UI
             var img = button.GetComponent<Image>();
             if (img != null)
                 img.color = active ? TabActiveColor : TabNormalColor;
+        }
+
+        /// <summary>SPEC §9.14.11 v3.272：双关折叠 / 打开恢复 CharacterZone 与 LevelExpRow 的 Top/Bottom。</summary>
+        private void ApplyInfoFoldLayout(bool infoOpen)
+        {
+            EnsureLayoutZoneRefs();
+            if (characterZone != null)
+            {
+                if (infoOpen)
+                {
+                    SetRectTopBottom(characterZone,
+                        HomeTabPanelLayout.CharacterZoneOpenTop,
+                        HomeTabPanelLayout.CharacterZoneOpenBottom);
+                }
+                else
+                {
+                    SetRectTopBottom(characterZone,
+                        HomeTabPanelLayout.CharacterZoneCollapsedTop,
+                        HomeTabPanelLayout.CharacterZoneCollapsedBottom);
+                }
+            }
+
+            if (levelExpRow == null)
+                return;
+
+            if (infoOpen)
+            {
+                CacheLevelExpRowOpenOffsetsIfNeeded();
+                levelExpRow.offsetMin = levelExpRowOpenOffsetMin;
+                levelExpRow.offsetMax = levelExpRowOpenOffsetMax;
+            }
+            else
+            {
+                SetRectTopBottom(levelExpRow,
+                    HomeTabPanelLayout.LevelExpRowCollapsedTop,
+                    HomeTabPanelLayout.LevelExpRowCollapsedBottom);
+            }
+        }
+
+        private void CacheLevelExpRowOpenOffsetsIfNeeded()
+        {
+            if (levelExpRowOpenOffsetsCached || levelExpRow == null)
+                return;
+            levelExpRowOpenOffsetMin = levelExpRow.offsetMin;
+            levelExpRowOpenOffsetMax = levelExpRow.offsetMax;
+            levelExpRowOpenOffsetsCached = true;
+        }
+
+        private static void SetRectTopBottom(RectTransform rt, float top, float bottom)
+        {
+            if (rt == null)
+                return;
+            var min = rt.offsetMin;
+            var max = rt.offsetMax;
+            min.y = bottom;
+            max.y = -top;
+            rt.offsetMin = min;
+            rt.offsetMax = max;
+        }
+
+        private void EnsureLayoutZoneRefs()
+        {
+            if (characterZone == null)
+            {
+                var t = transform.Find("CharacterZone");
+                if (t != null)
+                    characterZone = t as RectTransform;
+            }
+
+            if (levelExpRow == null)
+            {
+                var t = transform.Find("LevelExpRow");
+                if (t != null)
+                    levelExpRow = t as RectTransform;
+            }
+
+            if (infoContent == null)
+            {
+                var t = transform.Find("InfoSection/InfoContent");
+                if (t != null)
+                    infoContent = t.gameObject;
+            }
         }
 
         private void RefreshLevelExp()
@@ -813,6 +920,8 @@ namespace PetDemo.UI
                 if (t != null)
                     currentTab = t.GetComponent<Button>();
             }
+
+            EnsureLayoutZoneRefs();
 
             if (hexAttrsPage == null)
             {

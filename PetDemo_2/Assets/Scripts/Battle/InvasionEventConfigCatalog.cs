@@ -24,8 +24,9 @@ namespace PetDemo.Battle
         AttrPercent, // attr:hp|atk|speed:±%（本期落地）
         BattleSmall, // battle_small（占位）
         BattleBoss,  // battle_boss（占位）
-        Slot3,       // slot3（占位）
-        Slot5,       // slot5（占位）
+        Slot3,       // slot3
+        Slot5,       // slot5
+        Slot3x3,     // slot3x3（九宫格）
         PickThree,   // pick3（占位）
     }
 
@@ -336,6 +337,9 @@ namespace PetDemo.Battle
                     case "slot5":
                         list.Add(new InvasionEventReward { kind = InvasionEventRewardKind.Slot5 });
                         break;
+                    case "slot3x3":
+                        list.Add(new InvasionEventReward { kind = InvasionEventRewardKind.Slot3x3 });
+                        break;
                     default:
                         UnityEngine.Debug.LogWarning($"[InvasionEventConfigCatalog] 事件表第 {lineNumber} 行奖励类型未知：{token}");
                         break;
@@ -360,6 +364,7 @@ namespace PetDemo.Battle
             AddDefault(dict, "evt_fight_boss", InvasionEventType.Battle, "<color=#FF3B30>最终 BOSS 出现了！</color>", "battle_boss", 5);
             AddDefault(dict, "evt_lottery", InvasionEventType.Lottery, "你发现一个神秘宝箱。", "slot3", 4);
             AddDefault(dict, "evt_lottery5", InvasionEventType.Lottery, "一台华丽的五轴宝机出现在眼前！", "slot5", 4);
+            AddDefault(dict, "evt_lottery3x3", InvasionEventType.Lottery, "九宫格宝机出现在眼前！", "slot3x3", 4);
             AddDefault(dict, "evt_insight", InvasionEventType.Adventure, "你静心参悟，<color=#33CC33>领悟</color>了新的招式。", "pick3:normal", 4);
             AddDefault(dict, "evt_epiphany", InvasionEventType.Adventure, "灵光乍现，你<color=#FFB300>顿悟</color>了传说级奥义！", "pick3:legendary", 4);
             return dict;
@@ -397,6 +402,8 @@ namespace PetDemo.Battle
                 new InvasionEventDayEntry { day = 3, eventId = "evt_epiphany", weight = 40 },
                 new InvasionEventDayEntry { day = 2, eventId = "evt_lottery5", weight = 30 },
                 new InvasionEventDayEntry { day = 3, eventId = "evt_lottery5", weight = 30 },
+                new InvasionEventDayEntry { day = 3, eventId = "evt_lottery3x3", weight = 30 },
+                new InvasionEventDayEntry { day = 7, eventId = "evt_lottery3x3", weight = 30 },
             };
         }
     }

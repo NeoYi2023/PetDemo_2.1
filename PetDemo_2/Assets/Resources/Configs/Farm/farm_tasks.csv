@@ -1,10 +1,11 @@
-﻿# 加好感页签（ZhuanQianPopup）任务列表配置。,,,,,
-# 列：id,iconResource,description,rewardIconResource,rewardCount,navKey
-# navKey 复用 CharacterCreationScreenView.EnterHomeNavEntries 的跳转体系。,,,,,
-id,iconResource,description,rewardIconResource,rewardCount,navKey
-task_jiaYuan,AirUI/Game_NongChang,前往农场收获一批作物,AirUI/Xing_1,2,JiaYuan
-task_gongHui,AirUI/Game_ZuDui,前往社区拜访邻居,AirUI/Xing_1,2,GongHui
-task_zhuXian,AirUI/Game_MaoXian,进入冒险关卡挑战一次,AirUI/Xing_1,3,ZhuXian
-task_langLai,AirUI/Game_LangLai,参与一次狼来了玩法,AirUI/Xing_1,4,LangLai
-task_fenZheng,AirUI/Game_FenZheng,体验人狼纷争玩法,AirUI/Xing_1,4,FenZheng
-task_xiuXian,AirUI/Game_XiuXian,进入修仙玩法修炼,AirUI/Xing_1,4,XiuXian
+﻿# 加好感页签（ZhuanQianPopup）任务列表配置。,,,,,,
+# 列：id,iconResource,description,rewardIconResource,rewardCount,expReward,navKey
+# navKey 复用 CharacterCreationScreenView.EnterHomeNavEntries 的跳转体系。,,,,,,
+# v3.266：UI 固定用 AirUI/ExpIcon_1 + expReward；rewardIconResource/rewardCount 保留备用。,,,,,,
+id,iconResource,description,rewardIconResource,rewardCount,expReward,navKey
+task_jiaYuan,AirUI/Game_NongChang,前往农场收获一批作物,AirUI/Xing_1,2,100,JiaYuan
+task_gongHui,AirUI/Game_ZuDui,前往社区拜访邻居,AirUI/Xing_1,2,80,GongHui
+task_zhuXian,AirUI/Game_MaoXian,进入冒险关卡挑战一次,AirUI/Xing_1,3,120,ZhuXian
+task_langLai,AirUI/Game_LangLai,参与一次狼来了玩法,AirUI/Xing_1,4,150,LangLai
+task_fenZheng,AirUI/Game_FenZheng,体验人狼纷争玩法,AirUI/Xing_1,4,200,FenZheng
+task_xiuXian,AirUI/Game_XiuXian,进入修仙玩法修炼,AirUI/Xing_1,4,180,XiuXian

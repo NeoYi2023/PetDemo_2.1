@@ -7,8 +7,8 @@ using UnityEngine;
 namespace PetDemo.EditorTools
 {
     /// <summary>
-    /// SPEC §9.8.19（v3.238；Partner NPC + Waypoints v3.259；Obstacles v3.260；建造弹图 v3.262）：伴侣庄园场景预制体生成器。
-    /// 产出 Assets/Resources/Prefabs/Farm/CompanionManorScreenPanel.prefab（含 Obstacle_* 占位、Button-JianZao、BuildOverlay）。
+    /// SPEC §9.8.19（v3.238；Partner NPC + Waypoints v3.259；Obstacles v3.260；建造弹图 v3.262；悬浮框 v3.263）：伴侣庄园场景预制体生成器。
+    /// 产出 CompanionManorScreenPanel.prefab（含 Obstacles、FloatingFrames、动作按钮与 BuildOverlay）。
     /// 同源范式见 InvitePartnerModalPrefabGenerator（§9.8.18.3.1）。
     /// </summary>
     public static class CompanionManorScreenPrefabGenerator

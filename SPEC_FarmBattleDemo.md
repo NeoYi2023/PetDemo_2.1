@@ -1696,7 +1696,7 @@ InvitePartnerModal (InvitePartnerModalView)
 
 **中文：** P0：公会 `Building_4` + 右上入口 + 邀请弹窗（**预制体** + 好友列表筛选，仅无伴侣可选）+ 2 秒模拟接受顶部弹窗。P1：已结伴进入 §9.8.19 庄园场景（`Show(partnerFriendId)` 驱动 Partner NPC）。数据仅内存态，不做存档与后端同步。
 
-#### 9.8.19 伴侣庄园场景 / Companion Manor Screen (v3.238；Partner NPC + Waypoints v3.259；Obstacles v3.260；Scale/选点避障 v3.261；建造弹图 v3.262)
+#### 9.8.19 伴侣庄园场景 / Companion Manor Screen (v3.238；Partner NPC + Waypoints v3.259；Obstacles v3.260；Scale/选点避障 v3.261；建造弹图 v3.262；悬浮框 v3.263；FloatingFrame_1 烟花 v3.264)
 
 ##### 9.8.19.1 系统设计说明 / System Design
 
@@ -1712,9 +1712,11 @@ InvitePartnerModal (InvitePartnerModalView)
 
 **场景悬浮框（v3.263）：** `ManorWorldContent/FloatingFrames/` 下可摆多个 `FloatingFrame_*`（`ManorFloatingFrameMarker`）。每个框含背景图 `Panel`（Image）+ 固定文字 `Label`（Text）；**默认隐藏**。主角靠近该框中心点 **≤ `showRadius`（默认 300，content 局部像素）** 时显示该框；离开 **> 300** 后隐藏。多框**各自独立**判定（可同时显示多个）。中心点 = Marker 自身 `RectTransform`（经 `GuildSceneGeometry.PointInContentSpace`）。位置 / 文本 / 背景 Sprite / 半径均由预制体 Inspector 编辑；脚本只做接近显隐，**不做**点击/跳转/深度排序/碰撞。Image/Text `raycastTarget=false`，避免挡摇杆。`Hide()` / 控制器 `OnDisable` 时强制全藏。
 
+**FloatingFrame_1 烟花特效（v3.264；缩放 v3.265）：** 仅绑定节点名精确为 **`FloatingFrame_1`** 的 Marker。当其 **Panel 显示**时，`ManorFloatingFrameFireworkController` 从 `Resources/SpecialEffects/yanhua` 加载序列帧（`yanhua1`～`yanhua6`，共 6 种），**立即**随机发射 1 组，之后每 **0.2s** 再随机发射下一组（允许连抽同组；多组可并发）。每组以 **0.1s/帧** 顺序播放完整序列。Panel **隐藏**时停止**后续发射**，已开始的序列**播完再回收**。落点：以发射瞬间玩家 content 坐标 **上方 350px** 为圆心、半径 **150px** 圆内均匀随机 1 点；该中心在序列开始时固定，播放中不跟随。显示缩放 **`localScale = (3,3,1)`**（相对原图放大 2 倍，即最终尺寸为原图 3 倍）。烟花挂在 `ManorWorldContent/FireworkFxLayer`（UGUI Image 对象池，`raycastTarget=false`），**不**挂在 Panel 下，以免隐藏打断播完规则。
+
 **进入条件：** `CompanionCottageView.HasPartner == true`（会话已结伴）后点伴侣入口。
 
-**English (v3.259–v3.263):** Companion Manor overlay; partner NPC `NpcSpine` scale **0.27**; waypoints skip picks inside obstacles; editable Obstacles; build button opens bottom-aligned native-size `WDZY_ZS_UI_1` overlay (blank-area dismiss). **(v3.263)** Editable proximity floating frames under `FloatingFrames/` (default hidden; show within 300 content-px of marker center; independent per frame).
+**English (v3.259–v3.265):** Companion Manor overlay; partner NPC `NpcSpine` scale **0.27**; waypoints skip picks inside obstacles; editable Obstacles; build button opens bottom-aligned native-size `WDZY_ZS_UI_1` overlay (blank-area dismiss). **(v3.263)** Editable proximity floating frames under `FloatingFrames/` (default hidden; show within 300 content-px of marker center; independent per frame). **(v3.264; scale v3.265)** `FloatingFrame_1` Panel-gated continuous fireworks (`yanhua1`–`yanhua6`): spawn every 0.2s while shown; 0.1s/frame; hide stops new spawns but finishes active; random point in 150px circle centered 350px above player; final size 3× original (+200%).
 
 ##### 9.8.19.2 节点树与资源 / Hierarchy & Assets
 
@@ -1734,6 +1736,7 @@ CompanionManorScreenPanel (CompanionManorScreenView)
 │       │   └─ FloatingFrame_* (ManorFloatingFrameMarker)
 │       │       └─ Panel (Image) ← 背景；raycastTarget=false
 │       │           └─ Label (Text) ← 固定文字；raycastTarget=false
+│       ├─ FireworkFxLayer/    ← 运行时懒建；FloatingFrame_1 烟花 Image 池（v3.264）
 │       └─ PlayerSpawn
 ├─ JoystickTouchLayer / JoystickVisualLayer
 ├─ Button/
@@ -1755,21 +1758,46 @@ CompanionManorScreenPanel (CompanionManorScreenView)
 | Waypoints | `Waypoints/Waypoint_*` | 随机游走目标点 |
 | FloatingFrames | `FloatingFrames/FloatingFrame_*` | 接近显隐信息牌（背景+文字） |
 | 悬浮框默认底板 | `AirUI/common_bg_15` | 骨架/占位默认 Panel 背景（可改） |
+| 烟花序列帧 | `SpecialEffects/yanhua/yanhua{1..6}__{帧号}` | FloatingFrame_1 Panel 显时持续播放 |
 | 建造弹图 | `AirUI/WDZY_ZS_UI_1` | Button-JianZao 底部原尺寸展示（1080×766） |
 | 预制体 | `Prefabs/Farm/CompanionManorScreenPanel` | 优先；缺则运行时 `BuildSceneSkeleton` |
 
-##### 9.8.19.2.2 场景悬浮框数据结构（v3.263） / Floating Frame Data
+##### 9.8.19.2.2 场景悬浮框数据结构（v3.263；烟花钩子 v3.264） / Floating Frame Data
 
 ```text
 ManorFloatingFrameMarker
   [SerializeField] float showRadius = 300f;   // content 局部像素；默认 300
   // 中心点 = 自身 RectTransform（PointInContentSpace）
   // 视觉：子节点 Panel(Image) + Label(Text)；脚本只 SetVisible，不覆写文案/Sprite
+  // v3.264：IsPanelVisible + event Action<bool> VisibilityChanged（仅状态真变时触发）
 
 ManorFloatingFrameProximityController
   Initialize(playerRt, worldContentRt, frames[])
   // 0.1s 轮询；(framePos - playerPos).sqrMagnitude <= r*r → SetVisible(true)
   // OnDisable → HideAll
+```
+
+##### 9.8.19.2.3 FloatingFrame_1 烟花数据结构（v3.264） / Firework Data
+
+```text
+资源分组（文件名 yanhua{N}__{FF}.png → Sprite.name）
+  yanhua1..yanhua6：共 6 组；按组号解析，帧号两位数字序排
+  现资源帧数：1/3/4/5/6 = 16 帧；yanhua2 = 9 帧（实现不得硬编码帧数）
+
+常量
+  ResourceFolder = "SpecialEffects/yanhua"
+  SpawnIntervalSeconds = 0.2f      // Panel 显示期间，发射后间隔
+  FrameIntervalSeconds = 0.1f      // 每张序列图停留
+  CenterOffsetY = 350f             // 相对玩家 content Y 向上
+  SpawnRadius = 150f               // 圆心周围均匀随机半径
+  DisplayScale = 3f                // 相对原图放大 2 倍；最终尺寸为原图 3 倍
+
+ManorFloatingFrameFireworkController
+  Initialize(playerRt, worldContentRt, targetMarker, fxLayerRt)
+  // Panel visible=true → 立即 SpawnOne + 持续按 0.2s 调度
+  // Panel visible=false → 停调度；活动 Instance 播完回池
+  // OnDisable / 庄园 Hide → ClearActiveVisuals
+  // SpawnOne：Random 组 → 圆内随机落点 → Image pool 播完整序列
 ```
 
 ##### 9.8.19.2.1 门装饰与深度排序脚底约定（v3.254） / Door Prop Feet Pivot for Depth Sort
@@ -1795,11 +1823,12 @@ ManorFloatingFrameProximityController
 - **自 v3.261 起**：Partner `NpcSpine` 使用 `GuildPlayerLocalScale (0.27,0.27,1)`；游走选点排除障碍内 Waypoint（§9.8.9.15）。
 - **自 v3.262 起**：`WireActionButtons` 幂等绑定 `Button/Button-JianZao` → `ShowBuildOverlay`；`EnsureBuildOverlay` 懒建 `BuildOverlay/Dim+Image`；`HideBuildOverlay`；`Hide()` 同步关弹层。图片 `Resources.Load("AirUI/WDZY_ZS_UI_1")`，`sizeDelta = sprite.rect.size`，底锚 `(0.5,0)` / pivot `(0.5,0)`。`BuildSceneSkeleton` 同步生成 `Button/` 与弹层骨架（预制体生成器复用）。
 - **自 v3.263 起**：`FloatingFrames/FloatingFrame_*`（`ManorFloatingFrameMarker`）预制体可编；`EnsureSceneSpawned` 收集并装配 `ManorFloatingFrameProximityController`（0.1s content 距离轮询，默认半径 300）；`BuildSceneSkeleton` 生成 `FloatingFrames` + 2 个占位框；Panel/Label `raycastTarget=false`。
+- **自 v3.264 起**：`ManorFloatingFrameMarker` 暴露 `IsPanelVisible` / `VisibilityChanged`；`EnsureSceneSpawned` 对名称精确 `FloatingFrame_1` 装配 `ManorFloatingFrameFireworkController`（懒建 `FireworkFxLayer`）；其它 `FloatingFrame_*` 不装烟花；不重写用户已编辑 prefab 人工布局。
 - 本期不接公会 TopDingBar 跟随头像（庄园子层无独立接线）。
 
 ##### 9.8.19.4 实现优先级 / Priority
 
-**中文：** P0：2×2 背景 + 摇杆 + 视口跟随 + Men 深度 + 返回 + 入口接线。**P0（v3.259）：** PartnerNpc + NamePlate/跟随/游走 + 可编 Waypoints。**P0（v3.260）：** 可编 Obstacles 碰撞矩形。**P0（v3.261）：** Partner Spine 0.27 + 游走选点避障。**P0（v3.262）：** Button-JianZao → 底部原尺寸建造弹图，空白关闭。**P0（v3.263）：** 场景悬浮框（靠近 300px 显隐、多实例预制体可编）。P1+：装修交互 / 任务 / 存档等后续补充。
+**中文：** P0：2×2 背景 + 摇杆 + 视口跟随 + Men 深度 + 返回 + 入口接线。**P0（v3.259）：** PartnerNpc + NamePlate/跟随/游走 + 可编 Waypoints。**P0（v3.260）：** 可编 Obstacles 碰撞矩形。**P0（v3.261）：** Partner Spine 0.27 + 游走选点避障。**P0（v3.262）：** Button-JianZao → 底部原尺寸建造弹图，空白关闭。**P0（v3.263）：** 场景悬浮框（靠近 300px 显隐、多实例预制体可编）。**P0（v3.264）：** FloatingFrame_1 持续烟花（0.2s 随机发射 / 0.1s 帧 / 上方 350±150 / 2× / 隐藏停新增播完收）。P1+：装修交互 / 任务 / 存档等后续补充。
 
 ##### 9.8.19.5 建造弹图技术实现建议（v3.262） / Build Overlay Notes
 
@@ -1810,6 +1839,17 @@ ManorFloatingFrameProximityController
 
 **中文：** 不复用 `GuildProximityController`（其绑定 NamePlate/建筑/NPC/响应区）。独立 `ManorFloatingFrameProximityController`，距离算法对齐公会（`GuildSceneGeometry.PointInContentSpace` + 平方距离 + 0.1s 节流）。Marker 根节点保持激活（中心点稳定）；`SetVisible` 仅显隐子节点 `Panel`。编辑流程：复制 `FloatingFrame_*` → 改 `anchoredPosition` / Panel Sprite / Label 文案 / 可选 `showRadius`。不参与深度排序与障碍碰撞。硬阈值无滞回（同公会接近）。重新跑生成器须保留 `FloatingFrames/`（已纳入 `BuildSceneSkeleton`）。  
 **English:** Dedicated proximity controller (not Guild NamePlate); content-space 300px radius; Panel toggle only; editable prefab instances; no depth/collision.
+
+##### 9.8.19.7 FloatingFrame_1 烟花技术实现建议（v3.264） / Firework Notes
+
+**中文：**
+1. **触发源**：订阅 `FloatingFrame_1.VisibilityChanged`，不要把烟花挂在 Panel 下用 OnEnable/OnDisable（隐藏会打断播完）。
+2. **加载**：首次 `Initialize` 时 `Resources.LoadAll<Sprite>("SpecialEffects/yanhua")`，解析 `yanhua{N}__{FF}` 分组并按帧号排序缓存；缺组 `LogWarning` 并跳过。
+3. **调度**：可见即 `SpawnOne`，再用 `spawnInterval=0.2` 计时（`Update` 或协程均可）；不可见时清调度标志；活动实例独立计帧到末帧后回池。
+4. **落点**：`playerPos = PointInContentSpace(playerRt, worldContent)`；`center = playerPos + (0, 350)`；圆内均匀：`r = radius * sqrt(Random01)`，`θ = Random01 * 2π`。
+5. **渲染**：`FireworkFxLayer` 拉伸挂 `ManorWorldContent`（sibling 靠后），池化 `Image`：`preserveAspect=true`、`raycastTarget=false`、`sizeDelta=sprite.rect.size`、`localScale=(3,3,1)`（相对原图放大 2 倍）、pivot `(0.5,0.5)`。
+6. **范围**：仅节点名 `FloatingFrame_1`；复制出的其它框默认无烟花。
+**English:** Gate on Marker visibility event (not Panel OnDisable); pool Images under FireworkFxLayer; spawn every 0.2s while shown; finish-in-flight on hide; random disk above player; final size 3× original (+200%).
 
 ### 9.8 主界面底部一级导航切换栏 / Main Menu Bottom Primary Navigation Switch Bar
 
@@ -2723,29 +2763,29 @@ WarehouseHubPanel                    // RectTransform, anchors=(0,0)/(1,1), offs
 
 `StaminaText` 仍位于 `StaminaBarSlot` 附近，显示 `"stamina / staminaMax"`，`fontSize=36`，文字居中白色；具体相对位置由用户在预制体编辑器中配置。
 
-##### 9.8.13.5 底部按钮规则（v3.41 修订）/ Bottom Buttons (v3.41 Revision)
+##### 9.8.13.5 底部按钮规则（v3.41 修订；v3.268 暂停开始入口）/ Bottom Buttons (v3.41 Revision; Start Entry Suspended in v3.268)
 
-**中文：** `BottomBar` 保留三按钮：**「吃」`EatButton`** / **「一键吃饱」`EatToFullButton`** / **「开始」`StartButton`**。**消耗源**自 v3.41 起从 `PlayerFoodBag` 切换到 `PlayerFruitBag`。显隐规则如下（与 §9.8.12.3 历史「三态互斥」表相比，**`StartButton` 阈值已放宽**）：
+**中文：** `BottomBar` 保留三按钮节点：**「吃」`EatButton`** / **「一键吃饱」`EatToFullButton`** / **「开始」`StartButton`**。**消耗源**自 v3.41 起从 `PlayerFoodBag` 切换到 `PlayerFruitBag`。自 **v3.268** 起，`StartButton` 暂停使用并始终隐藏；节点、序列化引用、点击回调及 `OpenBattleFromWarehouseHub()` 接口保留，便于后续恢复。
 
 - **`EatButton` / `EatToFullButton`**：与 §9.8.12.3 一致——**`IsRoleFull() == false` 时 `gameObject` 显示**，`IsRoleFull() == true` 时隐藏。交互上仍按 `WarehouseHubPanelView.RefreshButtonsVisibility`：`EatButton` 需有选中果实且该 `plantConfigId` 库存 `>0` 才可点；`EatToFullButton` 在任一果实库存 `>0` 时可点（否则置灰）。
-- **`StartButton`**：**`role.stamina >= 10` 时显示**（`role` 取自 `IPlantingService.GetRoleStats()`；缺省按 `0` 计）。体力低于 10 时隐藏。**允许**在 `10 <= stamina < staminaMax` 时与 `Eat*` **同时可见**，便于玩家边补体力边开战。常量 **`WarehouseHubPanelView.StartButtonVisibleMinStamina = 10`** 与本文档对齐。
+- **`StartButton`**：无论当前体力多少均执行 `gameObject.SetActive(false)`；不再提供仓库开战入口。历史阈值常量 `WarehouseHubPanelView.StartButtonVisibleMinStamina = 10` 仅为兼容保留，不参与当前显隐判断。
 
 **点击行为：**
 
 - **「吃」`EatButton`**：调用 `IPlantingService.EatOneFruit(fruitBag.activeId)`；返回 `true` 静默；`false` 时按 `activeId` 空/库存 0/已满 三类原因走 `Debug.Log/Warning`。
 - **「一键吃饱」`EatToFullButton`**：优先用 `fruitBag.activeId`，否则从 `fruitBag.stacks` 顺序找第一个 `count > 0` 的 `plantConfigId` 调用 `EatFruitToFull(autoFruitId)`。
-- **「开始」`StartButton`**：点击后先 **`Hide()`** 关闭统一仓库（不改变底栏 `MainStoryLineScreen` 等选中态）；若 **`InvasionService.Instance`** 非空则调用 **`OpenBattleFromWarehouseHub()`**（见 §12.6），进入与 §12 既有管线一致的 **`InvasionBattleView`** 全屏回合战斗演示；若实例为空则 **`Debug.LogWarning`**（主界面未构建入侵服务时与既有行为对齐）。
+- **「开始」`StartButton`**：点击后先 **`Hide()`** 关闭统一仓库（不改变底栏 `MainStoryLineScreen` 等选中态）；若 **`InvasionService.Instance`** 非空则调用 **`OpenBattleFromWarehouseHub()`**（见 §12.6），进入与 §12 既有管线一致的 **`InvasionBattleView`** 全屏回合战斗演示；若实例为空则 **`Debug.LogWarning`**（主界面未构建入侵服务时与既有行为对齐）。**自 v3.253 起仓库入口在创角 `HomeTab` 时，开战须满足 §12.3 宿主激活契约**（恢复 `MainHudLayerRoot`、临时挂起创角层），否则 `InvasionBattleModal` 无法启动回合协程。
 
-**English:** `BottomBar` keeps three buttons. **Consumption source switches from `PlayerFoodBag` to `PlayerFruitBag` in v3.41.** Visibility rules ( **`StartButton` threshold relaxed** vs. the legacy §9.8.12.3 mutex table):
+**English:** `BottomBar` retains three button nodes. **Consumption source switches from `PlayerFoodBag` to `PlayerFruitBag` in v3.41.** Since **v3.268**, `StartButton` is suspended and always hidden; its node, serialized reference, callback, and `OpenBattleFromWarehouseHub()` API remain for possible restoration.
 
 - **`EatButton` / `EatToFullButton`:** same as §9.8.12.3 — **shown while `!IsRoleFull()`**, hidden when full. Interaction matches `WarehouseHubPanelView.RefreshButtonsVisibility`: `EatButton` needs a selected fruit with stock; `EatToFullButton` is interactable when any fruit stack has `count > 0`.
-- **`StartButton`:** **shown when `role.stamina >= 10`** (`role` from `IPlantingService.GetRoleStats()`, treat missing as `0`). Hidden below 10. **May appear together with `Eat*`** when `10 <= stamina < staminaMax`. The constant **`WarehouseHubPanelView.StartButtonVisibleMinStamina = 10`** matches this spec.
+- **`StartButton`:** always calls `gameObject.SetActive(false)`, regardless of stamina. The historical threshold constant remains for compatibility but no longer controls visibility.
 
 **Click behavior:**
 
 - **`EatButton`** calls `EatOneFruit(fruitBag.activeId)`; on `false`, logs by reason (empty `activeId` / zero stock / already full).
 - **`EatToFullButton`** prefers `activeId`, else the first non-empty `plantConfigId` in `fruitBag.stacks`, then `EatFruitToFull(autoFruitId)`.
-- **`StartButton`** first **`Hide()`**s the warehouse (bottom-nav selection unchanged); if **`InvasionService.Instance`** is non-null, calls **`OpenBattleFromWarehouseHub()`** (§12.6) into **`InvasionBattleView`**; otherwise **`Debug.LogWarning`**.
+- **`StartButton`** first **`Hide()`**s the warehouse (bottom-nav selection unchanged); if **`InvasionService.Instance`** is non-null, calls **`OpenBattleFromWarehouseHub()`** (§12.6) into **`InvasionBattleView`**; otherwise **`Debug.LogWarning`**. **Since v3.253 (warehouse on CC HomeTab), opening battle must satisfy the §12.3 host-activation contract** (restore `MainHudLayerRoot`, soft-suspend CC) or `InvasionBattleModal` cannot start its turn coroutine.
 
 ##### 9.8.13.6 IPlantingService 新增 API 与果实→体力换算 / New APIs and Fruit-to-Stamina Conversion
 
@@ -3336,7 +3376,14 @@ flowchart TD
    - 中央展示该角色的**模型 Spine**：按配置 `spinePrefabPath` 加载预制体探针取 `SkeletonDataAsset`，经 `SkeletonGraphic.AddSkeletonGraphicComponent` 构建并循环播放待机动作（动画候选链同 §9.14.1），缺资源时回退纯色占位。
    - 底部并排三按钮 `GoFindButton` / `VisitHomeButton` / `MessageButton`（去找Ta / 去Ta家 / 发消息），功能与原单元三按钮一致：去Ta家→`OnVisitFriendHome` 事件接 `FriendHomeScreenView.ShowFor`；去找Ta / 发消息暂为占位 `Debug.Log`。
 3. **介绍图弹窗**：点击上述任一 `Xing_2` / `Xing_2_0` 图标，弹出全屏介绍图 `AirUI/QinMiDu_0`（半透明遮罩 + 居中大图，点击遮罩关闭）。与好友角色立绘弹窗互斥（同时只显示其一）。
-4. **赚钱介绍图弹窗（v3.121）**：主角态点击 `RoleAddFavorButton`（「加好感」），全屏展示 `AirUI/ZhuanQian`（铺满弹窗区域，`preserveAspect=true`）；**右上角**提供 `CloseButton`（72×72，锚点右上，偏移 `(-20,-20)`，显示「×」，与 §9.14.9 关闭按钮范式一致），点击关闭；与其它创角弹窗互斥（`Show()` 时自动隐藏）。
+4. **赚钱 / 加好感任务弹窗 `ZhuanQianPopup`（自 v3.121；任务列表 Demo 自 v3.142；经验展示自 v3.266）**：
+   - **入口（自 v3.194）**：仅由家园「每日任务」`DailyTaskButton` → `OpenAddFavorTab()` 打开（底栏保持家园 IconOpen；见 §9.14.10 / §9.14.11）。**不再**由底栏 `RoleAddFavorButton` 打开。
+   - **布局**：嵌入创角下方内容区（位于 `BottomTabBar` 之上），挂载 `TaskListContainer` → `TaskListPanel`（垂直 `ScrollRect`）。无独立右上角关闭钮；收起依赖创角根 `ScreenCloseButton` 或底栏页签切换（§9.14.10）。
+   - **数据源**：`Resources/Configs/Farm/farm_tasks.csv`，经 `TaskListConfigCatalog.LoadTaskConfigs()` 装载为 `List<TaskConfig>`；缺表 / 缺列 / 无有效行时回退内置默认值（见 §B.25）。
+   - **行 UI（`TaskListRow`）**：`TaskIcon`（`iconResource`）+ `Description`（`description`）+ `RewardIcon` + `RewardCount` + 三态按钮 `GoTo` / `Claimable` / `Completed`。
+   - **经验产出展示（v3.266）**：每条任务配置 `expReward`（≥0）作为经验产出数值。**本阶段**：`RewardIcon` **固定**加载 `AirUI/ExpIcon_1`（不再读取 `rewardIconResource`）；`RewardCount` 显示 `"x" + expReward`（不再读取 `rewardCount`）。CSV 仍可保留旧列 `rewardIconResource` / `rewardCount` 以便后续恢复道具奖励，但**当前 UI 与飞行动效均不使用**。
+   - **状态机**：初始 `GoTo` → 点「前往」立刻切 `Claimable` 并按 `navKey` 跳转（复用 `OnNavigateToBottomNav`）→ 点「领取奖励」播放 `RewardFlyFx`（图标固定 `AirUI/ExpIcon_1`，飞向屏幕坐标 `(377,895)`）并立刻切 `Completed`（灰态、不可点）。列表按 `Claimable > GoTo > Completed` 稳定重排。状态仅内存持久，跨本面板 `Show/Hide` 保持，重建/重启丢失。
+   - **结算边界（v3.266）**：领取**仅**更新 UI 状态与飞行动效，**不**调用 `TryAddRoleExp`，**不**写档、**不**弹出 §9.14.13 升级界面。真实经验入账留待后续版本。
 5. **ZhongDuan 角标与提示弹窗（v3.131）**：当 Top3 面板中某位好友的图标为 `AirUI/Xing_2_0`（当前为第 2 格 / `index=1`）时，在该图标**右下角**叠加可点击角标 `AirUI/ZhongDuan`（**48×48**，锚点右下，相对图标右下角偏移 `(-4, 4)`）。点击角标弹出 **ZhongDuan 提示弹窗**：全屏 stretch + 纯黑半透明遮罩（`rgba(0,0,0,0.65)`，与 `QinMiDuPopup` 一致）+ 居中 `AirUI/ZhongDuan_1`（`preserveAspect=true`，尺寸 **900×1200**）；点击遮罩关闭。点击 `Xing_2_0` 主图标（非角标区域）仍打开 `QinMiDu_0` 介绍图。与好友立绘弹窗、`QinMiDu` 弹窗、`ZhuanQian` 弹窗互斥（`Show()` 时自动隐藏）。
 
 **中文：** 头像 / 图标 / 立绘 / 介绍图 / 赚钱图 / ZhongDuan 角标与提示图缺图时按既有模式回退纯色占位并 `Debug.LogWarning`。
@@ -3498,10 +3545,11 @@ flowchart TD
    - **`ExpBarRoot`** 四层（低→高渲染顺序）：`Lv_bg_004` 底轨 → `Lv_bg_005` 进度填充（`currentExp / expToNextLevel` 比例，左对齐 `sizeDelta.x` 缩放，范式同 §9.8.12.4 `StaminaBarView`）→ `Lv_bg_006` 装饰框 → 顶层 `ExpText` 显示 `"{currentExp}/{expToNextLevel}"`。
    - **经验填充宽度（自 v3.209）**：每次 `RefreshLevelExp` 以 `ExpBarRoot.rect.width`（>0 时）作为轨道满宽 `expTrackWidth`，**禁止**在首次读到 0/未布局完成时永久缓存回退值（如 `800`）；仅当轨道宽度暂不可用且尚无有效缓存时才用回退。`ExpFill.sizeDelta.x = expTrackWidth * Clamp01(currentExp / expToNextLevel)`，与体力条 `EnsureFillRect` 一致。`RoleLevelUpPanelView` 共用同一规则。
 4. **信息展示区 `InfoSection`**（填满 `LevelExpRow` 下方至 `BottomTabBar` 之上）：
-   - **`InfoTabBar`**：两个互斥子页签按钮——**「角色6项属性」**（`HexAttrsTab`）与 **「当前」**（`CurrentTab`）。
-   - **`InfoContent`**：
-     - **`HexAttrsPage`**（默认显示，自 **v3.188**）：**不再**使用 `HexRadarChart` / `HexLabels`。改为 `AttrGrid` **两列三行**（共 6 项，从左到右、从上到下：智商→记忆→想象→体魄→魅力→情商）。每项节点 `AttrItem_{0..5}` = **属性图标** `Icon`（`AirUI/SX_1_ZhiShang_B` … `SX_6_QingShang_B`）+ **属性数值** `Value`（`Text`，**不显示**中文属性名）。数值来自局外 `RoleStats` 成长字段：`intelligence/memory/imagination/physique/charm/emotionalIntelligence`（由 §B.21 等级表在创角默认 / 旧档回填时写入）。
-     - **`CurrentPlaceholderPage`**（自 **v3.201**）：含与 `HexAttrsPage` 同结构的 `AttrGrid`（`AttrItem_{0..5}` = `Icon` + `Value`）。`AttrItem_{i}.Value` **直接同步** `HexAttrsPage` 同索引 `AttrItem_{i}.Value` 的展示数值（`RefreshHexAttrs` 写入 HexAttrs 后镜像到 Current 页）；其余占位 UI（如背景图）可保留。
+   - **`InfoTabBar`**（自 **v3.272**）：两个子页签按钮——**「角色6项属性」**（`HexAttrsTab`）与 **「当前」**（`CurrentTab`）。默认均为**关闭**；点击同一按钮在打开/关闭间切换；打开另一按钮时互斥切换（同时最多一个打开）。打开态 `Image.color = 白色`；关闭态为深灰棕（`TabNormalColor`）。`Show()` 初始为双关（不再默认打开 Hex 页）。
+   - **`InfoContent`**（自 **v3.272** 默认隐藏；仅当 `HexAttrsTab` 或 `CurrentTab` 任一打开时显示）：
+     - **`HexAttrsPage`**（自 **v3.188**；打开 `HexAttrsTab` 时显示）：**不再**使用 `HexRadarChart` / `HexLabels`。改为 `AttrGrid` **两列三行**（共 6 项，从左到右、从上到下：智商→记忆→想象→体魄→魅力→情商）。每项节点 `AttrItem_{0..5}` = **属性图标** `Icon`（`AirUI/SX_1_ZhiShang_B` … `SX_6_QingShang_B`）+ **属性数值** `Value`（`Text`，**不显示**中文属性名）。数值来自局外 `RoleStats` 成长字段：`intelligence/memory/imagination/physique/charm/emotionalIntelligence`（由 §B.21 等级表在创角默认 / 旧档回填时写入）。
+     - **`CurrentPlaceholderPage`**（自 **v3.201**；打开 `CurrentTab` 时显示）：含与 `HexAttrsPage` 同结构的 `AttrGrid`（`AttrItem_{0..5}` = `Icon` + `Value`）。`AttrItem_{i}.Value` **直接同步** `HexAttrsPage` 同索引 `AttrItem_{i}.Value` 的展示数值（`RefreshHexAttrs` 写入 HexAttrs 后镜像到 Current 页）；其余占位 UI（如背景图）可保留。
+   - **折叠布局联动（自 v3.272）**：`CharacterZone` / `LevelExpRow` 均为全屏 stretch 锚点。双关时：`CharacterZone` Top=`180`、Bottom=`-180`；`LevelExpRow` Top=`1230`、Bottom=`508`。任一子页签打开时：`CharacterZone` 恢复 Top/Bottom=`0`/`0`；`LevelExpRow` 恢复打开态偏移（首次从当前 Rect 缓存后还原）。
 5. **右上功能按钮 `TopRightActions`（自 v3.190；v3.253 下移 + 仓库）**：锚定面板根节点**右上角**（`anchor/pivot = (1,1)`，`PosX = -margin`≈`-24`，**自 v3.253 起 `PosY = -218`**），**竖排三枚**图标按钮（尺寸约 `120×120`，间距约 `16`，`preserveAspect=true`；自上而下）：
    - **`RankingButton`（排行榜）**：图标 `AirUI/ZJM_PaiHangbang_1`；可点击；本期仅 `Button.ColorTint` 按下变色反馈，**不打开任何界面、不切换页签**。
    - **`DailyTaskButton`（每日任务）**：图标 `AirUI/ZJM_RenWu_1`；点击后触发 `HomeTabPanelView.OnDailyTaskRequested`，由宿主 `CharacterCreationScreenView.OpenAddFavorTab()` 打开既有 `ZhuanQianPopup`（**自 v3.194 起**：与底栏 `RoleAddFavorButton`/训练页签**解耦**，仅此入口打开加好感；打开后底栏仍为家园 IconOpen，见 §9.14.10）。
@@ -3536,13 +3584,13 @@ flowchart TD
 
 **中文（接口）：**
 
-- `PetDemo.UI.HomeTabPanelView` / `PetDemo.UI.HomeTabPanelLayout`（`GetOrCreate` / `Bind(IPlantingService)` / `Show` / `Hide` / `RefreshAll`；气泡逻辑内嵌于 `Show`/`Hide`/点击回调；自 **v3.190** 另有事件 `OnDailyTaskRequested`；自 **v3.193** 另有事件 `OnCloseRequested` 与根级 `ScreenCloseButton`；自 **v3.206** 另有开局营救：`ApplyDeathLastFrame` / `RoleClickHitbox` / `CompleteOpeningRescue` 联动；自 **v3.253** 另有 `OnWarehouseRequested` + `TopRightActions` 三钮 / `PosY=-218`）。
+- `PetDemo.UI.HomeTabPanelView` / `PetDemo.UI.HomeTabPanelLayout`（`GetOrCreate` / `Bind(IPlantingService)` / `Show` / `Hide` / `RefreshAll`；气泡逻辑内嵌于 `Show`/`Hide`/点击回调；自 **v3.190** 另有事件 `OnDailyTaskRequested`；自 **v3.193** 另有事件 `OnCloseRequested` 与根级 `ScreenCloseButton`；自 **v3.206** 另有开局营救：`ApplyDeathLastFrame` / `RoleClickHitbox` / `CompleteOpeningRescue` 联动；自 **v3.253** 另有 `OnWarehouseRequested` + `TopRightActions` 三钮 / `PosY=-218`；自 **v3.272** 另有 `ToggleInfoTab` / `SelectInfoTab(-1|0|1)`：`InfoContent` 默认折叠、子页签同钮开关+互斥、打开态白色、双关时 `CharacterZone`/`LevelExpRow` 折叠偏移）。
 - `PetDemo.UI.CharacterCreationScreenView.OpenAddFavorTab()`（自 **v3.190**：公开打开加好感/`ZhuanQianPopup`；**自 v3.194 起仅**供家园「每日任务」使用，底栏 `RoleAddFavorButton` 改开 §9.14.12 训练面板）。
 - `PetDemo.Core.HomeTabBubbleConfig` / `PetDemo.Core.HomeTabBubbleCatalog`（`Load` / `GetEligible` / `ClearCache` / `BuildDefault`）。
 - `PetDemo.EditorTools.HomeTabPanelPrefabGenerator`（`Tools/PetDemo/Generate Home Tab Panel Prefab`）。
 - `PetDemo.EditorTools.StaminaBarPrefabGenerator`（**自 v3.204**：`Tools/PetDemo/Generate Stamina Bar Prefab`）。
 
-**English:** Standalone `HomeTabPanel` prefab for the character-creation **家园** tab: top 40% hero Spine with `common_bg_11` decor over a solid fill; level badge (`Lv_bg_003`) + 4-layer exp bar (`Lv_bg_004`–`006` + text); info area with sub-tabs **角色6项属性** (**v3.188:** 2×3 icon+value grid from growth fields, not hex radar) and **当前** (placeholder). Hides `DisplayArea` while open. `RoleStats` has `level` / `currentExp` / `expToNextLevel` + six growth attrs with save sync; level row from §B.21/§B.23. **Since v3.187:** fixed upper-left speech bubbles in `CharacterZone` driven by `HomeTabBubbles.csv` (nine-slice `DialogBox_1`); show on panel open; tap dismisses and advances queue by CSV order; role anim per entry (`animPlayCount=0` loops). **Since v3.190:** upper-right `TopRightActions` with ranking (`ZJM_PaiHangbang_1`, clickable ColorTint only) and daily-task (`ZJM_RenWu_1` → `OnDailyTaskRequested` → `OpenAddFavorTab` / `ZhuanQianPopup`). **Since v3.193:** root `ScreenCloseButton` fires `OnCloseRequested` → host `OnScreenCloseClicked` → hide character-creation and `AppScreenView.Show()` (PageHome); ZhuanQian special-case remains on the character-creation root close button (**since v3.199:** upper-left anchor). **Since v3.194:** daily-task remains the sole ZhuanQian entry; bottom-tab Favor button opens TrainingPanel instead. **Since v3.204:** upper-left `TopLeftStaminaHud` to the right of `ScreenCloseButton` (`anchoredPosition ≈ (108,-20)`), `StaminaBarSlot` 275×116, `StaminaBarView` bound to `RoleStats.stamina` via `OnStaminaChanged`; new saves start at `stamina=0`. **Since v3.208:** `AddExpButton` to the right of stamina grants 40% of current `expToNextLevel` (min 1) via `TryAddRoleExp` and may open §9.14.13.
+**English:** Standalone `HomeTabPanel` prefab for the character-creation **家园** tab: top 40% hero Spine with `common_bg_11` decor over a solid fill; level badge (`Lv_bg_003`) + 4-layer exp bar (`Lv_bg_004`–`006` + text); info area with sub-tabs **角色6项属性** (**v3.188:** 2×3 icon+value grid from growth fields, not hex radar) and **当前** (placeholder). **Since v3.272:** `InfoContent` hidden by default; `HexAttrsTab`/`CurrentTab` toggle open/close on same click (mutually exclusive when opening); open Image color white; both closed collapses `CharacterZone`/`LevelExpRow` offsets (Top/Bottom 180/-180 and 1230/508). Hides `DisplayArea` while open. `RoleStats` has `level` / `currentExp` / `expToNextLevel` + six growth attrs with save sync; level row from §B.21/§B.23. **Since v3.187:** fixed upper-left speech bubbles in `CharacterZone` driven by `HomeTabBubbles.csv` (nine-slice `DialogBox_1`); show on panel open; tap dismisses and advances queue by CSV order; role anim per entry (`animPlayCount=0` loops). **Since v3.190:** upper-right `TopRightActions` with ranking (`ZJM_PaiHangbang_1`, clickable ColorTint only) and daily-task (`ZJM_RenWu_1` → `OnDailyTaskRequested` → `OpenAddFavorTab` / `ZhuanQianPopup`). **Since v3.193:** root `ScreenCloseButton` fires `OnCloseRequested` → host `OnScreenCloseClicked` → hide character-creation and `AppScreenView.Show()` (PageHome); ZhuanQian special-case remains on the character-creation root close button (**since v3.199:** upper-left anchor). **Since v3.194:** daily-task remains the sole ZhuanQian entry; bottom-tab Favor button opens TrainingPanel instead. **Since v3.204:** upper-left `TopLeftStaminaHud` to the right of `ScreenCloseButton` (`anchoredPosition ≈ (108,-20)`), `StaminaBarSlot` 275×116, `StaminaBarView` bound to `RoleStats.stamina` via `OnStaminaChanged`; new saves start at `stamina=0`. **Since v3.208:** `AddExpButton` to the right of stamina grants 40% of current `expToNextLevel` (min 1) via `TryAddRoleExp` and may open §9.14.13.
 
 #### 9.14.12 训练页签面板 / Training Panel (v3.194)
 
@@ -3758,6 +3806,16 @@ function executeUnifiedAction():
 
 | 版本 / Ver | 日期 / Date | 说明 / Notes |
 |------------|-------------|--------------|
+| 3.272 | 2026-07-22 | **HomeTabPanel Info 折叠与子页签开关**：§9.14.11——`InfoContent` 默认隐藏；`HexAttrsTab`/`CurrentTab` 默认关闭、同钮再点关闭、互斥打开；打开态 `Image.color=白`；双关时 `CharacterZone` Top/Bottom=`180`/`-180`、`LevelExpRow` Top/Bottom=`1230`/`508`，任一打开恢复展开位置；`Show()` 初始双关。 / **HomeTab info fold + tab toggle:** InfoContent hidden by default; same-click toggle + mutual open; white open tint; collapsed CharacterZone/LevelExpRow offsets when both closed. |
+| 3.271 | 2026-07-22 | **DetailAttributeModal 原属性/战斗属性切换**：§12.13——`BottomArea` 右下角新增灯开关式 `AttrModeSwitch`（`Toggle`，`isOn=true`=战斗属性）；同一六宫雷达在**战斗六宫**与**角色原属性（成长六维）**间切换；同顶点对应：暴击↔体魄、连击↔记忆、反击↔想象、击晕↔魅力、闪避↔情商、吸血↔智力；默认战斗属性；需重生成 `DetailAttributeModal.prefab`。 / **DetailAttributeModal growth/battle toggle:** §12.13 — bottom-right `AttrModeSwitch` toggles hex radar between battle hex attrs and growth attrs with fixed vertex pairing; default battle; regen prefab. |
+| 3.270 | 2026-07-16 | **老虎机 Reel 匹配高亮闪烁特效**：§12.12.9——三轴/五轴在已定格 Reel 中出现 **2 个及以上相同 `attrId`** 时高亮对应 Reel；九宫格在某条 3 格连线 **均已定格且 `attrId` 相同** 时高亮整条线。每次任一 Reel 定格后立刻对 **全部 Reel** 重算并刷新高亮；视觉为图标提亮 + 白色叠层闪烁；`Show()` / `ResetReelVisuals()` / `Hide()` 清除。 / **Slot reel match highlight FX:** recompute full highlight mask on every settle; 3/5-reel uses same-attr count>=2, 3x3 uses fully-settled matching lines; brighten + blinking white overlay; clear on show/reset/hide. |
+| 3.269 | 2026-07-16 | **九宫格老虎机变体 SlotMachineModal_3x3**：§12.12.8——基于三轴扩展 9 Reel（3×3）；候选 3 或 4 项各 50%；结算改为横/竖/斜 8 条连线各独立 +`value3`、未连线格 +`value1`；素材 `Zhou_3x3_*`；事件奖励 `slot3x3`→`evt_lottery3x3`。 / **3×3 slot variant:** spatial line stacking + slot3x3 event. |
+| 3.268 | 2026-07-15 | **暂时隐藏统一仓库「开始」按钮**：§9.8.13.5——`WarehouseHubPanel/BottomBar/StartButton` 始终 `SetActive(false)`，暂不再提供仓库开战入口；节点、回调与服务接口保留。 / **Suspend warehouse Start button:** always hidden; node/callback/service API retained. |
+| 3.267 | 2026-07-15 | **修复仓库「开始」开战协程失败**：§12.3 / §9.8.13.5——创角 `HomeTab` 开仓库时 `MainHudLayerRoot` 为隐藏，`InvasionBattleModal` 无法 `StartCoroutine`；`OpenBattlePanel` 开战前强制显示 HUD、临时挂起 `CharacterCreationScreen`（不触发 `OnCloseRequested`），战毕（非连战最小化中间态）恢复。 / **Fix warehouse Start coroutine on inactive modal:** ensure HUD host active + soft-suspend CC before battle loop. |
+| 3.266 | 2026-07-15 | **ZhuanQianPopup 经验产出展示**：§9.14.8 第 4 点 / 新 §B.25——`farm_tasks.csv` 增 `expReward`（Demo：100/80/120/150/200/180）；`RewardIcon` 固定 `AirUI/ExpIcon_1`，`RewardCount` 显示 `"x"+expReward`；暂时不绑定旧 `rewardIconResource`/`rewardCount`；领取仍仅 UI+飞行动效，不调用 `TryAddRoleExp`。 / **ZhuanQian exp display:** add expReward; fixed ExpIcon_1; claim still display-only. |
+| 3.265 | 2026-07-15 | **FloatingFrame_1 烟花放大 2 倍**：§9.8.19——显示缩放由 `localScale=2`（相对原图放大 1 倍）调整为 `localScale=3`（相对原图放大 2 倍，最终为原图 3 倍）。 / **FloatingFrame_1 firework scale:** `localScale` 2→3, final size 3× original (+200%). |
+| 3.264 | 2026-07-15 | **FloatingFrame_1 烟花**：§9.8.19.2.3 / §9.8.19.7——Panel 显示时从 `SpecialEffects/yanhua`（`yanhua1`～`yanhua6`）立即并每 0.2s 随机发射；0.1s/帧播完；隐藏停新增但播完收；落点=玩家上方 350px 圆心、半径 150px 圆内随机；`localScale=2`；`FireworkFxLayer` Image 对象池。 / **FloatingFrame_1 fireworks:** continuous random yanhua1–6 while Panel shown; finish-in-flight on hide; spawn disk above player; 2× Image pool. |
+| 3.263 | 2026-07-15 | **庄园场景悬浮框**：§9.8.19——`FloatingFrames/FloatingFrame_*` 默认隐藏；主角靠近中心 300 content-px 内显示、离开隐藏；支持多实例，Panel 背景与 Label 文案均可在预制体编辑。 / **Manor floating frames:** editable multi-instance proximity frames shown within 300 content-px. |
 | 3.262 | 2026-07-15 | **庄园建造弹图**：§9.8.19——`Button-JianZao` 打开底部对齐的 `AirUI/WDZY_ZS_UI_1`（原生 1080×766）；`BuildOverlay` 兄弟结构 Dim（空白关闭）+ Image（拦截射线）；`Hide` 同步关层；骨架/预制体生成器同步。 / **Manor build overlay:** JianZao shows bottom native-size sheet; blank dismiss. |
 | 3.261 | 2026-07-14 | **庄园 Partner Spine 0.27 + 游走选点避障**：§9.8.19 / §9.8.9.15——Partner `NpcSpine` 用 `GuildPlayerLocalScale (0.27,0.27,1)`；`TryPickWaypoint` 排除脚底盒与 `GuildObstacleArea` 相交的目标点（公会/庄园共用）。 / **Manor partner scale 0.27 + wander skip obstacle waypoints.** |
 | 3.260 | 2026-07-14 | **庄园 Obstacles 碰撞**：§9.8.19——`Obstacles/Obstacle_*`（`GuildObstacleArea`）预制体可编占位；主角与 Partner 游走复用公会分轴 AABB + 贴墙滑动；`BuildSceneSkeleton` 默认 4 个矩形。 / **Manor Obstacles:** editable GuildObstacleArea placeholders; same collision as guild for player + wander. |
@@ -4116,6 +4174,9 @@ stateDiagram-v2
 
 **中文：** 战斗界面采用全屏 modal 模式（与种子仓库弹窗同结构），打开时 `SetAsLastSibling()` 置顶，关闭时 `gameObject.SetActive(false)`。  
 **English:** The battle UI uses a full-screen modal pattern (same shape as the seed warehouse modal); when opening, call `SetAsLastSibling()` to bring it on top; when closing, `gameObject.SetActive(false)`.
+
+**中文（v3.267 宿主激活契约）：** `InvasionBattleModal` 挂于 `MainHudLayerRoot`（`HudOverlay`）。`OpenBattlePanel` 在 `StartCoroutine(RunBattleLoop)` **之前**必须保证该节点 `activeInHierarchy==true`：若 `MainHudLayerRoot` 因创角/APP 覆盖层被 `SetVisible(false)`，须先 `MainHudLayerRoot.SetVisible(true)`。若当前显示的 `CharacterCreationScreen`（`HudPopup`，sortingOrder 高于 `HudOverlay`）会盖住战斗，则临时 `SetActive(false)` 挂起（**不**触发 `OnCloseRequested`），战毕 `CloseBattlePanel`（非「保留最小化」连战中间态）再恢复创角层，并在曾为开战而强制显示 HUD 时重新 `MainHudLayerRoot.SetVisible(false)`。与 §13.4 好友家园开战时隐藏家园层同范式。  
+**English (v3.267 host-activation contract):** `InvasionBattleModal` lives under `MainHudLayerRoot` (`HudOverlay`). Before `StartCoroutine(RunBattleLoop)`, `OpenBattlePanel` must ensure `activeInHierarchy==true`: if the HUD root was hidden for character-creation/APP overlays, call `MainHudLayerRoot.SetVisible(true)` first. If `CharacterCreationScreen` (`HudPopup`, above `HudOverlay`) is shown, soft-hide it without `OnCloseRequested`; restore it on final `CloseBattlePanel` (not mid auto-chain minimize-preserve), and re-hide the HUD root if it was only forced visible for battle. Same suspend pattern as §13.4 friend-home.
 
 | 元素 / Element | 资源 / Asset | RectTransform | 说明 / Notes |
 |---|---|---|---|
@@ -4746,7 +4807,53 @@ struct SlotResult { AttrEnhanceConfig cfg; int count; int gain; }
 | 事件框素材 / Frame sprite | `AirUI/ShiJian_1` |
 | 格式化 / Formatter | `SlotMachineResultText.FormatResultSummary` |
 
-### 12.13 详细属性弹窗（DetailAttributeModal，v3.177）
+#### 12.12.8 三乘三九宫格变体 / SlotMachineModal_3x3 (v3.269)
+
+**中文：** 自 v3.269 起，在 §12.12 三轴/五轴基础上新增 **九宫格变体** `SlotMachineModal_3x3`（事件奖励 **`slot3x3`** → `GetOrCreate(canvasRect, 9)`）。预制体 `Resources/Prefabs/Battle/SlotMachineModal_3x3.prefab`；轴背景 `AirUI/Zhou_3x3_2`、样式图 `AirUI/Zhou_3x3_1`；`IconLayer` 含 **9 个 Reel**（3 行 × 3 列），行主序索引：
+
+```text
+r0c0=0  r0c1=1  r0c2=2
+r1c0=3  r1c1=4  r1c2=5
+r2c0=6  r2c1=7  r2c2=8
+```
+
+**候选池：** `Show()` 时以 **50%** 概率在属性增强表随机不重复选取 **3 或 4 项**；每格对被选项等概率。  
+**结算（空间连线，与三轴/五轴计数法不同）：** 定义 8 条长度为 3 的连线——横排 `(0,1,2)(3,4,5)(6,7,8)`、竖排 `(0,3,6)(1,4,7)(2,5,8)`、斜向 `(0,4,8)(2,4,6)`。若一条线上 3 格 **同一 `attrId`**，该属性 **独立 +`value3`**（多条线可叠加）；**未参与任何满足连线的 Reel** 按其属性各 +`value1`。汇总仍经 `onComplete` → §12.12.3 全员累加。摇奖定格、飞入特效、结果汇总条与 §12.12.6/§12.12.7 一致（`Reel0..Reel8` 依次定格）。  
+**English:** v3.269 adds **9-reel 3×3 grid** variant `SlotMachineModal_3x3` (`slot3x3` reward). Assets `Zhou_3x3_*`. Candidates: **3 or 4** distinct attrs (50/50). Settlement uses **8 spatial lines** (3 rows, 3 cols, 2 diagonals): each matching line adds **`value3`** independently; uncovered cells add **`value1`** each. Same spin/settle/FX/summary pipeline as §12.12.
+
+| 资源 / Asset | 路径 / Path |
+|---|---|
+| 九宫格轴背景 | `Resources/AirUI/Zhou_3x3_2` |
+| 九宫格样式图 | `Resources/AirUI/Zhou_3x3_1` |
+| 九宫格预制体 | `Resources/Prefabs/Battle/SlotMachineModal_3x3.prefab` |
+| 测试事件 | `evt_lottery3x3` / reward `slot3x3` |
+
+#### 12.12.9 Reel 匹配高亮闪烁特效 / Reel Match Highlight FX (v3.270)
+
+**中文：** 自 v3.270 起，`SlotMachineModal_3`、`SlotMachineModal_5` 与 `SlotMachineModal_3x3` 在**定格阶段**新增 Reel 匹配高亮特效。每次任意 `Reel{i}` 写入最终结果并标记为已定格后，界面都必须立即对**全部 Reel** 重新判定一次高亮掩码并刷新视觉，而不是只增量更新当前轴。仅**已定格** Reel 允许进入高亮；仍在滚动的 Reel 即使当前图标碰巧相同，也**不得**提前高亮。`Show()`、`ResetReelVisuals()`、`SpinRoutine` 开头与 `Hide()` 时统一清除全部高亮、停止闪烁协程并恢复默认颜色。  
+**English:** Since v3.270, all slot variants add a reel-match highlight FX during the settle phase. Whenever any `Reel{i}` receives its final result and becomes settled, the UI must immediately recompute a **full-reel** highlight mask and refresh visuals. Only **settled** reels may highlight; still-spinning reels never highlight even if their transient icon matches. `Show()`, `ResetReelVisuals()`, the start of `SpinRoutine`, and `Hide()` all clear highlight state and stop blinking.
+
+**中文：判定规则与现有结算口径保持一致。**  
+1. **三轴 / 五轴：** 在当前**已定格** Reel 集合中，若某个 `attrId` 出现次数 **≥ 2**，则该 `attrId` 对应的全部已定格 Reel 高亮。出现 1 次不高亮。  
+2. **九宫格 3×3：** 仍使用 §12.12.8 的 8 条连线 `(0,1,2)(3,4,5)(6,7,8)(0,3,6)(1,4,7)(2,5,8)(0,4,8)(2,4,6)`；只有当某条线的 **3 格都已定格** 且 `attrId` 完全相同，才高亮该线全部 3 格。一个 Reel 可因多条线同时满足而保持高亮。  
+3. **空值处理：** `cfg == null` 或 `attrId` 为空的 Reel 不参与匹配，也不高亮。  
+**English:** Matching rules stay aligned with the existing payout rules: 3/5-reel highlights all settled reels of an `attrId` when the settled count is **2 or more**; 3×3 highlights any line whose **three cells are all settled** and share the same `attrId`; null/empty entries do not participate.
+
+**中文：视觉效果采用「图标提亮 + 叠层闪烁」双通道。** `Reel{n}` 根 `Image` 保持原有 `sprite/preserveAspect`，但在高亮时其 RGB 按 `BrightRgbMul = 1.35` 提亮（各通道钳制到 `1`）；同时在 `Reel{n}` 下存在一个全拉伸子节点 **`MatchHighlight`**（运行时允许懒创建），挂 `#FFE800` 色 `Image`、`raycastTarget=false`、默认隐藏。高亮期间该叠层 alpha 按正弦波在 `OverlayAlphaMin = 0.18` 与 `OverlayAlphaMax = 0.52` 间闪烁，频率 `BlinkSpeed = 5.0`；图标自身 alpha 同步在基础 alpha 与 `1.0` 间闪烁，形成“变亮 + 闪动”感。  
+**English:** The FX uses a dual channel: brighten the reel icon itself (`BrightRgbMul = 1.35`, clamped) plus a lazily-created full-stretch `#FFE800` overlay child `MatchHighlight` with `raycastTarget=false`. While highlighted, the overlay alpha blinks sinusoidally between `0.18` and `0.52` at `BlinkSpeed = 5.0`, while the icon alpha oscillates between its base alpha and `1.0`.
+
+| 参数 / Param | 值 / Value |
+|---|---|
+| 全量重算时机 / Recompute trigger | 每次任一 Reel 定格后 / after every reel settle |
+| 三轴/五轴匹配阈值 / 3/5-reel threshold | 已定格同 `attrId` 数量 `>= 2` |
+| 九宫格匹配条件 / 3x3 threshold | 某条线 3 格均已定格且同 `attrId` |
+| 图标提亮倍数 / Bright RGB multiplier | `1.35`（钳制到 `1`） |
+| 闪烁速度 / Blink speed | `5.0` |
+| 叠层颜色 / Overlay tint | `#FFE800` |
+| 叠层 alpha 范围 / Overlay alpha range | `0.18 .. 0.52` |
+| 实现建议 / Implementation note | `MatchHighlight` 可运行时懒创建；由单协程统一驱动全部高亮 Reel |
+
+### 12.13 详细属性弹窗（DetailAttributeModal，v3.177；v3.271 双模式切换）
 
 **中文：** `InvasionBattleModal_2` 中部 `MiddleArea` **最右侧**新增功能按钮 **`DetailAttrButton`**（图标 `AirUI/JiNengLiebiao`，可叠加小字「详细属性」），点击打开独立全屏弹窗 **`DetailAttributeModal`**（`DetailAttributeModalView` + `Resources/Prefabs/Battle/DetailAttributeModal.prefab`）。`GetOrCreate` 预制体优先、缺失时运行时代码回退（同 §12.11.9 范式）；`Show()` 时 `SetAsLastSibling()` 置顶。  
 **English:** A **`DetailAttrButton`** on the right of `MiddleArea` (icon `AirUI/JiNengLiebiao`) opens the standalone fullscreen **`DetailAttributeModal`** (`DetailAttributeModalView` + prefab); prefab-first with runtime fallback; `SetAsLastSibling()` on show.
@@ -4758,19 +4865,35 @@ struct SlotResult { AttrEnhanceConfig cfg; int count; int gain; }
 | 遮罩 / Dim | `Dim` | 全屏纯黑半透明 `RGBA(0,0,0,0.72)`，`raycastTarget=true`；点击或右上角 `CloseButton` → `Hide()` |
 | 上部 / Top | `TopArea/PlayerSlot` | 运行时 `SkeletonGraphic` 构建玩家角色（`Prefabs/Air/Hero_Role_cunmin`，待机循环，水平镜像同 §12.11.4） |
 | 中部 / Middle | `MiddleArea` | 背景 `AirUI/LiuGong_1`；`HpText`/`AtkText`/`SpeedText` 格式与 §12.11.3 **完全一致**（读 `runStats`） |
-| 下部 / Bottom | `BottomArea` | 背景 `AirUI/LiuGong_1`；`HexRadarChart`（`HexRadarChartGraphic`）+ 六方向 `Label`（属性名+数值） |
+| 下部 / Bottom | `BottomArea` | 背景 `AirUI/LiuGong_1`；`HexRadarChart`（`HexRadarChartGraphic`）+ 六方向 `Label`（属性名+数值）；右下角 **`AttrModeSwitch`**（灯开关式 `Toggle`，旁侧文案「原属性 / 战斗属性」） |
+
+**中文（v3.271）：** `AttrModeSwitch` 锚点右下 `(1,0)`，尺寸约 `160×56`；结构：轨道 `Background` + 滑块 `Knob` + 状态文案；`Toggle.isOn=true` → **战斗属性**，`false` → **角色原属性**；打开弹窗默认 `isOn=true`（战斗）。切换仅刷新六宫标签/数值/雷达多边形，中部 HP/攻击/速度不变。  
+**English (v3.271):** Bottom-right light-switch `AttrModeSwitch`; `isOn=true` = battle hex attrs (default on open); toggles hex labels/values only.
 
 #### 12.13.2 六宫图数据与坐标 / Hex Radar Data and Coordinates
 
-**中文：** 六宫展示 §B.19 中除 `Life`/`Attack` 外的 6 项：`Critical Hit`、`Combo`、`Counterattack`、`Stun`、`Evasion`、`Life Steal`。数值 = **局外 `RoleStats` 六宫字段**（v3.180 默认 暴击 3 / 连击 6 / 反击 12 / 击晕 2 / 闪避 4 / 吸血 8）+ 本局老虎机累加至 `runEnhanceBonuses`（`Show()` 从 `RoleStats` 克隆基线）。**速度**仅在中部 `SpeedText` 展示（`runStats.agility`），不在六宫。  
-**角度（顺时针，正上方 0°）：** 0°=`Critical Hit`，60°=`Combo`，120°=`Counterattack`，180°=`Stun`，240°=`Evasion`，300°=`Life Steal`。  
+**中文：** 六宫有两种展示模式，**角序固定**，切换时同顶点属性成对对应：
+
+| 角序（顺时针，正上方 0°） | 战斗属性（Battle） | 角色原属性（Growth） |
+|---|---|---|
+| 0° | 暴击 `Critical Hit` | 体魄 `physique` |
+| 60° | 连击 `Combo` | 记忆 `memory` |
+| 120° | 反击 `Counterattack` | 想象 `imagination` |
+| 180° | 击晕 `Stun` | 魅力 `charm` |
+| 240° | 闪避 `Evasion` | 情商 `emotionalIntelligence` |
+| 300° | 吸血 `Life Steal` | 智力 `intelligence` |
+
+- **战斗模式：** 数值 = **局外 `RoleStats` 六宫字段**（v3.180 默认 暴击 3 / 连击 6 / 反击 12 / 击晕 2 / 闪避 4 / 吸血 8）+ 本局老虎机累加至 `runEnhanceBonuses`（`Show()` 从 `RoleStats` 克隆基线）；显示名见 `AttrEnhanceConfigCatalog.HexRadarDisplayNames`。  
+- **原属性模式：** 数值取自 `Show()` 传入的局内 `runStats` 成长六字段；显示名见上表（与 `RoleTrainingCourseCatalog.GrowthAttrDisplayNames` 语义一致，角序映射显式，非 0..5 直序）。  
+- **速度**仅在中部 `SpeedText` 展示（`runStats.agility`），不在六宫。  
+
 **坐标：** `x = r·sin(θ)`，`y = r·cos(θ)`（UI Y 向上）；**动态比例** `r_i = (value_i / max(6项)) × baseRadius`；全 0 时仅绘参考六边形。  
-**English:** Hex shows the six secondary attrs; values = outside-run **`RoleStats` hex baseline** (defaults 3/6/12/2/4/8, v3.180) + in-run slot gains in `runEnhanceBonuses`; speed only in middle `SpeedText`. Dynamic scale: `r_i = (value_i / max) × baseRadius`.
+**English:** Hex supports Battle vs Growth modes with fixed vertex pairing (Crit↔Physique, Combo↔Memory, Counter↔Imagination, Stun↔Charm, Evasion↔EQ, LifeSteal↔Intelligence). Battle values from `runEnhanceBonuses`; Growth from `runStats` growth fields. Dynamic scale unchanged.
 
 #### 12.13.3 编辑器生成 / Editor Generation
 
-**中文：** 菜单 `Tools/PetDemo/Generate Detail Attribute Modal Prefab` → `Assets/Resources/Prefabs/Battle/DetailAttributeModal.prefab`；`InitializeOnLoad` 缺 prefab 时自动生成。主界面预制体生成器同步在 `MiddleArea` 烘焙 `DetailAttrButton`。  
-**English:** Menu `Tools/PetDemo/Generate Detail Attribute Modal Prefab`; auto-generate when missing; `InvasionBattleModal2PrefabGenerator` bakes `DetailAttrButton` on `MiddleArea`.
+**中文：** 菜单 `Tools/PetDemo/Generate Detail Attribute Modal Prefab` → `Assets/Resources/Prefabs/Battle/DetailAttributeModal.prefab`；`InitializeOnLoad` 缺 prefab 时自动生成。主界面预制体生成器同步在 `MiddleArea` 烘焙 `DetailAttrButton`。v3.271 起 Builder 同步烘焙 `AttrModeSwitch`。  
+**English:** Menu `Tools/PetDemo/Generate Detail Attribute Modal Prefab`; auto-generate when missing; `InvasionBattleModal2PrefabGenerator` bakes `DetailAttrButton` on `MiddleArea`; Builder bakes `AttrModeSwitch` (v3.271).
 
 ---
 
@@ -6467,6 +6590,59 @@ Seed:fanqie:2;Fertilizer:demo:1;SeedPack:Common:1
 
 **中文：** `RoleLevelUnlockCatalog.GetUnlocksForLevel(level)` 按行序返回 `requiredLevel == level` 的列表；缺表 → `BuildDefault()`。  
 **English:** Filter by requiredLevel; CSV or defaults.
+
+---
+
+### B.25 加好感任务列表配置表（v3.266）/ ZhuanQian Task List Table (v3.266)
+
+**中文：** 驱动 §9.14.8 第 4 点 `ZhuanQianPopup` 任务列表；每行一个可跳转任务，并给出经验产出数值 `expReward`。  
+**English:** Drives ZhuanQianPopup task rows; each row has navKey and expReward.
+
+**路径 / Path：** `Assets/Resources/Configs/Farm/farm_tasks.csv`
+
+#### B.25.1 字段定义 / Field Definitions
+
+| 列 / Column | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `id` | string | 是 | 任务唯一 ID |
+| `iconResource` | string | 是 | 任务图标 Resources 路径（无扩展名） |
+| `description` | string | 是 | 任务描述文案 |
+| `rewardIconResource` | string | 否* | 旧道具奖励图标路径；**v3.266 UI 暂不读取**（列仍保留以便后续恢复） |
+| `rewardCount` | int | 否* | 旧道具奖励数量；**v3.266 UI 暂不读取** |
+| `expReward` | int | 是 | 经验产出（≥0）；`RewardCount` 展示 `"x" + expReward`，领取飞行动效图标固定 `AirUI/ExpIcon_1` |
+| `navKey` | string | 是 | 跳转目标：`GongHui` / `JiaYuan` / `ZhuXian` / `LangLai` / `FenZheng` / `XiuXian` |
+
+\*装载器仍解析旧列（若存在）；缺列不阻塞装载，只要 `id/iconResource/description/expReward/navKey` 齐全即可。
+
+#### B.25.2 Demo 默认数据 / Demo Defaults
+
+| id | iconResource | description | rewardIconResource | rewardCount | expReward | navKey |
+|---|---|---|---|---|---|---|
+| task_jiaYuan | AirUI/Game_NongChang | 前往农场收获一批作物 | AirUI/Xing_1 | 2 | 100 | JiaYuan |
+| task_gongHui | AirUI/Game_ZuDui | 前往社区拜访邻居 | AirUI/Xing_1 | 2 | 80 | GongHui |
+| task_zhuXian | AirUI/Game_MaoXian | 进入冒险关卡挑战一次 | AirUI/Xing_1 | 3 | 120 | ZhuXian |
+| task_langLai | AirUI/Game_LangLai | 参与一次狼来了玩法 | AirUI/Xing_1 | 4 | 150 | LangLai |
+| task_fenZheng | AirUI/Game_FenZheng | 体验人狼纷争玩法 | AirUI/Xing_1 | 4 | 200 | FenZheng |
+| task_xiuXian | AirUI/Game_XiuXian | 进入修仙玩法修炼 | AirUI/Xing_1 | 4 | 180 | XiuXian |
+
+#### B.25.3 数据结构 / Data Structure
+
+```text
+TaskConfig {
+  string id;
+  string iconResource;
+  string description;
+  string rewardIconResource; // 保留；当前 UI 不绑定
+  int rewardCount;           // 保留；当前 UI 不绑定
+  int expReward;             // 经验产出
+  string navKey;
+}
+```
+
+#### B.25.4 加载与回退 / Loading and Fallback
+
+**中文：** `TaskListConfigCatalog.LoadTaskConfigs()`：`Resources.Load("Configs/Farm/farm_tasks")` → `CsvTable.Parse`；`expReward` 解析失败按 `0`；缺表 / 缺必需列 / 无有效行 → `BuildDefaultTaskConfigs()`（等价上表，含 `expReward`）。  
+**English:** Catalog loads CSV or defaults; UI binds ExpIcon_1 + expReward only (v3.266).
 
 ---
 

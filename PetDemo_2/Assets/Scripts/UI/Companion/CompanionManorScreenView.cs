@@ -1,4 +1,4 @@
-// SPEC §9.8.19（v3.238；脚底枢轴 v3.254；Partner NPC + Waypoints v3.259；Obstacles v3.260；Scale 0.27 v3.261；建造弹图 v3.262）：
+// SPEC §9.8.19（v3.238；脚底枢轴 v3.254；Partner NPC + Waypoints v3.259；Obstacles v3.260；Scale 0.27 v3.261；建造弹图 v3.262；悬浮框 v3.263；烟花 v3.264）：
 // 伴侣庄园全屏可走场景（公会屏下子层）。预制体优先 + 运行时骨架回退。
 // 已结伴由 CompanionCottageView.TriggerEntry → Show(partnerFriendId)。
 using System;
@@ -22,6 +22,7 @@ namespace PetDemo.UI.Companion
         public const string ResMen2 = "AirUI/BLZY_men_2";
         public const string ResBuildOverlay = "AirUI/WDZY_ZS_UI_1";
         public const string ResJianZaoButton = "AirUI/ShouHuo_3";
+        public const string ResFloatingFrameBackground = "AirUI/common_bg_15";
 
         public const string Men1NodeName = "Men_1";
         public const string Men2NodeName = "Men_2";
@@ -30,6 +31,9 @@ namespace PetDemo.UI.Companion
         public const string BuildOverlayNodeName = "BuildOverlay";
         public const string JianZaoButtonNodeName = "Button-JianZao";
         public const string BaiFangButtonNodeName = "Button-BaiFang";
+        public const string FloatingFramesRootName = "FloatingFrames";
+        public const string FloatingFrame1Name = "FloatingFrame_1";
+        public const string FireworkFxLayerName = ManorFloatingFrameFireworkController.FxLayerName;
 
         private static readonly Vector2 MinWorldSize = new Vector2(1080f, 1920f);
         private static readonly Vector2 Men1DefaultPos = new Vector2(-280f, -80f);
@@ -43,6 +47,12 @@ namespace PetDemo.UI.Companion
         private static readonly Vector2 BaiFangButtonPos = new Vector2(438f, -748f);
         private static readonly Vector2 ActionButtonSize = new Vector2(150f, 150f);
         private static readonly Vector2 BuildOverlayFallbackSize = new Vector2(1080f, 766f);
+        private static readonly Vector2 FloatingFrameSize = new Vector2(360f, 140f);
+        private static readonly Vector2[] DefaultFloatingFramePositions =
+        {
+            new Vector2(-420f, -200f),
+            new Vector2(420f, -200f)
+        };
 
         private static readonly Vector2[] DefaultWaypointPositions =
         {
@@ -68,6 +78,7 @@ namespace PetDemo.UI.Companion
         [SerializeField] private RectTransform charactersRootRt;
         [SerializeField] private RectTransform npcsRootRt;
         [SerializeField] private RectTransform waypointsRootRt;
+        [SerializeField] private RectTransform floatingFramesRootRt;
         [SerializeField] private VirtualJoystickView joystick;
         [SerializeField] private Button backButton;
         [SerializeField] private Button jianZaoButton;
@@ -247,6 +258,59 @@ namespace PetDemo.UI.Companion
                 npcsRootRt = worldContentRt.Find("Npcs") as RectTransform;
             if (waypointsRootRt == null)
                 waypointsRootRt = worldContentRt.Find("Waypoints") as RectTransform;
+            if (floatingFramesRootRt == null)
+                floatingFramesRootRt = worldContentRt.Find(FloatingFramesRootName) as RectTransform;
+        }
+
+        /// <summary>
+        /// SPEC §9.8.19（v3.264）：为名称精确 FloatingFrame_1 装配烟花控制器。
+        /// </summary>
+        private void WireFloatingFrame1Fireworks(ManorFloatingFrameMarker[] floatingFrames)
+        {
+            ManorFloatingFrameMarker frame1 = null;
+            if (floatingFrames != null)
+            {
+                for (int i = 0; i < floatingFrames.Length; i++)
+                {
+                    var marker = floatingFrames[i];
+                    if (marker == null)
+                        continue;
+                    if (marker.name != FloatingFrame1Name)
+                        continue;
+                    frame1 = marker;
+                    break;
+                }
+            }
+
+            if (frame1 == null && floatingFramesRootRt != null)
+            {
+                var tf = floatingFramesRootRt.Find(FloatingFrame1Name);
+                if (tf != null)
+                    frame1 = tf.GetComponent<ManorFloatingFrameMarker>();
+            }
+
+            if (frame1 == null || playerRt == null || worldContentRt == null)
+                return;
+
+            var fxLayer = EnsureFireworkFxLayer(worldContentRt);
+            var fireworkController = gameObject.AddComponent<ManorFloatingFrameFireworkController>();
+            fireworkController.Initialize(playerRt, worldContentRt, frame1, fxLayer);
+        }
+
+        /// <summary>SPEC §9.8.19（v3.264）：懒建烟花显示层（content 局部坐标）。</summary>
+        private static RectTransform EnsureFireworkFxLayer(RectTransform worldContent)
+        {
+            if (worldContent == null)
+                return null;
+
+            var existing = worldContent.Find(FireworkFxLayerName) as RectTransform;
+            if (existing != null)
+            {
+                existing.SetAsLastSibling();
+                return existing;
+            }
+
+            return GongHuiScreenView.CreateStretchedGroup(worldContent, FireworkFxLayerName);
         }
 
         private void EnsureTiledBackground()
@@ -520,6 +584,17 @@ namespace PetDemo.UI.Companion
                 npcs,
                 Array.Empty<GuildResponseAreaMarker>(),
                 joystick);
+
+            // SPEC §9.8.19（v3.263）：多悬浮框按各自中心点独立接近显隐。
+            var floatingFrames = floatingFramesRootRt != null
+                ? floatingFramesRootRt.GetComponentsInChildren<ManorFloatingFrameMarker>(true)
+                : Array.Empty<ManorFloatingFrameMarker>();
+            var floatingFrameController =
+                gameObject.AddComponent<ManorFloatingFrameProximityController>();
+            floatingFrameController.Initialize(playerRt, worldContentRt, floatingFrames);
+
+            // SPEC §9.8.19（v3.264）：仅 FloatingFrame_1 Panel 门控持续烟花。
+            WireFloatingFrame1Fireworks(floatingFrames);
 
             var waypointsRoot = waypointsRootRt != null
                 ? waypointsRootRt
@@ -825,6 +900,8 @@ namespace PetDemo.UI.Companion
             var charactersRoot = GongHuiScreenView.CreateStretchedGroup(worldContent, "Characters");
             var npcsRoot = GongHuiScreenView.CreateStretchedGroup(worldContent, "Npcs");
             var waypointsRoot = GongHuiScreenView.CreateStretchedGroup(worldContent, "Waypoints");
+            var floatingFramesRoot =
+                GongHuiScreenView.CreateStretchedGroup(worldContent, FloatingFramesRootName);
 
             // SPEC §9.8.19（v3.260）：默认 Obstacles 占位，位置/尺寸由预制体再调。
             for (int i = 0; i < DefaultObstaclePositions.Length; i++)
@@ -842,6 +919,16 @@ namespace PetDemo.UI.Companion
             BuildPartnerNpcMarker(npcsRoot, PartnerNpcDefaultPos);
             for (int i = 0; i < DefaultWaypointPositions.Length; i++)
                 BuildWaypointMarker(waypointsRoot, "Waypoint_" + (i + 1), DefaultWaypointPositions[i]);
+
+            // SPEC §9.8.19（v3.263）：提供两个可复制、可编辑的默认悬浮框。
+            for (int i = 0; i < DefaultFloatingFramePositions.Length; i++)
+            {
+                BuildFloatingFrameMarker(
+                    floatingFramesRoot,
+                    "FloatingFrame_" + (i + 1),
+                    DefaultFloatingFramePositions[i],
+                    "庄园提示 " + (i + 1));
+            }
 
             var playerSpawn = BottomNavAttachedScreenLayout.CreateChildRect(
                 worldContent, "PlayerSpawn",
@@ -861,6 +948,7 @@ namespace PetDemo.UI.Companion
             view.SetSceneRefs(
                 viewport, worldContent, playerSpawn,
                 obstaclesRoot, charactersRoot, npcsRoot, waypointsRoot, joystickView, back);
+            view.floatingFramesRootRt = floatingFramesRoot;
             view.jianZaoButton = jianZao;
             view.buildOverlayRt = overlayRt;
             view.buildOverlayDimButton = overlayDim;
@@ -997,6 +1085,52 @@ namespace PetDemo.UI.Companion
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 anchoredPosition, new Vector2(10f, 10f));
             rt.gameObject.AddComponent<GuildWaypointMarker>();
+        }
+
+        private static void BuildFloatingFrameMarker(
+            RectTransform parent, string name, Vector2 anchoredPosition, string labelText)
+        {
+            if (parent == null || parent.Find(name) != null)
+                return;
+
+            var markerRt = BottomNavAttachedScreenLayout.CreateChildRect(
+                parent, name,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                anchoredPosition, new Vector2(10f, 10f));
+            var marker = markerRt.gameObject.AddComponent<ManorFloatingFrameMarker>();
+
+            var panelRt = BottomNavAttachedScreenLayout.CreateChildRect(
+                markerRt, "Panel",
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, FloatingFrameSize);
+            var panelImage = panelRt.gameObject.AddComponent<Image>();
+            panelImage.raycastTarget = false;
+            var panelSprite = Resources.Load<Sprite>(ResFloatingFrameBackground);
+            if (panelSprite != null)
+            {
+                panelImage.sprite = panelSprite;
+                panelImage.color = Color.white;
+                panelImage.preserveAspect = true;
+            }
+            else
+            {
+                panelImage.color = new Color(0.12f, 0.16f, 0.22f, 0.9f);
+            }
+
+            var labelRt = BottomNavAttachedScreenLayout.CreateChildRect(
+                panelRt, "Label",
+                Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            BottomNavAttachedScreenLayout.StretchFull(labelRt);
+            var label = labelRt.gameObject.AddComponent<Text>();
+            label.text = labelText ?? string.Empty;
+            label.font = FarmGridView.LoadBuiltinFont();
+            label.fontSize = 30;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.color = Color.white;
+            label.raycastTarget = false;
+
+            marker.SetPanel(panelRt);
+            marker.InitializeHidden();
         }
 
         private static void BakePartnerNamePlate(RectTransform npcRt, string npcId)

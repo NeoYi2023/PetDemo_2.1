@@ -979,9 +979,9 @@ namespace PetDemo.UI.Battle
         }
 
         // ============================================================
-        // 老虎机抽奖事件（SPEC §12.12：三轴 slot3 / 五轴 slot5）
+        // 老虎机抽奖事件（SPEC §12.12：三轴 slot3 / 五轴 slot5 / 九宫格 slot3x3）
         // ============================================================
-        /// <summary>从事件奖励解析老虎机轴数：Slot5→5，Slot3→3，无则默认 3。</summary>
+        /// <summary>从事件奖励解析老虎机轴数：Slot3x3→9，Slot5→5，Slot3→3，无则默认 3。</summary>
         private static int FindSlotReelCount(List<InvasionEventReward> rewards)
         {
             if (rewards != null)
@@ -990,6 +990,8 @@ namespace PetDemo.UI.Battle
                 {
                     if (rewards[i] == null)
                         continue;
+                    if (rewards[i].kind == InvasionEventRewardKind.Slot3x3)
+                        return SlotMachineModalView.ReelCount3x3;
                     if (rewards[i].kind == InvasionEventRewardKind.Slot5)
                         return 5;
                     if (rewards[i].kind == InvasionEventRewardKind.Slot3)
@@ -1002,7 +1004,8 @@ namespace PetDemo.UI.Battle
         private void OpenSlotMachine(int reelCount)
         {
             EnsureEventsLoaded();
-            int rc = reelCount == 5 ? 5 : 3;
+            int rc = reelCount == SlotMachineModalView.ReelCount3x3 ? SlotMachineModalView.ReelCount3x3
+                : (reelCount == 5 ? 5 : 3);
 
             var slot = SlotMachineModalView.GetOrCreate(canvasRectCache, rc);
             if (slot == null)

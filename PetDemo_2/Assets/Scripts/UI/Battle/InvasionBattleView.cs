@@ -106,6 +106,10 @@ namespace PetDemo.UI.Battle
         /// <summary>§12.9.1：自动连战开下一场时是否保留「返回家园」最小化（不自动弹回战斗全屏）。</summary>
         private bool preserveBattleModalMinimized;
         private bool suppressAutoToggleSync;
+        /// <summary>§12.3 (v3.267)：开战时曾强制显示 MainHudLayerRoot，战毕需按需恢复隐藏。</summary>
+        private bool restoredHudForBattle;
+        /// <summary>§12.3 (v3.267)：开战时临时挂起的创角层（HudPopup 高于 HudOverlay）。</summary>
+        private CharacterCreationScreenView suspendedCharacterCreation;
         private static Sprite fallbackWhiteSprite;
 
         // SPEC §12.11.10 (v3.172)：嵌入模式——由 InvasionBattleModal_2 复用本战斗模拟，
@@ -282,6 +286,8 @@ namespace PetDemo.UI.Battle
         {
             if (modalRt == null)
                 return;
+            // SPEC §12.3 (v3.267)：创角覆盖层期间 HUD 根可能 inactive，须先恢复宿主再启协程。
+            EnsureBattleHostHierarchyActive();
             modalRt.SetAsLastSibling();
             modalRt.gameObject.SetActive(true);
             if (resultDialogRt != null)
@@ -296,6 +302,13 @@ namespace PetDemo.UI.Battle
             if (sess != null)
                 UpdateHpDisplay(sess);
 
+            if (!isActiveAndEnabled)
+            {
+                UnityEngine.Debug.LogError(
+                    "[InvasionBattleView] OpenBattlePanel: InvasionBattleModal 仍不在激活层级，无法启动回合协程。");
+                return;
+            }
+
             if (battleLoop != null)
                 StopCoroutine(battleLoop);
             battleLoop = StartCoroutine(RunBattleLoop());
@@ -304,6 +317,46 @@ namespace PetDemo.UI.Battle
             {
                 ApplyBattleModalMinimized(true);
                 SetBattleOngoingEntryVisible(true);
+            }
+        }
+
+        /// <summary>
+        /// SPEC §12.3 (v3.267)：保证全屏战 modal 可 <c>StartCoroutine</c>，并临时挂起更高 sorting 的创角层。
+        /// </summary>
+        private void EnsureBattleHostHierarchyActive()
+        {
+            if (suspendedCharacterCreation == null)
+            {
+                var cc = UnityEngine.Object.FindObjectOfType<CharacterCreationScreenView>();
+                if (cc != null && cc.IsShown)
+                {
+                    suspendedCharacterCreation = cc;
+                    // 软挂起：不走 Hide()/OnCloseRequested，避免误切 APP。
+                    cc.gameObject.SetActive(false);
+                }
+            }
+
+            if (MainHudLayerRoot.Instance != null && !MainHudLayerRoot.Instance.gameObject.activeSelf)
+            {
+                MainHudLayerRoot.SetVisible(true);
+                restoredHudForBattle = true;
+            }
+        }
+
+        /// <summary>
+        /// SPEC §12.3 (v3.267)：战毕恢复开战前挂起的创角层与 HUD 显隐（连战最小化中间态不恢复）。
+        /// </summary>
+        private void RestoreOverlaysAfterBattleClose()
+        {
+            if (suspendedCharacterCreation != null)
+            {
+                suspendedCharacterCreation.gameObject.SetActive(true);
+                suspendedCharacterCreation = null;
+            }
+            if (restoredHudForBattle)
+            {
+                MainHudLayerRoot.SetVisible(false);
+                restoredHudForBattle = false;
             }
         }
 
@@ -325,6 +378,8 @@ namespace PetDemo.UI.Battle
             }
             if (modalRt != null)
                 modalRt.gameObject.SetActive(false);
+            if (!preserveMinimized)
+                RestoreOverlaysAfterBattleClose();
             ClearDamageFloats();
             ClearBattlePetSlots();
         }

@@ -7,8 +7,8 @@ using UnityEngine;
 namespace PetDemo.EditorTools
 {
     /// <summary>
-    /// SPEC §12.12：生成老虎机抽奖界面预制体 SlotMachineModal_3 / SlotMachineModal_5。
-    /// 产出 Assets/Resources/Prefabs/Battle/SlotMachineModal_3.prefab 与 SlotMachineModal_5.prefab。
+    /// SPEC §12.12：生成老虎机抽奖界面预制体 SlotMachineModal_3 / SlotMachineModal_5 / SlotMachineModal_3x3。
+    /// 产出 Assets/Resources/Prefabs/Battle/SlotMachineModal_3.prefab、SlotMachineModal_5.prefab 与 SlotMachineModal_3x3.prefab。
     /// 结构由运行时/编辑器共用的 SlotMachineModalBuilder 构建，保证运行时回退与预制体一致。
     /// </summary>
     [InitializeOnLoad]
@@ -17,6 +17,7 @@ namespace PetDemo.EditorTools
         private const string PrefabDir = "Assets/Resources/Prefabs/Battle";
         private const string Prefab3Path = PrefabDir + "/SlotMachineModal_3.prefab";
         private const string Prefab5Path = PrefabDir + "/SlotMachineModal_5.prefab";
+        private const string Prefab3x3Path = PrefabDir + "/SlotMachineModal_3x3.prefab";
 
         static SlotMachineModalPrefabGenerator()
         {
@@ -30,7 +31,8 @@ namespace PetDemo.EditorTools
 
             bool need3 = !PrefabValid(Prefab3Path);
             bool need5 = !PrefabValid(Prefab5Path);
-            if (!need3 && !need5)
+            bool need3x3 = !PrefabValid(Prefab3x3Path);
+            if (!need3 && !need5 && !need3x3)
                 return;
 
             Generate();
@@ -53,9 +55,10 @@ namespace PetDemo.EditorTools
             EnsureDir(PrefabDir);
             BuildPrefab(SlotMachineModalView.PanelObjectName3, 3, Prefab3Path);
             BuildPrefab(SlotMachineModalView.PanelObjectName5, 5, Prefab5Path);
+            BuildPrefab(SlotMachineModalView.PanelObjectName3x3, SlotMachineModalView.ReelCount3x3, Prefab3x3Path);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            UnityEngine.Debug.Log("SlotMachineModal 预制件生成完成: " + Prefab3Path + " / " + Prefab5Path);
+            UnityEngine.Debug.Log("SlotMachineModal 预制件生成完成: " + Prefab3Path + " / " + Prefab5Path + " / " + Prefab3x3Path);
         }
 
         private static void BuildPrefab(string panelName, int reelCount, string prefabPath)

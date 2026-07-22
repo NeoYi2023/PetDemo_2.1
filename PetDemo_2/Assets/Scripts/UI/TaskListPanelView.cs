@@ -1,6 +1,7 @@
 // 加好感页签（ZhuanQianPopup）任务列表面板。
 // 构建垂直 ScrollView，从 TaskListConfigCatalog 加载配置，实例化 TaskListRowView 行（Resources.Load + 运行时回退）。
 // 状态机：GoTo →[点击前往：切 Claimable + onNavigate 跳转]→ Claimable →[点击领取：RewardFlyFx 飞行 + 切 Completed]→ Completed。
+// v3.266：领取飞行动效固定 AirUI/ExpIcon_1；不调用角色经验结算接口。
 // 状态在内存中持久，跨 Show/Hide 保持。范式同 §13.2 FriendListPanelView 的 ScrollView 构建。
 using System;
 using System.Collections.Generic;
@@ -187,11 +188,11 @@ namespace PetDemo.UI
             if (states[index] != TaskButtonState.Claimable)
                 return;
 
-            // 需求 6：奖励图标从展示奖励的位置飞向屏幕坐标 (377,895)，飞到后消失。
+            // 需求 6：经验图标从展示奖励的位置飞向屏幕坐标 (377,895)，飞到后消失。
+            // v3.266：飞行动效固定使用 ExpIcon_1；本阶段不发放真实角色经验。
             var fromScreenPos = rows[index].GetRewardIconScreenPos();
-            var iconResource = tasks[index].rewardIconResource;
             if (canvasRect != null)
-                RewardFlyFx.Play(canvasRect, fromScreenPos, RewardFlyTargetScreenPos, iconResource);
+                RewardFlyFx.Play(canvasRect, fromScreenPos, RewardFlyTargetScreenPos, TaskListConfigCatalog.ExpRewardIconResource);
 
             // 飞行结束后切为「已完成」灰态（这里立即切态，飞行并行播放）。
             states[index] = TaskButtonState.Completed;

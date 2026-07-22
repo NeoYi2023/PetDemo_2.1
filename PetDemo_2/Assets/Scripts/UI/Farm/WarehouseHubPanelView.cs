@@ -4,7 +4,7 @@
 // 入口 B（自 v3.253）：创角 HomeTabPanel TopRightActions 仓库按钮 → CharacterCreationScreenView 调用。
 // 数据：果实槽绑 PlayerFruitBag；体力条绑 RoleStats.stamina；
 // 底部「吃 / 一键吃饱」消耗 PlayerFruitBag.activeId 的果实 → RoleStats.stamina（§9.8.13.6 换算）；
-// 「开始」在体力 ≥ WarehouseHubPanelView.StartButtonVisibleMinStamina（§9.8.13.5）时显示；
+// 自 v3.268 起「开始」按钮暂时始终隐藏；节点与回调保留（§9.8.13.5）；
 // 带 eatBuffIcon 的作物在吃下后于面板右上 `BuffGainedStack` 竖排展示：同 plantConfigId 合并一行并累加 Count（§9.8.13.3.1）。
 using System;
 using System.Collections.Generic;
@@ -40,7 +40,7 @@ namespace PetDemo.UI.Farm
         private static readonly Vector2 TabButtonSizeDelta = new Vector2(155f, 104f);
         private static readonly Color TabButtonImageColor = new Color(1f, 1f, 1f, 0f);
 
-        /// <summary>底部 <c>StartButton</c> 可见所需最低当前体力（与 §9.8.13.5 一致）。</summary>
+        /// <summary>历史开战体力阈值；自 v3.268 起仅兼容保留，不参与按钮显隐。</summary>
         public const int StartButtonVisibleMinStamina = 10;
 
         // 选中态高亮颜色（与原食物仓库选中色一致：金黄半透 0.3）。
@@ -472,9 +472,6 @@ namespace PetDemo.UI.Farm
             if (service == null)
                 return;
             bool full = service.IsRoleFull();
-            var role = service.GetRoleStats();
-            int stamina = role != null ? role.stamina : 0;
-            bool showStart = stamina >= StartButtonVisibleMinStamina;
             var bag = service.GetFruitBag();
 
             bool anyStock = false;
@@ -502,9 +499,7 @@ namespace PetDemo.UI.Farm
                 eatToFullButton.interactable = anyStock;
             }
             if (startButton != null)
-            {
-                startButton.gameObject.SetActive(showStart);
-            }
+                startButton.gameObject.SetActive(false);
         }
 
         private bool AnyStockOf(string plantConfigId)

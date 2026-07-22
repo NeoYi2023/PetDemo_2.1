@@ -30,7 +30,12 @@ namespace PetDemo.EditorTools
             {
                 var existing = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
                 if (existing != null)
-                    return;
+                {
+                    // v3.271：旧预制体缺 AttrModeSwitch 时强制重生成。
+                    var bottom = existing.transform.Find(DetailAttributeModalView.BottomAreaName);
+                    if (bottom != null && bottom.Find(DetailAttributeModalView.AttrModeSwitchName) != null)
+                        return;
+                }
             }
 
             Generate();

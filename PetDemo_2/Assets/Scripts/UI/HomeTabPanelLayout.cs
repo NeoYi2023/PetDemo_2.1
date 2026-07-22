@@ -24,7 +24,6 @@ namespace PetDemo.UI
 
         private static readonly Color SolidBackgroundColor = new Color(0.10f, 0.12f, 0.18f, 1f);
         private static readonly Color TabFallbackColor = new Color(0.3f, 0.28f, 0.24f, 1f);
-        private static readonly Color TabActiveColor = new Color(0.26f, 0.55f, 0.85f, 1f);
         private static readonly Color TextColor = Color.black;
         private static readonly Color TopRightButtonFallbackColor = new Color(0.35f, 0.32f, 0.4f, 0.9f);
 
@@ -35,6 +34,14 @@ namespace PetDemo.UI
         private const float ExpBarHeight = 56f;
         private const float InfoTabBarHeight = 72f;
         private static readonly Vector2 RoleMountSize = new Vector2(720f, 1000f);
+
+        // SPEC §9.14.11 v3.272：Info 折叠时 CharacterZone / LevelExpRow 的 Top/Bottom（stretch 锚点）。
+        public const float CharacterZoneOpenTop = 0f;
+        public const float CharacterZoneOpenBottom = 0f;
+        public const float CharacterZoneCollapsedTop = 180f;
+        public const float CharacterZoneCollapsedBottom = -180f;
+        public const float LevelExpRowCollapsedTop = 1230f;
+        public const float LevelExpRowCollapsedBottom = 508f;
 
         // SPEC §9.14.11 v3.190 / v3.253：右上竖排功能按钮
         public static readonly Vector2 TopRightButtonSize = new Vector2(120f, 120f);
@@ -140,7 +147,8 @@ namespace PetDemo.UI
                     new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
                 StretchFull(tab);
                 var tabImg = tab.gameObject.AddComponent<Image>();
-                tabImg.color = i == 0 ? TabActiveColor : TabFallbackColor;
+                // SPEC §9.14.11 v3.272：两 Tab 默认关闭色。
+                tabImg.color = TabFallbackColor;
                 tabImg.raycastTarget = true;
                 var tabBtn = tab.gameObject.AddComponent<Button>();
                 tabBtn.transition = Selectable.Transition.None;
@@ -154,6 +162,8 @@ namespace PetDemo.UI
                 new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
             infoContent.offsetMin = new Vector2(16f, 16f);
             infoContent.offsetMax = new Vector2(-16f, -InfoTabBarHeight - 8f);
+            // SPEC §9.14.11 v3.272：默认隐藏，打开子页签后再显示。
+            infoContent.gameObject.SetActive(false);
 
             var hexAttrsPage = CreateChild(infoContent, "HexAttrsPage", Vector2.zero, Vector2.one,
                 new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);

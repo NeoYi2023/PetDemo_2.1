@@ -1,5 +1,5 @@
 // SPEC §12.13：详细属性弹窗 DetailAttributeModal。
-// 上：角色待机；中：与主界面一致的 HP/攻击/速度；下：六宫雷达图。
+// 上：角色待机；中：与主界面一致的 HP/攻击/速度；下：六宫雷达图（战斗/原属性可切换）。
 using System;
 using System.Collections.Generic;
 using PetDemo.Battle;
@@ -12,6 +12,13 @@ using UnityEngine.UI;
 
 namespace PetDemo.UI.Battle
 {
+    /// <summary>SPEC §12.13.2：六宫展示模式。Toggle.isOn=true → Battle。</summary>
+    public enum AttrDisplayMode
+    {
+        Growth = 0,
+        Battle = 1,
+    }
+
     [DisallowMultipleComponent]
     public sealed class DetailAttributeModalView : MonoBehaviour
     {
@@ -29,12 +36,19 @@ namespace PetDemo.UI.Battle
         public const string HexChartName = "HexRadarChart";
         public const string HexLabelsName = "HexLabels";
         public const string CloseButtonName = "CloseButton";
+        public const string AttrModeSwitchName = "AttrModeSwitch";
 
         private static readonly Vector2 CharacterSize = new Vector2(720f, 1200f);
         private const float CharacterScale = 0.45f;
         private static readonly Vector2 CloseButtonSize = new Vector2(96f, 96f);
         private const float HexLabelRadius = 210f;
         public const int HexLabelCount = 6;
+
+        // SPEC §12.13.2：与 HexRadarAttrIds 同角序的成长属性显示名（体魄/记忆/想象/魅力/情商/智力）。
+        private static readonly string[] GrowthHexDisplayNames =
+        {
+            "体魄", "记忆", "想象", "魅力", "情商", "智力",
+        };
 
         private static readonly string[] IdleAnimCandidates =
             { "standby_1", "standby", "idle", "exclusive_2", "animation" };
@@ -49,16 +63,24 @@ namespace PetDemo.UI.Battle
         [SerializeField] private HexRadarChartGraphic hexChart;
         [SerializeField] private Text[] hexLabels = new Text[HexLabelCount];
         [SerializeField] private Button closeButton;
+        [SerializeField] private Toggle attrModeSwitch;
+        [SerializeField] private Text attrModeLabel;
+        [SerializeField] private RectTransform attrModeKnob;
 
         private RectTransform panelRt;
         private RectTransform canvasRectCache;
         private bool wired;
         private bool playerBuilt;
+        private bool suppressModeSwitch;
+        private AttrDisplayMode displayMode = AttrDisplayMode.Battle;
+        private RoleStats cachedStats;
+        private IReadOnlyDictionary<string, int> cachedBonuses;
 
         public bool IsShown => gameObject != null && gameObject.activeSelf;
 
         internal void AssignRuntimeRefs(Image dimImg, RectTransform slot, Text hp, Text atk, Text speed,
-            HexRadarChartGraphic chart, Text[] labels, Button close)
+            HexRadarChartGraphic chart, Text[] labels, Button close,
+            Toggle modeSwitch, Text modeLabel, RectTransform modeKnob)
         {
             dim = dimImg;
             playerSlot = slot;
@@ -68,6 +90,9 @@ namespace PetDemo.UI.Battle
             hexChart = chart;
             hexLabels = labels;
             closeButton = close;
+            attrModeSwitch = modeSwitch;
+            attrModeLabel = modeLabel;
+            attrModeKnob = modeKnob;
         }
 
         public static DetailAttributeModalView GetOrCreate(RectTransform canvasRect)
@@ -130,8 +155,14 @@ namespace PetDemo.UI.Battle
             EnsureFieldsFromHierarchy();
             WireOnce();
 
+            cachedStats = stats;
+            cachedBonuses = enhanceBonuses;
+            displayMode = AttrDisplayMode.Battle;
+            EnsureModeSwitchWired();
+            SyncModeSwitchUi(force: true);
+
             RefreshMiddleStats(stats);
-            RefreshHexChart(enhanceBonuses);
+            RefreshHexByMode();
             EnsurePlayerBuilt();
             ForceRefreshHexChartLayout();
 
@@ -172,7 +203,66 @@ namespace PetDemo.UI.Battle
                 closeButton.onClick.AddListener(Hide);
             }
 
+            EnsureModeSwitchWired();
             wired = true;
+        }
+
+        private void EnsureModeSwitchWired()
+        {
+            if (attrModeSwitch == null)
+                return;
+            attrModeSwitch.onValueChanged.RemoveAllListeners();
+            attrModeSwitch.onValueChanged.AddListener(OnAttrModeSwitchChanged);
+        }
+
+        private void OnAttrModeSwitchChanged(bool isOn)
+        {
+            if (suppressModeSwitch)
+                return;
+            displayMode = isOn ? AttrDisplayMode.Battle : AttrDisplayMode.Growth;
+            UpdateModeSwitchVisuals();
+            RefreshHexByMode();
+            ForceRefreshHexChartLayout();
+        }
+
+        private void SyncModeSwitchUi(bool force)
+        {
+            bool wantOn = displayMode == AttrDisplayMode.Battle;
+            if (attrModeSwitch != null)
+            {
+                if (force || attrModeSwitch.isOn != wantOn)
+                {
+                    suppressModeSwitch = true;
+                    attrModeSwitch.isOn = wantOn;
+                    suppressModeSwitch = false;
+                }
+            }
+            UpdateModeSwitchVisuals();
+        }
+
+        private void UpdateModeSwitchVisuals()
+        {
+            if (attrModeLabel != null)
+                attrModeLabel.text = displayMode == AttrDisplayMode.Battle ? "战斗属性" : "原属性";
+
+            if (attrModeKnob != null)
+            {
+                // isOn(战斗)=右，原属性=左
+                float x = displayMode == AttrDisplayMode.Battle ? 28f : -28f;
+                attrModeKnob.anchoredPosition = new Vector2(x, 0f);
+            }
+
+            if (attrModeSwitch != null)
+            {
+                var trackT = attrModeSwitch.transform.Find("Track");
+                var track = trackT != null ? trackT.GetComponent<Image>() : null;
+                if (track != null)
+                {
+                    track.color = displayMode == AttrDisplayMode.Battle
+                        ? new Color(0.28f, 0.55f, 0.85f, 1f)
+                        : new Color(0.35f, 0.35f, 0.4f, 1f);
+                }
+            }
         }
 
         private void RefreshMiddleStats(RoleStats role)
@@ -190,7 +280,15 @@ namespace PetDemo.UI.Battle
             if (speedText != null) speedText.text = $"{role.agility}";
         }
 
-        private void RefreshHexChart(IReadOnlyDictionary<string, int> enhanceBonuses)
+        private void RefreshHexByMode()
+        {
+            if (displayMode == AttrDisplayMode.Growth)
+                RefreshHexChartGrowth(cachedStats);
+            else
+                RefreshHexChartBattle(cachedBonuses);
+        }
+
+        private void RefreshHexChartBattle(IReadOnlyDictionary<string, int> enhanceBonuses)
         {
             var values = new int[AttrEnhanceConfigCatalog.HexRadarAttrIds.Length];
             for (int i = 0; i < values.Length; i++)
@@ -201,20 +299,51 @@ namespace PetDemo.UI.Battle
                     values[i] = Mathf.Max(0, v);
             }
 
+            ApplyHexValues(values, AttrEnhanceConfigCatalog.HexRadarDisplayNames);
+        }
+
+        private void RefreshHexChartGrowth(RoleStats role)
+        {
+            var values = GetGrowthHexValues(role);
+            ApplyHexValues(values, GrowthHexDisplayNames);
+        }
+
+        /// <summary>
+        /// SPEC §12.13.2：成长属性按战斗六宫角序取值（体魄/记忆/想象/魅力/情商/智力）。
+        /// </summary>
+        private static int[] GetGrowthHexValues(RoleStats role)
+        {
+            var values = new int[HexLabelCount];
+            if (role == null)
+                return values;
+            values[0] = Mathf.Max(0, role.physique);
+            values[1] = Mathf.Max(0, role.memory);
+            values[2] = Mathf.Max(0, role.imagination);
+            values[3] = Mathf.Max(0, role.charm);
+            values[4] = Mathf.Max(0, role.emotionalIntelligence);
+            values[5] = Mathf.Max(0, role.intelligence);
+            return values;
+        }
+
+        private void ApplyHexValues(int[] values, string[] displayNames)
+        {
+            if (values == null)
+                return;
+
             if (hexChart != null)
                 hexChart.SetValuesFromInts(values);
 
-            if (hexLabels != null)
+            if (hexLabels == null)
+                return;
+
+            for (int i = 0; i < hexLabels.Length && i < values.Length; i++)
             {
-                for (int i = 0; i < hexLabels.Length && i < values.Length; i++)
-                {
-                    if (hexLabels[i] == null)
-                        continue;
-                    string displayName = i < AttrEnhanceConfigCatalog.HexRadarDisplayNames.Length
-                        ? AttrEnhanceConfigCatalog.HexRadarDisplayNames[i]
-                        : AttrEnhanceConfigCatalog.HexRadarAttrIds[i];
-                    hexLabels[i].text = $"{displayName}\n{values[i]}";
-                }
+                if (hexLabels[i] == null)
+                    continue;
+                string displayName = displayNames != null && i < displayNames.Length
+                    ? displayNames[i]
+                    : string.Empty;
+                hexLabels[i].text = $"{displayName}\n{values[i]}";
             }
         }
 
@@ -386,6 +515,34 @@ namespace PetDemo.UI.Battle
             }
             if (closeButton == null)
                 closeButton = FindDescendantButton(CloseButtonName);
+            if (attrModeSwitch == null)
+            {
+                var switchT = FindDescendantByName(transform, AttrModeSwitchName);
+                if (switchT != null)
+                    attrModeSwitch = switchT.GetComponent<Toggle>();
+            }
+            if (attrModeSwitch == null)
+            {
+                var bottom = FindDescendantRect(BottomAreaName);
+                if (bottom != null)
+                {
+                    DetailAttributeModalBuilder.BuildAttrModeSwitch(bottom,
+                        out attrModeSwitch, out attrModeLabel, out attrModeKnob);
+                }
+            }
+            if (attrModeLabel == null && attrModeSwitch != null)
+            {
+                var labelT = attrModeSwitch.transform.Find("ModeLabel");
+                if (labelT != null)
+                    attrModeLabel = labelT.GetComponent<Text>();
+            }
+            if (attrModeKnob == null && attrModeSwitch != null)
+            {
+                var knobT = attrModeSwitch.transform.Find("Track/Knob")
+                    ?? attrModeSwitch.transform.Find("Knob");
+                if (knobT != null)
+                    attrModeKnob = knobT as RectTransform;
+            }
         }
 
         private Image FindDescendantImage(string name)
@@ -500,9 +657,86 @@ namespace PetDemo.UI.Battle
                     "0", 24, TextAnchor.MiddleCenter);
             }
 
+            BuildAttrModeSwitch(bottomArea, out Toggle modeSwitch, out Text modeLabel, out RectTransform modeKnob);
+
             var closeButton = BuildCloseButton(root);
 
-            view.AssignRuntimeRefs(dim, playerSlot, hpText, atkText, speedText, hexChart, hexLabels, closeButton);
+            view.AssignRuntimeRefs(dim, playerSlot, hpText, atkText, speedText, hexChart, hexLabels, closeButton,
+                modeSwitch, modeLabel, modeKnob);
+        }
+
+        /// <summary>SPEC §12.13.1：BottomArea 右下角灯开关式 Toggle（isOn=true=战斗属性）。</summary>
+        public static void BuildAttrModeSwitch(RectTransform bottomArea,
+            out Toggle modeSwitch, out Text modeLabel, out RectTransform modeKnob)
+        {
+            var existing = bottomArea.Find(DetailAttributeModalView.AttrModeSwitchName);
+            if (existing != null)
+            {
+                modeSwitch = existing.GetComponent<Toggle>();
+                var labelT = existing.Find("ModeLabel");
+                modeLabel = labelT != null ? labelT.GetComponent<Text>() : null;
+                var knobT = existing.Find("Track/Knob") ?? existing.Find("Knob");
+                modeKnob = knobT as RectTransform;
+                return;
+            }
+
+            var switchRt = BottomNavAttachedScreenLayout.CreateChildRect(
+                bottomArea, DetailAttributeModalView.AttrModeSwitchName,
+                new Vector2(1f, 0f), new Vector2(1f, 0f),
+                new Vector2(-24f, 24f), new Vector2(200f, 56f));
+            switchRt.pivot = new Vector2(1f, 0f);
+
+            // 整块可点，避免点文案穿透到 Dim 关闭弹窗。
+            var hitImg = switchRt.gameObject.AddComponent<Image>();
+            hitImg.sprite = CreateWhiteSprite();
+            hitImg.color = new Color(0f, 0f, 0f, 0.01f);
+            hitImg.raycastTarget = true;
+
+            var labelRt = BottomNavAttachedScreenLayout.CreateChildRect(
+                switchRt, "ModeLabel",
+                new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                new Vector2(4f, 0f), new Vector2(96f, 40f));
+            labelRt.pivot = new Vector2(0f, 0.5f);
+            modeLabel = labelRt.gameObject.AddComponent<Text>();
+            modeLabel.text = "战斗属性";
+            modeLabel.font = FarmGridView.LoadBuiltinFont();
+            modeLabel.fontSize = 22;
+            modeLabel.alignment = TextAnchor.MiddleLeft;
+            modeLabel.color = Color.white;
+            modeLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+            modeLabel.verticalOverflow = VerticalWrapMode.Overflow;
+            modeLabel.raycastTarget = false;
+
+            var trackRt = BottomNavAttachedScreenLayout.CreateChildRect(
+                switchRt, "Track",
+                new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                new Vector2(-4f, 0f), new Vector2(96f, 40f));
+            trackRt.pivot = new Vector2(1f, 0.5f);
+            var trackImg = trackRt.gameObject.AddComponent<Image>();
+            trackImg.sprite = CreateWhiteSprite();
+            trackImg.color = new Color(0.28f, 0.55f, 0.85f, 1f);
+            trackImg.raycastTarget = false;
+
+            modeKnob = BottomNavAttachedScreenLayout.CreateChildRect(
+                trackRt, "Knob",
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(28f, 0f), new Vector2(34f, 34f));
+            var knobImg = modeKnob.gameObject.AddComponent<Image>();
+            knobImg.sprite = CreateWhiteSprite();
+            knobImg.color = Color.white;
+            knobImg.raycastTarget = false;
+
+            modeSwitch = switchRt.gameObject.AddComponent<Toggle>();
+            modeSwitch.transition = Selectable.Transition.None;
+            modeSwitch.targetGraphic = hitImg;
+            modeSwitch.graphic = null;
+            modeSwitch.isOn = true;
+        }
+
+        private static Sprite CreateWhiteSprite()
+        {
+            var tex = Texture2D.whiteTexture;
+            return Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
         }
 
         private static void AddLiuGongBackground(RectTransform area)

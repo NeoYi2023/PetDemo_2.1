@@ -1,6 +1,7 @@
 // 加好感页签（ZhuanQianPopup）任务列表单行视图。
 // 结构：行背景 + 任务图标(TaskIcon) + 描述(Description) + 奖励图标(RewardIcon)+数量(RewardCount)
 //       + 三态互斥按钮(GoToButton/ClaimButton/CompletedButton，同位置)。
+// v3.266：RewardIcon 固定 AirUI/ExpIcon_1，RewardCount 显示 expReward（暂不绑定旧道具奖励列）。
 // 范式同 §9.14.8 TopFriendCellView：运行时 AutoWire 按子节点名绑定 + 静态 BuildRuntimeTemplate 构建层级。
 using System;
 using PetDemo.Core;
@@ -106,11 +107,12 @@ namespace PetDemo.UI
             if (descriptionText != null)
                 descriptionText.text = config.description;
 
+            // v3.266：暂时删除原 RewardIcon/RewardCount 道具信息，改为经验产出展示。
             if (rewardCountText != null)
-                rewardCountText.text = "x" + config.rewardCount;
+                rewardCountText.text = "x" + config.expReward;
 
             SetSpriteOrFallback(taskIcon, config.iconResource, IconFallbackColor, true);
-            SetSpriteOrFallback(rewardIcon, config.rewardIconResource, IconFallbackColor, true);
+            SetSpriteOrFallback(rewardIcon, TaskListConfigCatalog.ExpRewardIconResource, IconFallbackColor, true);
 
             SetState(state);
         }

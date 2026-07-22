@@ -1,10 +1,10 @@
-// SPEC §12.12 / §B.19：老虎机抽奖界面 SlotMachineModal（三轴 slot3 / 五轴 slot5）。
+// SPEC §12.12 / §B.19：老虎机抽奖界面 SlotMachineModal（三轴 slot3 / 五轴 slot5 / 九宫格 slot3x3）。
 // 职责：
 //   1) 预制体优先 / 代码回退地构建全屏 modal：纯黑底 + 轴背景(Zhou_x_2) + 各轴中心属性图标层 + 老虎机样式图(Zhou_x_1) + 「摇奖」按钮 + 关闭；
 //      层级由下至上：黑底 < 轴背景 < 图标层 < 样式图 < 按钮（图标层介于轴背景与样式图之间）。
 //   2) Show(reelCount, catalog, onComplete)：在属性增强表随机不重复选 reelCount-1 项作候选，每轴等概率；
 //      点「摇奖」每轴独立按概率定格 → 按出现次数取 value{count} 汇总 → onComplete 回调。
-// 三轴/五轴机制与产出一致，仅轴数(3/5)、候选数(2/4)与素材(Zhou_3_*/Zhou_5_*)不同；分别对应两套预制体。
+// 三轴/五轴机制与产出一致，仅轴数(3/5)、候选数(2/4)与素材(Zhou_3_*/Zhou_5_*)不同；九宫格(9)为空间连线结算，见 §12.12.8。
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -63,13 +63,17 @@ namespace PetDemo.UI.Battle
     {
         public const string ResPrefab3 = "Prefabs/Battle/SlotMachineModal_3";
         public const string ResPrefab5 = "Prefabs/Battle/SlotMachineModal_5";
+        public const string ResPrefab3x3 = "Prefabs/Battle/SlotMachineModal_3x3";
         public const string ResReelBg3 = "AirUI/Zhou_3_2";
         public const string ResFrame3 = "AirUI/Zhou_3_1";
         public const string ResReelBg5 = "AirUI/Zhou_5_2";
         public const string ResFrame5 = "AirUI/Zhou_5_1";
+        public const string ResReelBg3x3 = "AirUI/Zhou_3x3_2";
+        public const string ResFrame3x3 = "AirUI/Zhou_3x3_1";
 
         public const string PanelObjectName3 = "SlotMachineModal_3";
         public const string PanelObjectName5 = "SlotMachineModal_5";
+        public const string PanelObjectName3x3 = "SlotMachineModal_3x3";
         public const string BackgroundName = "Background";
         public const string ReelBgName = "ReelBackground";
         public const string IconLayerName = "IconLayer";
@@ -81,8 +85,12 @@ namespace PetDemo.UI.Battle
         // 轴中心布局（1080×1920 基准，Inspector 可调）
         public static readonly Vector2 ReelIconSize3 = new Vector2(200f, 200f);
         public static readonly Vector2 ReelIconSize5 = new Vector2(150f, 150f);
+        public static readonly Vector2 ReelIconSize3x3 = new Vector2(150f, 150f);
         public const float ReelSpacing3 = 250f;
         public const float ReelSpacing5 = 175f;
+        public const float ReelSpacingX3x3 = 200f;
+        public const float ReelSpacingY3x3 = 180f;
+        public const int ReelCount3x3 = 9;
         public const float ReelCenterY = 40f;
         public const float ReelLabelTop = 78f;
         public const float ReelLabelBottom = -78f;
@@ -99,6 +107,17 @@ namespace PetDemo.UI.Battle
         private const float SpinDuration = 1.0f;
         private const float SpinTick = 0.06f;
         private const float ReelStopStaggerSec = 0.3f;
+        private const float HighlightBlinkSpeed = 5.0f;
+        private const float HighlightBrightRgbMul = 1.35f;
+        private const float HighlightOverlayAlphaMin = 0.18f;
+        private const float HighlightOverlayAlphaMax = 0.52f;
+
+        private static readonly int[][] Grid3x3Lines =
+        {
+            new[] { 0, 1, 2 }, new[] { 3, 4, 5 }, new[] { 6, 7, 8 },
+            new[] { 0, 3, 6 }, new[] { 1, 4, 7 }, new[] { 2, 5, 8 },
+            new[] { 0, 4, 8 }, new[] { 2, 4, 6 },
+        };
 
         private static SlotMachineModalView instance;
 
@@ -122,6 +141,10 @@ namespace PetDemo.UI.Battle
         private List<AttrEnhanceConfig> candidates;
         private Action<List<SlotMachineResultItem>> onComplete;
         private AttrEnhanceConfig[] reelResults;
+        private Image[] reelHighlightOverlays;
+        private Color[] reelBaseColors;
+        private bool[] reelHighlightMask;
+        private Coroutine reelHighlightRoutine;
         private Coroutine spinRoutine;
         private bool wired;
         private bool finalized;
@@ -131,6 +154,29 @@ namespace PetDemo.UI.Battle
 
         public int ReelCount => reelCount;
         public bool IsShown => gameObject != null && gameObject.activeSelf;
+        private bool IsGrid3x3Mode => reelCount == ReelCount3x3;
+
+        private static void ResolveReelConfig(int reelCountParam, out int rc, out string panelName, out string prefabPath)
+        {
+            if (reelCountParam == ReelCount3x3)
+            {
+                rc = ReelCount3x3;
+                panelName = PanelObjectName3x3;
+                prefabPath = ResPrefab3x3;
+            }
+            else if (reelCountParam == 5)
+            {
+                rc = 5;
+                panelName = PanelObjectName5;
+                prefabPath = ResPrefab5;
+            }
+            else
+            {
+                rc = 3;
+                panelName = PanelObjectName3;
+                prefabPath = ResPrefab3;
+            }
+        }
 
         /// <summary>运行时回退构建时注入引用（编辑器生成器亦复用同一 Builder 直接赋值序列化字段）。</summary>
         internal void AssignRuntimeRefs(int builtReelCount, Image bg, Image reelBg, RectTransform icons,
@@ -162,9 +208,7 @@ namespace PetDemo.UI.Battle
                 return null;
             }
 
-            int rc = reelCount == 5 ? 5 : 3;
-            string panelName = rc == 5 ? PanelObjectName5 : PanelObjectName3;
-            string prefabPath = rc == 5 ? ResPrefab5 : ResPrefab3;
+            ResolveReelConfig(reelCount, out int rc, out string panelName, out string prefabPath);
 
             if (instance != null && instance.panelRt != null && instance.reelCount == rc)
             {
@@ -230,8 +274,12 @@ namespace PetDemo.UI.Battle
             attrFlyTarget = flyTarget;
             finalized = false;
 
-            // 候选数 = 轴数 - 1（三轴选 2 / 五轴选 4）。以预制体烘焙的 reelCount 为准。
-            int pickCount = Mathf.Max(1, reelCount - 1);
+            // 候选：九宫格 3 或 4 项（各 50%）；三轴/五轴为 reelCount-1。
+            int pickCount;
+            if (IsGrid3x3Mode)
+                pickCount = UnityEngine.Random.value < 0.5f ? 3 : 4;
+            else
+                pickCount = Mathf.Max(1, reelCount - 1);
             candidates = AttrEnhanceConfigCatalog.PickDistinct(catalog, pickCount);
             if (candidates == null || candidates.Count == 0)
             {
@@ -255,6 +303,7 @@ namespace PetDemo.UI.Battle
                 StopCoroutine(spinRoutine);
                 spinRoutine = null;
             }
+            ClearReelMatchHighlights();
             gameObject.SetActive(false);
         }
 
@@ -308,6 +357,7 @@ namespace PetDemo.UI.Battle
         {
             SetState(SlotState.Spinning);
             HideResultSummary();
+            ClearReelMatchHighlights();
 
             var predetermined = new AttrEnhanceConfig[reelCount];
             for (int i = 0; i < reelCount; i++)
@@ -327,6 +377,7 @@ namespace PetDemo.UI.Battle
                 reelResults[i] = predetermined[i];
                 ApplyReelVisual(i, predetermined[i]);
                 reelStopped[i] = true;
+                RefreshReelMatchHighlights(reelStopped);
 
                 if (i < reelCount - 1)
                 {
@@ -361,6 +412,9 @@ namespace PetDemo.UI.Battle
         // ============================================================
         private List<SlotMachineResultItem> BuildResults()
         {
+            if (IsGrid3x3Mode)
+                return BuildResultsSpatial3x3();
+
             var byId = new Dictionary<string, SlotMachineResultItem>();
             var ordered = new List<SlotMachineResultItem>();
             if (reelResults == null)
@@ -382,6 +436,75 @@ namespace PetDemo.UI.Battle
 
             for (int i = 0; i < ordered.Count; i++)
                 ordered[i].gain = ordered[i].cfg.GetGain(ordered[i].count);
+            return ordered;
+        }
+
+        /// <summary>SPEC §12.12.8：九宫格空间连线结算（横/竖/斜各独立 value3，未连线格 value1）。</summary>
+        private List<SlotMachineResultItem> BuildResultsSpatial3x3()
+        {
+            var ordered = new List<SlotMachineResultItem>();
+            if (reelResults == null || reelResults.Length < ReelCount3x3)
+                return ordered;
+
+            var gainById = new Dictionary<string, int>();
+            var cfgById = new Dictionary<string, AttrEnhanceConfig>();
+            var covered = new HashSet<int>();
+
+            for (int lineIdx = 0; lineIdx < Grid3x3Lines.Length; lineIdx++)
+            {
+                var line = Grid3x3Lines[lineIdx];
+                var a = reelResults[line[0]];
+                var b = reelResults[line[1]];
+                var c = reelResults[line[2]];
+                if (a == null || b == null || c == null)
+                    continue;
+                if (!string.Equals(a.attrId, b.attrId, StringComparison.Ordinal)
+                    || !string.Equals(b.attrId, c.attrId, StringComparison.Ordinal))
+                    continue;
+
+                gainById[a.attrId] = gainById.TryGetValue(a.attrId, out int prev) ? prev + a.GetGain(3) : a.GetGain(3);
+                cfgById[a.attrId] = a;
+                covered.Add(line[0]);
+                covered.Add(line[1]);
+                covered.Add(line[2]);
+            }
+
+            for (int i = 0; i < ReelCount3x3; i++)
+            {
+                if (covered.Contains(i))
+                    continue;
+                var cfg = reelResults[i];
+                if (cfg == null)
+                    continue;
+                gainById[cfg.attrId] = gainById.TryGetValue(cfg.attrId, out int prev) ? prev + cfg.GetGain(1) : cfg.GetGain(1);
+                cfgById[cfg.attrId] = cfg;
+            }
+
+            for (int i = 0; i < ReelCount3x3; i++)
+            {
+                var cfg = reelResults[i];
+                if (cfg == null || !gainById.TryGetValue(cfg.attrId, out int gain) || gain == 0)
+                    continue;
+                bool alreadyAdded = false;
+                for (int j = 0; j < ordered.Count; j++)
+                {
+                    if (ordered[j].cfg != null && ordered[j].cfg.attrId == cfg.attrId)
+                    {
+                        alreadyAdded = true;
+                        break;
+                    }
+                }
+                if (!alreadyAdded)
+                {
+                    ordered.Add(new SlotMachineResultItem
+                    {
+                        cfg = cfgById[cfg.attrId],
+                        count = 0,
+                        gain = gain,
+                    });
+                }
+            }
+
             return ordered;
         }
 
@@ -422,6 +545,8 @@ namespace PetDemo.UI.Battle
         private void ResetReelVisuals()
         {
             HideResultSummary();
+            ClearReelMatchHighlights();
+            EnsureHighlightStateArrays();
             if (reelIcons == null)
                 return;
             for (int i = 0; i < reelIcons.Length; i++)
@@ -431,6 +556,7 @@ namespace PetDemo.UI.Battle
                     reelIcons[i].sprite = null;
                     reelIcons[i].color = new Color(1f, 1f, 1f, 0.15f);
                 }
+                reelBaseColors[i] = new Color(1f, 1f, 1f, 0.15f);
                 if (reelLabels != null && i < reelLabels.Length && reelLabels[i] != null)
                     reelLabels[i].text = "?";
             }
@@ -440,6 +566,7 @@ namespace PetDemo.UI.Battle
         {
             if (reelIcons == null || reelIndex < 0 || reelIndex >= reelIcons.Length)
                 return;
+            EnsureHighlightStateArrays();
             var img = reelIcons[reelIndex];
             if (img != null)
             {
@@ -447,9 +574,11 @@ namespace PetDemo.UI.Battle
                 Sprite sprite = LoadAttrEnhanceIcon(iconPath);
                 img.sprite = sprite;
                 img.preserveAspect = true;
-                img.color = sprite != null
+                Color baseColor = sprite != null
                     ? Color.white
                     : new Color(1f, 1f, 1f, 0.15f);
+                img.color = baseColor;
+                reelBaseColors[reelIndex] = baseColor;
                 if (sprite == null && !string.IsNullOrEmpty(iconPath))
                 {
                     UnityEngine.Debug.LogWarning(
@@ -459,6 +588,147 @@ namespace PetDemo.UI.Battle
             }
             if (reelLabels != null && reelIndex < reelLabels.Length && reelLabels[reelIndex] != null)
                 reelLabels[reelIndex].text = cfg != null ? cfg.attrName : "";
+            if (reelHighlightMask == null || reelIndex >= reelHighlightMask.Length || !reelHighlightMask[reelIndex])
+            {
+                Image overlay = reelHighlightOverlays != null && reelIndex < reelHighlightOverlays.Length
+                    ? reelHighlightOverlays[reelIndex]
+                    : null;
+                SlotReelMatchHighlightFx.ApplyStaticVisual(img, overlay, false, reelBaseColors[reelIndex]);
+            }
+        }
+
+        private void EnsureHighlightStateArrays()
+        {
+            int count = reelIcons != null ? reelIcons.Length : Mathf.Max(reelCount, 0);
+            if (count <= 0)
+                return;
+
+            if (reelBaseColors == null || reelBaseColors.Length != count)
+                reelBaseColors = new Color[count];
+            if (reelHighlightMask == null || reelHighlightMask.Length != count)
+                reelHighlightMask = new bool[count];
+            if (reelHighlightOverlays == null || reelHighlightOverlays.Length != count)
+                reelHighlightOverlays = SlotReelMatchHighlightFx.EnsureOverlays(reelIcons);
+        }
+
+        private void RefreshReelMatchHighlights(bool[] reelStopped)
+        {
+            if (reelIcons == null || reelResults == null || reelStopped == null)
+                return;
+
+            EnsureHighlightStateArrays();
+            reelHighlightOverlays = SlotReelMatchHighlightFx.EnsureOverlays(reelIcons);
+            reelHighlightMask = SlotReelMatchHighlightFx.ComputeHighlightMask(
+                reelResults, reelStopped, IsGrid3x3Mode, Grid3x3Lines);
+
+            bool anyHighlighted = false;
+            for (int i = 0; i < reelIcons.Length; i++)
+            {
+                bool highlighted = reelHighlightMask != null
+                    && i < reelHighlightMask.Length
+                    && reelHighlightMask[i];
+                anyHighlighted |= highlighted;
+
+                var icon = reelIcons[i];
+                var overlay = reelHighlightOverlays != null && i < reelHighlightOverlays.Length
+                    ? reelHighlightOverlays[i]
+                    : null;
+                var baseColor = GetReelBaseColor(i);
+                SlotReelMatchHighlightFx.ApplyStaticVisual(icon, overlay, highlighted, baseColor);
+            }
+
+            if (anyHighlighted)
+            {
+                if (reelHighlightRoutine == null && gameObject.activeInHierarchy)
+                    reelHighlightRoutine = StartCoroutine(ReelMatchHighlightRoutine());
+            }
+            else if (reelHighlightRoutine != null)
+            {
+                StopCoroutine(reelHighlightRoutine);
+                reelHighlightRoutine = null;
+            }
+        }
+
+        private void ClearReelMatchHighlights()
+        {
+            if (reelHighlightRoutine != null)
+            {
+                StopCoroutine(reelHighlightRoutine);
+                reelHighlightRoutine = null;
+            }
+
+            if (reelHighlightMask != null)
+                Array.Clear(reelHighlightMask, 0, reelHighlightMask.Length);
+
+            if (reelIcons == null)
+                return;
+
+            EnsureHighlightStateArrays();
+            reelHighlightOverlays = SlotReelMatchHighlightFx.EnsureOverlays(reelIcons);
+            for (int i = 0; i < reelIcons.Length; i++)
+            {
+                var baseColor = GetReelBaseColor(i);
+                var overlay = reelHighlightOverlays != null && i < reelHighlightOverlays.Length
+                    ? reelHighlightOverlays[i]
+                    : null;
+                SlotReelMatchHighlightFx.ApplyStaticVisual(reelIcons[i], overlay, false, baseColor);
+            }
+        }
+
+        private IEnumerator ReelMatchHighlightRoutine()
+        {
+            while (true)
+            {
+                float wave = (Mathf.Sin(Time.unscaledTime * HighlightBlinkSpeed) + 1f) * 0.5f;
+                for (int i = 0; i < reelIcons.Length; i++)
+                {
+                    bool highlighted = reelHighlightMask != null
+                        && i < reelHighlightMask.Length
+                        && reelHighlightMask[i];
+                    var icon = reelIcons[i];
+                    var overlay = reelHighlightOverlays != null && i < reelHighlightOverlays.Length
+                        ? reelHighlightOverlays[i]
+                        : null;
+                    var baseColor = GetReelBaseColor(i);
+
+                    if (!highlighted)
+                    {
+                        SlotReelMatchHighlightFx.ApplyStaticVisual(icon, overlay, false, baseColor);
+                        continue;
+                    }
+
+                    if (icon != null)
+                    {
+                        float alpha = Mathf.Lerp(baseColor.a, 1f, wave);
+                        icon.color = new Color(
+                            Mathf.Clamp01(baseColor.r * HighlightBrightRgbMul),
+                            Mathf.Clamp01(baseColor.g * HighlightBrightRgbMul),
+                            Mathf.Clamp01(baseColor.b * HighlightBrightRgbMul),
+                            alpha);
+                    }
+
+                    if (overlay != null)
+                    {
+                        overlay.gameObject.SetActive(true);
+                        overlay.enabled = true;
+                        overlay.color = SlotReelMatchHighlightFx.GetOverlayColor(
+                            Mathf.Lerp(HighlightOverlayAlphaMin, HighlightOverlayAlphaMax, wave));
+                    }
+                }
+
+                yield return null;
+            }
+        }
+
+        private Color GetReelBaseColor(int reelIndex)
+        {
+            if (reelBaseColors != null && reelIndex >= 0 && reelIndex < reelBaseColors.Length)
+            {
+                var color = reelBaseColors[reelIndex];
+                if (color.a > 0f)
+                    return color;
+            }
+            return new Color(1f, 1f, 1f, 0.15f);
         }
 
         private void ShowResultSummary(List<SlotMachineResultItem> results)
@@ -602,16 +872,16 @@ namespace PetDemo.UI.Battle
         // ============================================================
         // 运行时代码回退（缺预制体时，与生成器布局对齐）
         // ============================================================
-        private static GameObject BuildRuntimeFallback(RectTransform canvasRect, int reelCount)
+        private static GameObject BuildRuntimeFallback(RectTransform canvasRect, int reelCountParam)
         {
-            var panelName = reelCount == 5 ? PanelObjectName5 : PanelObjectName3;
+            ResolveReelConfig(reelCountParam, out int rc, out string panelName, out _);
             var rootGo = new GameObject(panelName, typeof(RectTransform));
             var rootRt = rootGo.GetComponent<RectTransform>();
             rootRt.SetParent(canvasRect, false);
             BottomNavAttachedScreenLayout.StretchFull(rootRt);
 
             var view = rootGo.AddComponent<SlotMachineModalView>();
-            SlotMachineModalBuilder.Build(rootRt, view, reelCount);
+            SlotMachineModalBuilder.Build(rootRt, view, rc);
             return rootGo;
         }
     }
@@ -624,10 +894,14 @@ namespace PetDemo.UI.Battle
     {
         public static void Build(RectTransform root, SlotMachineModalView view, int reelCount)
         {
-            int rc = reelCount == 5 ? 5 : 3;
-            string reelBgPath = rc == 5 ? SlotMachineModalView.ResReelBg5 : SlotMachineModalView.ResReelBg3;
-            string framePath = rc == 5 ? SlotMachineModalView.ResFrame5 : SlotMachineModalView.ResFrame3;
-            Vector2 iconSize = rc == 5 ? SlotMachineModalView.ReelIconSize5 : SlotMachineModalView.ReelIconSize3;
+            int rc = reelCount == SlotMachineModalView.ReelCount3x3 ? SlotMachineModalView.ReelCount3x3
+                : (reelCount == 5 ? 5 : 3);
+            string reelBgPath = rc == SlotMachineModalView.ReelCount3x3 ? SlotMachineModalView.ResReelBg3x3
+                : (rc == 5 ? SlotMachineModalView.ResReelBg5 : SlotMachineModalView.ResReelBg3);
+            string framePath = rc == SlotMachineModalView.ReelCount3x3 ? SlotMachineModalView.ResFrame3x3
+                : (rc == 5 ? SlotMachineModalView.ResFrame5 : SlotMachineModalView.ResFrame3);
+            Vector2 iconSize = rc == SlotMachineModalView.ReelCount3x3 ? SlotMachineModalView.ReelIconSize3x3
+                : (rc == 5 ? SlotMachineModalView.ReelIconSize5 : SlotMachineModalView.ReelIconSize3);
             float spacing = rc == 5 ? SlotMachineModalView.ReelSpacing5 : SlotMachineModalView.ReelSpacing3;
 
             var font = FarmGridView.LoadBuiltinFont();
@@ -654,12 +928,19 @@ namespace PetDemo.UI.Battle
 
             var reelIcons = new Image[rc];
             var reelLabels = new Text[rc];
-            float startX = -(rc - 1) * 0.5f * spacing;
-            for (int i = 0; i < rc; i++)
+            if (rc == SlotMachineModalView.ReelCount3x3)
             {
-                float x = startX + i * spacing;
-                BuildReel(iconLayer, i, new Vector2(x, SlotMachineModalView.ReelCenterY), iconSize, font,
-                    out reelIcons[i], out reelLabels[i]);
+                BuildGrid3x3Reels(iconLayer, iconSize, font, reelIcons, reelLabels);
+            }
+            else
+            {
+                float startX = -(rc - 1) * 0.5f * spacing;
+                for (int i = 0; i < rc; i++)
+                {
+                    float x = startX + i * spacing;
+                    BuildReel(iconLayer, i, new Vector2(x, SlotMachineModalView.ReelCenterY), iconSize, font,
+                        out reelIcons[i], out reelLabels[i]);
+                }
             }
 
             // 4) 结果汇总条（IconLayer 下方，§12.12.7）
@@ -738,6 +1019,23 @@ namespace PetDemo.UI.Battle
             summaryText.supportRichText = true;
             summaryText.raycastTarget = false;
             summaryText.text = "";
+        }
+
+        private static void BuildGrid3x3Reels(RectTransform iconLayer, Vector2 iconSize, Font font,
+            Image[] reelIcons, Text[] reelLabels)
+        {
+            int index = 0;
+            for (int row = 0; row < 3; row++)
+            {
+                for (int col = 0; col < 3; col++)
+                {
+                    float x = (col - 1) * SlotMachineModalView.ReelSpacingX3x3;
+                    float y = SlotMachineModalView.ReelCenterY + (1 - row) * SlotMachineModalView.ReelSpacingY3x3;
+                    BuildReel(iconLayer, index, new Vector2(x, y), iconSize, font,
+                        out reelIcons[index], out reelLabels[index]);
+                    index++;
+                }
+            }
         }
 
         private static Image AddFullscreenSprite(RectTransform parent, string name, string resPath, Color fallback)
