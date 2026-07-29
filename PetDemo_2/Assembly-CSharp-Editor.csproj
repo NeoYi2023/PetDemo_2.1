@@ -87,6 +87,7 @@
     <Compile Include="Assets\Scripts\UI\Farm\Editor\GongHuiScreenPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase3SelfTest.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\AppScreenPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\LangRenDzDicedAtlasBuilder.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\SowActionButtonPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\TrainingPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\PestControlGameModelTests.cs" />
@@ -96,6 +97,7 @@
     <Compile Include="Assets\Scripts\UI\Farm\Editor\HeroStatsRowPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\GridBattleFieldPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\StaminaBarPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\GreenScreenVideoPipelineWindow.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">
@@ -1070,14 +1072,6 @@
       <HintPath>Library\ScriptAssemblies\Unity.2D.Path.Editor.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="Unity.2D.Psdimporter.Editor">
-      <HintPath>Library\ScriptAssemblies\Unity.2D.Psdimporter.Editor.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Unity.VisualScripting.Flow">
-      <HintPath>Library\ScriptAssemblies\Unity.VisualScripting.Flow.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="UnityEditor.UI">
       <HintPath>Library\ScriptAssemblies\UnityEditor.UI.dll</HintPath>
       <Private>False</Private>
@@ -1090,8 +1084,8 @@
       <HintPath>Library\ScriptAssemblies\Unity.Rider.Editor.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="Unity.InternalAPIEditorBridge.001">
-      <HintPath>Library\ScriptAssemblies\Unity.InternalAPIEditorBridge.001.dll</HintPath>
+    <Reference Include="Unity.2D.Psdimporter.Editor">
+      <HintPath>Library\ScriptAssemblies\Unity.2D.Psdimporter.Editor.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.UI">
@@ -1100,6 +1094,10 @@
     </Reference>
     <Reference Include="Unity.2D.Tilemap.Extras.Editor">
       <HintPath>Library\ScriptAssemblies\Unity.2D.Tilemap.Extras.Editor.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.VisualScripting.Flow">
+      <HintPath>Library\ScriptAssemblies\Unity.VisualScripting.Flow.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Unity.VisualScripting.Core">
@@ -1124,6 +1122,10 @@
     </Reference>
     <Reference Include="Unity.VisualScripting.Shared.Editor">
       <HintPath>Library\ScriptAssemblies\Unity.VisualScripting.Shared.Editor.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.InternalAPIEditorBridge.001">
+      <HintPath>Library\ScriptAssemblies\Unity.InternalAPIEditorBridge.001.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Unity.2D.Animation.Runtime">
@@ -1183,6 +1185,14 @@
     <ProjectReference Include="spine-unity-examples.csproj">
       <Project>{CCFB90D7-B0AA-DA41-039A-605D2B373C1F}</Project>
       <Name>spine-unity-examples</Name>
+    </ProjectReference>
+    <ProjectReference Include="Elringus.SpriteDicing.Editor.csproj">
+      <Project>{3EAA6EB3-7CDC-3898-D96C-EC9654F02288}</Project>
+      <Name>Elringus.SpriteDicing.Editor</Name>
+    </ProjectReference>
+    <ProjectReference Include="Elringus.SpriteDicing.Runtime.csproj">
+      <Project>{83B8FDAF-BEF6-892C-CB89-ED3F52D5C5DA}</Project>
+      <Name>Elringus.SpriteDicing.Runtime</Name>
     </ProjectReference>
     <ProjectReference Include="spine-unity-editor.csproj">
       <Project>{51C3A376-A7DF-AFFA-A680-F6A80E8A4D7C}</Project>

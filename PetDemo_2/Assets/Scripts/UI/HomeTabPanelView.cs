@@ -22,6 +22,9 @@ namespace PetDemo.UI
         private const string SkeletonGraphicShaderName = "Spine/SkeletonGraphic";
         private const float RoleSpineDisplayScale = 0.75f;
         private static readonly Vector2 RoleDisplaySize = new Vector2(720f, 1000f);
+        /// <summary>SPEC §9.14.11 v3.273：DicedFxImage 播放缩放与偏移。</summary>
+        private const float DicedFxDisplayScale = 0.7f;
+        private const float DicedFxAnchoredPosY = 277f;
         private static readonly string[] RoleIdleAnimationFallbacks =
         {
             "exclusive_2", "standby_1", "animation", "idle",
@@ -82,6 +85,9 @@ namespace PetDemo.UI
         private Button roleClickButton;
         private Coroutine rescueRoutine;
         private bool rescueAnimPlaying;
+        private Coroutine dicedFxRoutine;
+        private bool dicedFxPlaying;
+        private Image dicedFxImage;
 
         /// <summary>SPEC §9.14.11 v3.190：每日任务按钮请求打开创角加好感 / ZhuanQianPopup。</summary>
         public event Action OnDailyTaskRequested;
@@ -164,6 +170,7 @@ namespace PetDemo.UI
             WireOnce();
             WireWarehouseEntryButton();
             WireScreenCloseButton();
+            StopDicedFxPlayback(restoreSpine: true);
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
             EnsureRoleSpine();
@@ -178,6 +185,7 @@ namespace PetDemo.UI
 
         public void Hide()
         {
+            StopDicedFxPlayback(restoreSpine: true);
             ClearSpeechBubbleState(restoreIdle: true);
             gameObject.SetActive(false);
         }
@@ -197,6 +205,7 @@ namespace PetDemo.UI
                 rescueRoutine = null;
             }
             rescueAnimPlaying = false;
+            StopDicedFxPlayback(restoreSpine: false);
             ClearSpeechBubbleState(restoreIdle: false);
             if (service != null)
             {
@@ -218,10 +227,13 @@ namespace PetDemo.UI
             if (roleMount == null)
                 return;
 
+            StopDicedFxPlayback(restoreSpine: false);
             for (int i = roleMount.childCount - 1; i >= 0; i--)
                 Destroy(roleMount.GetChild(i).gameObject);
 
             roleSkeletonGraphic = null;
+            dicedFxImage = null;
+            roleClickButton = null;
             roleBuilt = false;
             EnsureRoleSpine();
         }
@@ -587,6 +599,8 @@ namespace PetDemo.UI
             {
                 for (int i = roleMount.childCount - 1; i >= 0; i--)
                     Destroy(roleMount.GetChild(i).gameObject);
+                dicedFxImage = null;
+                roleClickButton = null;
 
                 if (!TryBuildRoleSkeletonGraphic(roleMount))
                     BuildRolePlaceholder(roleMount);
@@ -664,7 +678,7 @@ namespace PetDemo.UI
 
         private void RefreshRoleAnimForRescueState()
         {
-            if (roleSkeletonGraphic == null || rescueAnimPlaying)
+            if (roleSkeletonGraphic == null || rescueAnimPlaying || dicedFxPlaying)
                 return;
 
             if (IsOpeningRescuePending())
@@ -750,21 +764,33 @@ namespace PetDemo.UI
 
             roleClickButton.onClick.RemoveAllListeners();
             roleClickButton.onClick.AddListener(OnRoleClickHitboxClicked);
-            roleClickButton.interactable = IsOpeningRescuePending();
+            // SPEC §9.14.11 v3.273：营救 pending 与完成后均可点。
+            roleClickButton.interactable = !rescueAnimPlaying && !dicedFxPlaying;
         }
 
         private void OnRoleClickHitboxClicked()
         {
-            if (!IsOpeningRescuePending() || service == null || rescueAnimPlaying)
+            if (rescueAnimPlaying || dicedFxPlaying)
                 return;
 
-            service.CompleteOpeningRescue();
-            if (roleClickButton != null)
-                roleClickButton.interactable = false;
+            if (IsOpeningRescuePending())
+            {
+                if (service == null)
+                    return;
 
-            if (rescueRoutine != null)
-                StopCoroutine(rescueRoutine);
-            rescueRoutine = StartCoroutine(PlayOpeningRescueAnimRoutine());
+                service.CompleteOpeningRescue();
+                if (roleClickButton != null)
+                    roleClickButton.interactable = false;
+
+                if (rescueRoutine != null)
+                    StopCoroutine(rescueRoutine);
+                rescueRoutine = StartCoroutine(PlayOpeningRescueAnimRoutine());
+                return;
+            }
+
+            if (dicedFxRoutine != null)
+                StopCoroutine(dicedFxRoutine);
+            dicedFxRoutine = StartCoroutine(PlayLangRenDzRoutine());
         }
 
         private IEnumerator PlayOpeningRescueAnimRoutine()
@@ -824,7 +850,113 @@ namespace PetDemo.UI
 
             rescueAnimPlaying = false;
             rescueRoutine = null;
+            if (roleClickButton != null)
+                roleClickButton.interactable = true;
             BeginSpeechBubbleQueue();
+        }
+
+        /// <summary>SPEC §9.14.11 v3.273：营救后点击播 LangRen_DZ diced 序列一次。</summary>
+        private IEnumerator PlayLangRenDzRoutine()
+        {
+            dicedFxPlaying = true;
+            if (roleClickButton != null)
+                roleClickButton.interactable = false;
+
+            DetachBubbleAnimListener();
+            SetSpineVisible(false);
+            EnsureDicedFxImage();
+            if (dicedFxImage != null)
+            {
+                dicedFxImage.gameObject.SetActive(true);
+                dicedFxImage.enabled = true;
+                yield return DicedSpriteSequencePlayer.PlayOnce(dicedFxImage);
+            }
+
+            if (dicedFxImage != null)
+            {
+                dicedFxImage.enabled = false;
+                dicedFxImage.gameObject.SetActive(false);
+            }
+
+            SetSpineVisible(true);
+            PlaySpineIdleLoop(roleSkeletonGraphic);
+
+            dicedFxPlaying = false;
+            dicedFxRoutine = null;
+            if (roleClickButton != null)
+                roleClickButton.interactable = true;
+        }
+
+        private void StopDicedFxPlayback(bool restoreSpine)
+        {
+            if (dicedFxRoutine != null)
+            {
+                StopCoroutine(dicedFxRoutine);
+                dicedFxRoutine = null;
+            }
+
+            dicedFxPlaying = false;
+            if (dicedFxImage != null)
+            {
+                dicedFxImage.enabled = false;
+                dicedFxImage.gameObject.SetActive(false);
+            }
+
+            if (restoreSpine)
+                SetSpineVisible(true);
+
+            if (roleClickButton != null && !rescueAnimPlaying)
+                roleClickButton.interactable = true;
+        }
+
+        private void EnsureDicedFxImage()
+        {
+            if (roleMount == null)
+                return;
+
+            if (dicedFxImage == null)
+            {
+                var existing = roleMount.Find("DicedFxImage");
+                if (existing != null)
+                {
+                    dicedFxImage = existing.GetComponent<Image>();
+                    if (dicedFxImage == null)
+                        dicedFxImage = existing.gameObject.AddComponent<Image>();
+                }
+                else
+                {
+                    var go = new GameObject("DicedFxImage", typeof(RectTransform), typeof(Image));
+                    var rtNew = go.GetComponent<RectTransform>();
+                    rtNew.SetParent(roleMount, false);
+                    dicedFxImage = go.GetComponent<Image>();
+                }
+            }
+
+            var rt = dicedFxImage.rectTransform;
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = RoleDisplaySize;
+            rt.anchoredPosition = new Vector2(0f, DicedFxAnchoredPosY);
+            rt.localScale = new Vector3(DicedFxDisplayScale, DicedFxDisplayScale, 1f);
+
+            dicedFxImage.raycastTarget = false;
+            dicedFxImage.useSpriteMesh = true;
+            dicedFxImage.preserveAspect = true;
+            dicedFxImage.color = Color.white;
+            dicedFxImage.enabled = false;
+            dicedFxImage.gameObject.SetActive(false);
+
+            // 保持 hitbox 在最上层可点。
+            var hitT = roleMount.Find("RoleClickHitbox");
+            if (hitT != null)
+                hitT.SetAsLastSibling();
+        }
+
+        private void SetSpineVisible(bool visible)
+        {
+            if (roleSkeletonGraphic != null)
+                roleSkeletonGraphic.gameObject.SetActive(visible);
         }
 
         private static string ResolveRoleIdleClip(SkeletonGraphic skeletonGraphic)
@@ -1210,7 +1342,7 @@ namespace PetDemo.UI
 
         private void PlayBubbleRoleAnim(HomeTabBubbleConfig cfg)
         {
-            if (IsOpeningRescuePending())
+            if (IsOpeningRescuePending() || dicedFxPlaying || rescueAnimPlaying)
                 return;
 
             if (roleSkeletonGraphic == null || cfg == null)
