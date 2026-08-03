@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using PetDemo.Core;
 using PetDemo.Farm;
 using PetDemo.UI.Farm;
+using PetDemo.UI.VideoMatting;
 using Spine;
 using Spine.Unity;
 using UnityEngine;
@@ -22,9 +23,12 @@ namespace PetDemo.UI
         private const string SkeletonGraphicShaderName = "Spine/SkeletonGraphic";
         private const float RoleSpineDisplayScale = 0.75f;
         private static readonly Vector2 RoleDisplaySize = new Vector2(720f, 1000f);
-        /// <summary>SPEC §9.14.11 v3.273：DicedFxImage 播放缩放与偏移。</summary>
+        /// <summary>SPEC §9.14.11 v3.273 / v3.281：点击特效播放缩放与偏移。</summary>
         private const float DicedFxDisplayScale = 0.7f;
         private const float DicedFxAnchoredPosY = 277f;
+        private const string ZjdhRest2ResourcesPath = "VideoMatting/ZJDH_rest_2";
+        private const string ZjdhStudy2ResourcesPath = "VideoMatting/ZJDH_study_2";
+        private const float ClickFxFps = 15f;
         private static readonly string[] RoleIdleAnimationFallbacks =
         {
             "exclusive_2", "standby_1", "animation", "idle",
@@ -85,6 +89,7 @@ namespace PetDemo.UI
         private Button roleClickButton;
         private Coroutine rescueRoutine;
         private bool rescueAnimPlaying;
+        /// <summary>SPEC §9.14.11 v3.281：点击特效（LangRen_DZ / ZJDH）播放中。</summary>
         private Coroutine dicedFxRoutine;
         private bool dicedFxPlaying;
         private Image dicedFxImage;
@@ -790,7 +795,7 @@ namespace PetDemo.UI
 
             if (dicedFxRoutine != null)
                 StopCoroutine(dicedFxRoutine);
-            dicedFxRoutine = StartCoroutine(PlayLangRenDzRoutine());
+            dicedFxRoutine = StartCoroutine(PlayRandomClickFxRoutine());
         }
 
         private IEnumerator PlayOpeningRescueAnimRoutine()
@@ -855,8 +860,8 @@ namespace PetDemo.UI
             BeginSpeechBubbleQueue();
         }
 
-        /// <summary>SPEC §9.14.11 v3.273：营救后点击播 LangRen_DZ diced 序列一次。</summary>
-        private IEnumerator PlayLangRenDzRoutine()
+        /// <summary>SPEC §9.14.11 v3.281：营救后点击等概率选 LangRen_DZ / ZJDH_rest_2 / ZJDH_study_2 播一次。</summary>
+        private IEnumerator PlayRandomClickFxRoutine()
         {
             dicedFxPlaying = true;
             if (roleClickButton != null)
@@ -864,20 +869,17 @@ namespace PetDemo.UI
 
             DetachBubbleAnimListener();
             SetSpineVisible(false);
-            EnsureDicedFxImage();
-            if (dicedFxImage != null)
-            {
-                dicedFxImage.gameObject.SetActive(true);
-                dicedFxImage.enabled = true;
-                yield return DicedSpriteSequencePlayer.PlayOnce(dicedFxImage);
-            }
+            HideAllClickFxVisuals();
 
-            if (dicedFxImage != null)
-            {
-                dicedFxImage.enabled = false;
-                dicedFxImage.gameObject.SetActive(false);
-            }
+            int pick = UnityEngine.Random.Range(0, 3);
+            if (pick == 0)
+                yield return PlayLangRenDzBody();
+            else if (pick == 1)
+                yield return PlayZjdhBody(ZjdhRest2ResourcesPath);
+            else
+                yield return PlayZjdhBody(ZjdhStudy2ResourcesPath);
 
+            HideAllClickFxVisuals();
             SetSpineVisible(true);
             PlaySpineIdleLoop(roleSkeletonGraphic);
 
@@ -885,6 +887,39 @@ namespace PetDemo.UI
             dicedFxRoutine = null;
             if (roleClickButton != null)
                 roleClickButton.interactable = true;
+        }
+
+        /// <summary>SPEC §9.14.11 v3.273：LangRen_DZ uGUI Image 序列一次。</summary>
+        private IEnumerator PlayLangRenDzBody()
+        {
+            EnsureDicedFxImage();
+            if (dicedFxImage == null)
+                yield break;
+
+            dicedFxImage.gameObject.SetActive(true);
+            dicedFxImage.enabled = true;
+            yield return DicedSpriteSequencePlayer.PlayOnce(dicedFxImage);
+        }
+
+        /// <summary>SPEC §9.14.11 v3.282：ZJDH CLI atlas 烘焙为 Sprite 后经 uGUI Image 播一次（与 LangRen 同路径）。</summary>
+        private IEnumerator PlayZjdhBody(string resourcesFolder)
+        {
+            EnsureDicedFxImage();
+            if (dicedFxImage == null)
+                yield break;
+
+            var frames = DicedSpriteAtlasSequencePlayer.GetOrBake(resourcesFolder);
+            if (frames == null || frames.Length == 0)
+            {
+                UnityEngine.Debug.LogWarning(
+                    "[HomeTabPanelView] ZJDH 烘焙失败，回退 LangRen_DZ：" + resourcesFolder);
+                yield return PlayLangRenDzBody();
+                yield break;
+            }
+
+            dicedFxImage.gameObject.SetActive(true);
+            dicedFxImage.enabled = true;
+            yield return DicedSpriteAtlasSequencePlayer.PlayOnce(dicedFxImage, resourcesFolder, ClickFxFps);
         }
 
         private void StopDicedFxPlayback(bool restoreSpine)
@@ -896,17 +931,23 @@ namespace PetDemo.UI
             }
 
             dicedFxPlaying = false;
-            if (dicedFxImage != null)
-            {
-                dicedFxImage.enabled = false;
-                dicedFxImage.gameObject.SetActive(false);
-            }
+            HideAllClickFxVisuals();
 
             if (restoreSpine)
                 SetSpineVisible(true);
 
             if (roleClickButton != null && !rescueAnimPlaying)
                 roleClickButton.interactable = true;
+        }
+
+        private void HideAllClickFxVisuals()
+        {
+            if (dicedFxImage != null)
+            {
+                dicedFxImage.enabled = false;
+                dicedFxImage.sprite = null;
+                dicedFxImage.gameObject.SetActive(false);
+            }
         }
 
         private void EnsureDicedFxImage()
@@ -947,7 +988,13 @@ namespace PetDemo.UI
             dicedFxImage.enabled = false;
             dicedFxImage.gameObject.SetActive(false);
 
-            // 保持 hitbox 在最上层可点。
+            BringRoleClickHitboxToFront();
+        }
+
+        private void BringRoleClickHitboxToFront()
+        {
+            if (roleMount == null)
+                return;
             var hitT = roleMount.Find("RoleClickHitbox");
             if (hitT != null)
                 hitT.SetAsLastSibling();

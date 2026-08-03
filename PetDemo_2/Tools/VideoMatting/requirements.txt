@@ -1,0 +1,13 @@
+# SPEC_VideoMattingAtlas.md v1.0 — VideoMatting pipeline deps (install into Tools/VideoMatting/.venv).
+# torch + torchvision are installed separately by setup_venv.bat via CUDA wheel index.
+opencv-python-headless>=4.8.0
+Pillow>=10.0.0
+numpy>=1.24.0
+tqdm>=4.65.0
+transformers>=4.40.0
+timm>=0.9.0
+kornia>=0.7.0
+einops>=0.7.0
+safetensors>=0.4.3
+huggingface_hub>=0.23.0
+requests>=2.31.0

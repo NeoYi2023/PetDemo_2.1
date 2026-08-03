@@ -73,6 +73,7 @@
     <Compile Include="Assets\Scripts\UI\Farm\Editor\WarehouseHubPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\HomeTabPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\LevelSelectScreenPanelPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\DicedAtlasBuilderWindow.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\WarehouseBackgroundPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\DressUpPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase4SelfTest.cs" />
@@ -80,24 +81,27 @@
     <Compile Include="Assets\Scripts\UI\Farm\Editor\FarmGridPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase5SelfTest.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\InvasionBattleResultDialogPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\GreenScreenVideoPipelineWindow.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\AppSingleChatPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\DetailAttributeModalPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase1SelfTest.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\RoleGrowthPetBagPagePrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\GongHuiScreenPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\DicedAtlasBuilder.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase3SelfTest.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\AppScreenPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\LangRenDzDicedAtlasBuilder.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\SowActionButtonPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\TrainingPanelPrefabGenerator.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\AsyncProcessRunner.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\PestControlGameModelTests.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\VideoMattingAtlasPipelineWindow.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\RoleGrowthPanelPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\SlotMachineModalPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\CompanionManorScreenPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\HeroStatsRowPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\GridBattleFieldPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\StaminaBarPrefabGenerator.cs" />
-    <Compile Include="Assets\Scripts\UI\Farm\Editor\GreenScreenVideoPipelineWindow.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">

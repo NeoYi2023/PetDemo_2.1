@@ -69,4 +69,15 @@ ExportedObj/
 # AI / local dev tooling
 .codebuddy/
 
+# QwenMatting Python venv & caches (SPEC 9.14.11 v3.277; torch/diffusers ~GB)
+PetDemo_2/Tools/QwenMatting/.venv/
+PetDemo_2/Tools/QwenMatting/__pycache__/
+
+# VideoMatting pipeline (SPEC_VideoMattingAtlas.md v1.0)
+PetDemo_2/Tools/VideoMatting/.venv/
+PetDemo_2/Tools/VideoMatting/__pycache__/
+PetDemo_2/Tools/VideoMatting/bin/
+PetDemo_2/Tools/VideoMatting/output/
+PetDemo_2/Tools/VideoMatting/.cache/
+
 # Note: Fantazia large asset pack — see PetDemo_2/Assets/.gitignore

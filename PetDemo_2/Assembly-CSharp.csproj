@@ -74,6 +74,7 @@
     <Compile Include="Assets\Scripts\UI\MainHudLayerRoot.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GongHuiBackgroundBuilder.cs" />
     <Compile Include="Assets\Scripts\UI\DressUpItemCellView.cs" />
+    <Compile Include="Assets\Scripts\UI\VideoMatting\DicedSpriteAtlasSequencePlayer.cs" />
     <Compile Include="Assets\Scripts\UI\VillagerDragRelay.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\InvasionBattleView.GridEmbedded.cs" />
     <Compile Include="Assets\Scripts\UI\ArenaChallengeOverlayView.cs" />
@@ -100,6 +101,7 @@
     <Compile Include="Assets\Scripts\Farm\IPlantingService.cs" />
     <Compile Include="Assets\Scripts\Battle\RosterBattleSync.cs" />
     <Compile Include="Assets\Scripts\Core\FriendCatalog.cs" />
+    <Compile Include="Assets\Scripts\UI\VideoMatting\DicedSpriteAnimationPlayer.cs" />
     <Compile Include="Assets\Scripts\UI\Friend\FriendHomeScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\GongHuiScreenLayout.cs" />
     <Compile Include="Assets\Scripts\Core\DressUpItemCatalog.cs" />
@@ -115,8 +117,10 @@
     <Compile Include="Assets\Scripts\UI\LevelSelectScreenPanelView.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\PestControlScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\SlotAttrFlyFx.cs" />
+    <Compile Include="Assets\Scripts\UI\VideoMatting\DicedSpriteJson.cs" />
     <Compile Include="Assets\Scripts\UI\RoleLevelUpPanelView.cs" />
     <Compile Include="Assets\Scripts\Core\RoleTrainingCourseCatalog.cs" />
+    <Compile Include="Assets\Scripts\UI\VideoMatting\DicedSpriteCanvasPlayer.cs" />
     <Compile Include="Assets\Scripts\UI\Guild\VirtualJoystickView.cs" />
     <Compile Include="Assets\Scripts\Save\GameSaveSnapshot.cs" />
     <Compile Include="Assets\Scripts\Save\GameSaveCoordinator.cs" />

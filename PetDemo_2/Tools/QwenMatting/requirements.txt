@@ -1,0 +1,11 @@
+# SPEC §9.14.11 v3.277/v3.279：Qwen-Image-Layered 分层抠图依赖（装进 Tools/QwenMatting/.venv，勿污染全局）。
+# torch + torchvision 由 setup_venv.bat 单独以 CUDA 索引安装（PyPI 的 Windows wheel 为 CPU 版）。
+# Qwen2VLVideoProcessor（管线组件）需要 torchvision；缺则 ImportError。
+# QwenImageLayeredPipeline 需最新 diffusers；git 不可用时回退：diffusers>=0.36.0
+git+https://github.com/huggingface/diffusers.git
+transformers>=4.51.3
+accelerate>=0.33.0
+safetensors>=0.4.3
+pillow>=10.0.0
+numpy
+modelscope>=1.20.0
