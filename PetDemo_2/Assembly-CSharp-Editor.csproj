@@ -62,6 +62,7 @@
     <Compile Include="Assets\Scripts\UI\Battle\Editor\InvasionBattleModal2PrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\BottomNavBarPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Battle\Editor\RunPartyRosterPhase2SelfTest.cs" />
+    <Compile Include="Assets\Scripts\UI\Farm\Editor\ZjdhUnityPackageAtlasBuilder.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\DressUpItemCellPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\TaskListRowPrefabGenerator.cs" />
     <Compile Include="Assets\Scripts\UI\Farm\Editor\InvitePartnerModalPrefabGenerator.cs" />

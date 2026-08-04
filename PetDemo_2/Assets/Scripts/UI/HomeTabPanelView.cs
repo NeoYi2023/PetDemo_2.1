@@ -26,8 +26,16 @@ namespace PetDemo.UI
         /// <summary>SPEC §9.14.11 v3.273 / v3.281：点击特效播放缩放与偏移。</summary>
         private const float DicedFxDisplayScale = 0.7f;
         private const float DicedFxAnchoredPosY = 277f;
-        private const string ZjdhRest2ResourcesPath = "VideoMatting/ZJDH_rest_2";
-        private const string ZjdhStudy2ResourcesPath = "VideoMatting/ZJDH_study_2";
+        /// <summary>
+        /// SPEC §9.14.11 v3.283 / SPEC_VideoMattingAtlas §5.3：
+        /// true = Unity-package diced_sprites（默认）；false = 原 CLI bake（Resources/VideoMatting）。
+        /// 对比时改此常量即可，两套资源并存不覆盖。
+        /// </summary>
+        private const bool UseZjdhUnityPackagePath = true;
+        private const string ZjdhRest2PackagePath = "SpriteDicing/ZJDH_rest_2/diced_sprites";
+        private const string ZjdhStudy2PackagePath = "SpriteDicing/ZJDH_study_2/diced_sprites";
+        private const string ZjdhRest2CliResourcesPath = "VideoMatting/ZJDH_rest_2";
+        private const string ZjdhStudy2CliResourcesPath = "VideoMatting/ZJDH_study_2";
         private const float ClickFxFps = 15f;
         private static readonly string[] RoleIdleAnimationFallbacks =
         {
@@ -69,6 +77,10 @@ namespace PetDemo.UI
         [SerializeField] private RectTransform staminaBarSlot;
         [SerializeField] private StaminaBarView staminaBar;
         [SerializeField] private Button addExpButton;
+        [SerializeField] private Button playAnimGmButton;
+        [SerializeField] private RectTransform playAnimGmPopup;
+        [SerializeField] private Toggle playAnimGmLoopToggle;
+        [SerializeField] private Button gmPlaybackStopOverlay;
 
         private RectTransform panelRt;
         private IPlantingService service;
@@ -93,6 +105,8 @@ namespace PetDemo.UI
         private Coroutine dicedFxRoutine;
         private bool dicedFxPlaying;
         private Image dicedFxImage;
+        /// <summary>SPEC §9.14.11 v3.284：GM 持续播放勾选。</summary>
+        private bool gmLoopEnabled;
 
         /// <summary>SPEC §9.14.11 v3.190：每日任务按钮请求打开创角加好感 / ZhuanQianPopup。</summary>
         public event Action OnDailyTaskRequested;
@@ -175,6 +189,8 @@ namespace PetDemo.UI
             WireOnce();
             WireWarehouseEntryButton();
             WireScreenCloseButton();
+            WirePlayAnimGmControls();
+            ClosePlayAnimGmPopup(stopPlayback: true, restoreSpine: true);
             StopDicedFxPlayback(restoreSpine: true);
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
@@ -190,6 +206,7 @@ namespace PetDemo.UI
 
         public void Hide()
         {
+            ClosePlayAnimGmPopup(stopPlayback: true, restoreSpine: true);
             StopDicedFxPlayback(restoreSpine: true);
             ClearSpeechBubbleState(restoreIdle: true);
             gameObject.SetActive(false);
@@ -307,6 +324,8 @@ namespace PetDemo.UI
                 addExpButton.onClick.RemoveAllListeners();
                 addExpButton.onClick.AddListener(OnAddExpClicked);
             }
+
+            WirePlayAnimGmControls();
         }
 
         private void WireWarehouseEntryButton()
@@ -386,6 +405,317 @@ namespace PetDemo.UI
                 levelUp.transform.SetAsLastSibling();
                 levelUp.EnqueueLevels(service.GetRoleStats(), leveled);
             }
+        }
+
+        /// <summary>SPEC §9.14.11 v3.284 / v3.285：GM 播放动作按钮 / 弹层接线。</summary>
+        private void WirePlayAnimGmControls()
+        {
+            EnsurePlayAnimGmRefs();
+            if (playAnimGmButton != null)
+            {
+                playAnimGmButton.onClick.RemoveAllListeners();
+                playAnimGmButton.onClick.AddListener(OnPlayAnimGmButtonClicked);
+            }
+
+            if (playAnimGmPopup == null)
+                return;
+
+            var dim = playAnimGmPopup.Find("Dim");
+            if (dim != null)
+            {
+                var dimBtn = dim.GetComponent<Button>();
+                if (dimBtn != null)
+                {
+                    dimBtn.onClick.RemoveAllListeners();
+                    dimBtn.onClick.AddListener(() => ClosePlayAnimGmPopup(stopPlayback: true, restoreSpine: true));
+                }
+            }
+
+            var close = playAnimGmPopup.Find("Panel/CloseButton");
+            if (close != null)
+            {
+                var closeBtn = close.GetComponent<Button>();
+                if (closeBtn != null)
+                {
+                    closeBtn.onClick.RemoveAllListeners();
+                    closeBtn.onClick.AddListener(() => ClosePlayAnimGmPopup(stopPlayback: true, restoreSpine: true));
+                }
+            }
+
+            if (playAnimGmLoopToggle != null)
+            {
+                playAnimGmLoopToggle.onValueChanged.RemoveAllListeners();
+                playAnimGmLoopToggle.isOn = gmLoopEnabled;
+                playAnimGmLoopToggle.onValueChanged.AddListener(OnPlayAnimGmLoopChanged);
+            }
+
+            var refresh = playAnimGmPopup.Find("Panel/RefreshListButton");
+            if (refresh != null)
+            {
+                var refreshBtn = refresh.GetComponent<Button>();
+                if (refreshBtn != null)
+                {
+                    refreshBtn.onClick.RemoveAllListeners();
+                    refreshBtn.onClick.AddListener(OnRefreshPlayAnimGmListClicked);
+                }
+            }
+
+            WirePlayAnimGmListItemButtons();
+        }
+
+        private void WirePlayAnimGmListItemButtons()
+        {
+            if (playAnimGmPopup == null)
+                return;
+
+            var content = playAnimGmPopup.Find("Panel/ListViewport/Content");
+            if (content == null)
+                content = playAnimGmPopup.Find("Panel/Content");
+            if (content == null)
+                return;
+
+            for (int i = 0; i < content.childCount; i++)
+            {
+                var item = content.GetChild(i);
+                if (item == null || !item.name.StartsWith("Item_", StringComparison.Ordinal))
+                    continue;
+                var btn = item.GetComponent<Button>();
+                if (btn == null)
+                    continue;
+                string captured = HomeTabPanelLayout.ReadAnimIdFromItem(item);
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() => OnPlayAnimGmItemClicked(captured));
+            }
+        }
+
+        private void OnRefreshPlayAnimGmListClicked()
+        {
+            RefreshPlayAnimGmList(showLog: true);
+        }
+
+        /// <summary>SPEC §9.14.11 v3.285：扫描 Resources 并重建可选动作列表。</summary>
+        private void RefreshPlayAnimGmList(bool showLog)
+        {
+            EnsurePlayAnimGmRefs();
+            if (playAnimGmPopup == null)
+                return;
+
+            DicedSpriteSequencePlayer.ClearCache();
+            DicedSpriteAtlasSequencePlayer.ClearCache();
+
+            var ids = HomeTabPanelLayout.ScanPlayableAnimIds();
+            HomeTabPanelLayout.RebuildPlayAnimGmList(playAnimGmPopup, ids);
+            WirePlayAnimGmListItemButtons();
+
+            // Toggle 引用可能因重建 chrome 而失效，重新取一次
+            if (playAnimGmLoopToggle == null)
+            {
+                var toggleT = playAnimGmPopup.Find("Panel/LoopRow/LoopToggle");
+                if (toggleT != null)
+                    playAnimGmLoopToggle = toggleT.GetComponent<Toggle>();
+            }
+
+            if (playAnimGmLoopToggle != null)
+            {
+                playAnimGmLoopToggle.onValueChanged.RemoveAllListeners();
+                playAnimGmLoopToggle.isOn = gmLoopEnabled;
+                playAnimGmLoopToggle.onValueChanged.AddListener(OnPlayAnimGmLoopChanged);
+            }
+
+            if (showLog)
+            {
+                UnityEngine.Debug.Log(
+                    "[HomeTabPanelView] 已刷新播放动作列表，共 " + ids.Count + " 项：" +
+                    string.Join(", ", ids));
+            }
+        }
+
+        private void OnPlayAnimGmButtonClicked()
+        {
+            EnsurePlayAnimGmRefs();
+            if (playAnimGmPopup == null)
+                return;
+
+            bool open = !playAnimGmPopup.gameObject.activeSelf;
+            if (open)
+                OpenPlayAnimGmPopup();
+            else
+                ClosePlayAnimGmPopup(stopPlayback: true, restoreSpine: true);
+        }
+
+        private void OpenPlayAnimGmPopup()
+        {
+            EnsurePlayAnimGmRefs();
+            if (playAnimGmPopup == null)
+                return;
+
+            // 打开时顺带刷新一次，便于看到新建动画
+            RefreshPlayAnimGmList(showLog: false);
+
+            playAnimGmPopup.gameObject.SetActive(true);
+            playAnimGmPopup.SetAsLastSibling();
+            if (playAnimGmLoopToggle != null)
+                playAnimGmLoopToggle.isOn = gmLoopEnabled;
+        }
+
+        private void ClosePlayAnimGmPopup(bool stopPlayback, bool restoreSpine)
+        {
+            if (playAnimGmPopup != null)
+                playAnimGmPopup.gameObject.SetActive(false);
+
+            if (stopPlayback)
+                StopDicedFxPlayback(restoreSpine);
+        }
+
+        private void OnPlayAnimGmLoopChanged(bool isOn)
+        {
+            gmLoopEnabled = isOn;
+        }
+
+        private void OnPlayAnimGmItemClicked(string animId)
+        {
+            if (rescueAnimPlaying)
+                return;
+
+            // 点选后先关弹层，避免遮挡播放；不停本次即将开始的播。
+            ClosePlayAnimGmPopup(stopPlayback: false, restoreSpine: false);
+
+            if (dicedFxRoutine != null)
+                StopCoroutine(dicedFxRoutine);
+            dicedFxRoutine = StartCoroutine(PlayGmAnimRoutine(animId));
+        }
+
+        /// <summary>SPEC §9.14.11 v3.284：指定 diced 动画播一次或持续循环；播期任意点击停播。</summary>
+        private IEnumerator PlayGmAnimRoutine(string animId)
+        {
+            dicedFxPlaying = true;
+            if (roleClickButton != null)
+                roleClickButton.interactable = false;
+
+            DetachBubbleAnimListener();
+            SetSpineVisible(false);
+            HideAllClickFxVisuals();
+            SetGmPlaybackStopOverlayVisible(true);
+
+            do
+            {
+                yield return PlayAnimBodyById(animId);
+                if (!gmLoopEnabled)
+                    break;
+                if (!gmLoopEnabled || !dicedFxPlaying)
+                    break;
+            } while (gmLoopEnabled && dicedFxPlaying);
+
+            HideAllClickFxVisuals();
+            SetGmPlaybackStopOverlayVisible(false);
+            SetSpineVisible(true);
+            PlaySpineIdleLoop(roleSkeletonGraphic);
+
+            dicedFxPlaying = false;
+            dicedFxRoutine = null;
+            if (roleClickButton != null && !rescueAnimPlaying)
+                roleClickButton.interactable = true;
+        }
+
+        private void OnGmPlaybackStopOverlayClicked()
+        {
+            if (!dicedFxPlaying)
+                return;
+            StopDicedFxPlayback(restoreSpine: true);
+            if (roleSkeletonGraphic != null)
+                PlaySpineIdleLoop(roleSkeletonGraphic);
+        }
+
+        private void SetGmPlaybackStopOverlayVisible(bool visible)
+        {
+            EnsurePlayAnimGmRefs();
+            if (gmPlaybackStopOverlay == null)
+                return;
+            gmPlaybackStopOverlay.gameObject.SetActive(visible);
+            if (visible)
+                gmPlaybackStopOverlay.transform.SetAsLastSibling();
+        }
+
+        private IEnumerator PlayAnimBodyById(string animId)
+        {
+            if (string.IsNullOrWhiteSpace(animId))
+                yield break;
+
+            string id = animId.Trim();
+            // 旧随机池别名
+            if (string.Equals(id, "LangRen_DZ", StringComparison.Ordinal))
+                id = "LangRen_DZ _1";
+
+            string dicedPath = "SpriteDicing/" + id + "/diced_sprites";
+            string framesPath = "SpriteDicing/" + id + "/frames_sprite";
+            string cliFolder = "VideoMatting/" + id;
+
+            // ZJDH 且关闭 package 开关时走 CLI
+            bool forceCli = !UseZjdhUnityPackagePath &&
+                            (string.Equals(id, "ZJDH_rest_2", StringComparison.Ordinal) ||
+                             string.Equals(id, "ZJDH_study_2", StringComparison.Ordinal));
+
+            if (forceCli)
+            {
+                EnsureDicedFxImage();
+                if (dicedFxImage == null)
+                    yield break;
+                var cliFrames = DicedSpriteAtlasSequencePlayer.GetOrBake(cliFolder);
+                if (cliFrames == null || cliFrames.Length == 0)
+                {
+                    UnityEngine.Debug.LogWarning(
+                        "[HomeTabPanelView] CLI bake 为空：" + cliFolder);
+                    yield break;
+                }
+
+                dicedFxImage.gameObject.SetActive(true);
+                dicedFxImage.enabled = true;
+                yield return DicedSpriteAtlasSequencePlayer.PlayOnce(
+                    dicedFxImage, cliFolder, ClickFxFps);
+                yield break;
+            }
+
+            var packageFrames = DicedSpriteSequencePlayer.GetOrLoadFrames(dicedPath);
+            if (packageFrames != null && packageFrames.Length > 0)
+            {
+                EnsureDicedFxImage();
+                if (dicedFxImage == null)
+                    yield break;
+                dicedFxImage.gameObject.SetActive(true);
+                dicedFxImage.enabled = true;
+                yield return DicedSpriteSequencePlayer.PlayOnce(dicedFxImage, dicedPath, ClickFxFps);
+                yield break;
+            }
+
+            var sourceFrames = DicedSpriteSequencePlayer.GetOrLoadFrames(framesPath);
+            if (sourceFrames != null && sourceFrames.Length > 0)
+            {
+                EnsureDicedFxImage();
+                if (dicedFxImage == null)
+                    yield break;
+                dicedFxImage.gameObject.SetActive(true);
+                dicedFxImage.enabled = true;
+                yield return DicedSpriteSequencePlayer.PlayOnce(dicedFxImage, framesPath, ClickFxFps);
+                yield break;
+            }
+
+            // VideoMatting CLI（新动画或 package 尚未 Build）
+            EnsureDicedFxImage();
+            if (dicedFxImage == null)
+                yield break;
+            var bakeFrames = DicedSpriteAtlasSequencePlayer.GetOrBake(cliFolder);
+            if (bakeFrames != null && bakeFrames.Length > 0)
+            {
+                dicedFxImage.gameObject.SetActive(true);
+                dicedFxImage.enabled = true;
+                yield return DicedSpriteAtlasSequencePlayer.PlayOnce(
+                    dicedFxImage, cliFolder, ClickFxFps);
+                yield break;
+            }
+
+            UnityEngine.Debug.LogWarning(
+                "[HomeTabPanelView] 未找到可播资源：" + id +
+                "（SpriteDicing diced/frames 与 VideoMatting 均空）");
         }
 
         /// <summary>SPEC §9.14.11 v3.272：同钮开关；点另一钮互斥打开。</summary>
@@ -873,11 +1203,11 @@ namespace PetDemo.UI
 
             int pick = UnityEngine.Random.Range(0, 3);
             if (pick == 0)
-                yield return PlayLangRenDzBody();
+                yield return PlayAnimBodyById("LangRen_DZ");
             else if (pick == 1)
-                yield return PlayZjdhBody(ZjdhRest2ResourcesPath);
+                yield return PlayAnimBodyById("ZJDH_rest_2");
             else
-                yield return PlayZjdhBody(ZjdhStudy2ResourcesPath);
+                yield return PlayAnimBodyById("ZJDH_study_2");
 
             HideAllClickFxVisuals();
             SetSpineVisible(true);
@@ -901,25 +1231,46 @@ namespace PetDemo.UI
             yield return DicedSpriteSequencePlayer.PlayOnce(dicedFxImage);
         }
 
-        /// <summary>SPEC §9.14.11 v3.282：ZJDH CLI atlas 烘焙为 Sprite 后经 uGUI Image 播一次（与 LangRen 同路径）。</summary>
-        private IEnumerator PlayZjdhBody(string resourcesFolder)
+        /// <summary>
+        /// SPEC §9.14.11 v3.283：ZJDH 双路径。
+        /// 默认 Unity-package diced_sprites；UseZjdhUnityPackagePath=false 时走 CLI bake。
+        /// </summary>
+        private IEnumerator PlayZjdhBody(string packageDicedPath, string cliResourcesFolder)
         {
             EnsureDicedFxImage();
             if (dicedFxImage == null)
                 yield break;
 
-            var frames = DicedSpriteAtlasSequencePlayer.GetOrBake(resourcesFolder);
+            if (UseZjdhUnityPackagePath)
+            {
+                var packageFrames = DicedSpriteSequencePlayer.GetOrLoadFrames(packageDicedPath);
+                if (packageFrames != null && packageFrames.Length > 0)
+                {
+                    dicedFxImage.gameObject.SetActive(true);
+                    dicedFxImage.enabled = true;
+                    yield return DicedSpriteSequencePlayer.PlayOnce(
+                        dicedFxImage, packageDicedPath, ClickFxFps);
+                    yield break;
+                }
+
+                UnityEngine.Debug.LogWarning(
+                    "[HomeTabPanelView] ZJDH package diced_sprites 为空：" + packageDicedPath +
+                    "。请执行 Tools/PetDemo/Build ZJDH Unity Package Atlases。尝试回退 CLI bake…");
+            }
+
+            var frames = DicedSpriteAtlasSequencePlayer.GetOrBake(cliResourcesFolder);
             if (frames == null || frames.Length == 0)
             {
                 UnityEngine.Debug.LogWarning(
-                    "[HomeTabPanelView] ZJDH 烘焙失败，回退 LangRen_DZ：" + resourcesFolder);
+                    "[HomeTabPanelView] ZJDH CLI 烘焙失败，回退 LangRen_DZ：" + cliResourcesFolder);
                 yield return PlayLangRenDzBody();
                 yield break;
             }
 
             dicedFxImage.gameObject.SetActive(true);
             dicedFxImage.enabled = true;
-            yield return DicedSpriteAtlasSequencePlayer.PlayOnce(dicedFxImage, resourcesFolder, ClickFxFps);
+            yield return DicedSpriteAtlasSequencePlayer.PlayOnce(
+                dicedFxImage, cliResourcesFolder, ClickFxFps);
         }
 
         private void StopDicedFxPlayback(bool restoreSpine)
@@ -932,6 +1283,7 @@ namespace PetDemo.UI
 
             dicedFxPlaying = false;
             HideAllClickFxVisuals();
+            SetGmPlaybackStopOverlayVisible(false);
 
             if (restoreSpine)
                 SetSpineVisible(true);
@@ -1146,10 +1498,15 @@ namespace PetDemo.UI
             {
                 var hud = transform.Find("TopLeftStaminaHud") as RectTransform;
                 if (hud != null)
+                {
                     HomeTabPanelLayout.EnsureAddExpButton(hud);
+                    HomeTabPanelLayout.EnsurePlayAnimGmButton(hud);
+                    HomeTabPanelLayout.RefreshTopLeftStaminaHudLayout(hud);
+                }
             }
 
             EnsureAddExpButtonRef();
+            EnsurePlayAnimGmRefs();
         }
 
         private void EnsureAddExpButtonRef()
@@ -1159,6 +1516,42 @@ namespace PetDemo.UI
             var t = transform.Find("TopLeftStaminaHud/AddExpButton");
             if (t != null)
                 addExpButton = t.GetComponent<Button>();
+        }
+
+        private void EnsurePlayAnimGmRefs()
+        {
+            if (panelRt == null)
+                panelRt = transform as RectTransform;
+            if (panelRt == null)
+                return;
+
+            var hud = transform.Find("TopLeftStaminaHud") as RectTransform;
+            if (hud != null)
+                HomeTabPanelLayout.EnsurePlayAnimGmButton(hud);
+
+            if (playAnimGmButton == null)
+            {
+                var t = transform.Find("TopLeftStaminaHud/PlayAnimGmButton");
+                if (t != null)
+                    playAnimGmButton = t.GetComponent<Button>();
+            }
+
+            playAnimGmPopup = HomeTabPanelLayout.EnsurePlayAnimGmPopup(panelRt);
+            if (playAnimGmLoopToggle == null && playAnimGmPopup != null)
+            {
+                var toggleT = playAnimGmPopup.Find("Panel/LoopRow/LoopToggle");
+                if (toggleT != null)
+                    playAnimGmLoopToggle = toggleT.GetComponent<Toggle>();
+            }
+
+            var stopOverlayRt = HomeTabPanelLayout.EnsureGmPlaybackStopOverlay(panelRt);
+            if (gmPlaybackStopOverlay == null && stopOverlayRt != null)
+                gmPlaybackStopOverlay = stopOverlayRt.GetComponent<Button>();
+            if (gmPlaybackStopOverlay != null)
+            {
+                gmPlaybackStopOverlay.onClick.RemoveAllListeners();
+                gmPlaybackStopOverlay.onClick.AddListener(OnGmPlaybackStopOverlayClicked);
+            }
         }
 
         private void EnsureStaminaBar()

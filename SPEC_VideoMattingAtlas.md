@@ -1,9 +1,9 @@
 # SPEC：绿幕/实拍动画 → SpriteDicing 图集流水线
 
-**版本：** 1.8  
+**版本：** 1.9  
 **日期：** 2026-08-03  
 **状态：** 实现中  
-**关联：** 与 `SPEC_FarmBattleDemo.md` §9.14.11 既有 Qwen / Unity-package `DicedSpriteAtlas` 路径**并行共存**；本 SPEC 定义 BiRefNet（或色键）+ SpriteDicing **CLI**（`sprites.json` + `atlas_*.png`）+ mesh 运行时播放器方案。不替换 LangRen_DZ / `DicedSpriteSequencePlayer` 既有链路。**自 v1.3**：`ZJDH_rest_2` / `ZJDH_study_2` 接入 HomeTab 点击特效随机池。**自 v1.4**：HomeTab 改为 `DicedSpriteAtlasSequencePlayer` 烘焙 Sprite + uGUI Image（弃用 Overlay 直画 CLI mesh）。
+**关联：** 与 `SPEC_FarmBattleDemo.md` §9.14.11 既有 Qwen / Unity-package `DicedSpriteAtlas` 路径**并行共存**；本 SPEC 定义 BiRefNet（或色键）+ SpriteDicing **CLI**（`sprites.json` + `atlas_*.png`）+ mesh 运行时播放器方案。不替换 LangRen_DZ / `DicedSpriteSequencePlayer` 既有链路。**自 v1.3**：`ZJDH_rest_2` / `ZJDH_study_2` 接入 HomeTab 点击特效随机池。**自 v1.4**：HomeTab 改为 `DicedSpriteAtlasSequencePlayer` 烘焙 Sprite + uGUI Image（弃用 Overlay 直画 CLI mesh）。**自 v1.9**：新增与 CLI **并存** 的 Unity-package 并行路径（`frames_sprite` → `diced_sprites`），HomeTab 默认走 package，可用开关回退 CLI bake。
 
 > **v1.2 抠图精度：** BiRefNet 加载强制 `float32`（`torch_dtype=float32` + `model.float()`），推理输入 dtype 与模型参数对齐，避免 CUDA 上 Half 权重与 float 输入混用报错。
 
@@ -190,17 +190,37 @@ PetDemo_2/Tools/VideoMatting/
 | 候选 | 播放器 | 运行时资源 |
 |------|--------|------------|
 | LangRen_DZ | `DicedSpriteSequencePlayer` | `Resources/SpriteDicing/LangRen_DZ _1/diced_sprites` |
-| ZJDH_rest_2 | `DicedSpriteAtlasSequencePlayer` | `Resources/VideoMatting/ZJDH_rest_2/`（`sprites.json` + `atlas_*.png`） |
-| ZJDH_study_2 | `DicedSpriteAtlasSequencePlayer` | `Resources/VideoMatting/ZJDH_study_2/` |
+| ZJDH_rest_2 | 见 §5.3（默认 package） | package 或 CLI，由开关选择 |
+| ZJDH_study_2 | 见 §5.3（默认 package） | package 或 CLI，由开关选择 |
 
-`PetDemo.UI.VideoMatting.DicedSpriteAtlasSequencePlayer`（静态）：
+`PetDemo.UI.VideoMatting.DicedSpriteAtlasSequencePlayer`（静态；**CLI 方案，保留不动**）：
 
 - 首次加载时按 CLI dice 块局部坐标把 `atlas_*` 像素**CPU 粘贴**成逐帧 `Sprite` 并缓存（`atlas_*.png` 需 `isReadable=true`）；之后与 LangRen 相同，在 `DicedFxImage` 上按 15fps 切帧播一次。
 - **不**在 Overlay Canvas 上直接画 CLI mesh（`DicedSpriteCanvasPlayer` / `MaskableGraphic` 路径已弃用：会把整张 atlas 以 UV0–1 铺满 Rect，表现为图集碎片）。
 - **UV 坐标约定（v1.8 客观验证，IoU 0.978）**：SpriteDicing CLI 输出的 `sprites.json` 中 `uv.u/v` 以**图集 PNG 左上角为原点**（y 向下）：`pilRow = v * atlasH`。`Texture2D.GetPixel` 为 y-up，采样必须 `GetPixel(sx, atlasH-1-pilRow)`；块内 `fv` **不翻转**。顶点 `vertices.x/y` 实际为 y-down 屏幕语义（`bl.y` 小值 = 帧顶部）。**写入 `Texture2D` 时先按 `row = oy` 写全部块，再对整帧做一次垂直翻转**；块内逐行翻转会把每个 dice 块竖直撕开（图集碎片）。验证方法：`_objective_test.py` 以 `frames_sprite` 原帧为基准对 8 种组合做像素级 diff。
 - 显示约定与 LangRen 一致：`localScale.xy=0.7`、`anchoredPosition.y=277`。
 
-Editor Prefab 预览仍用 `DicedSpriteAnimationPlayer`（`MeshRenderer`）。`Assets/Art/VFX/ZJDH_*` 可作预览目录；运行时以 `Resources/VideoMatting/` 为准。
+Editor Prefab 预览仍用 `DicedSpriteAnimationPlayer`（`MeshRenderer`）。`Assets/Art/VFX/ZJDH_*` 可作预览目录；CLI 运行时以 `Resources/VideoMatting/` 为准。
+
+### 5.3 Unity-package 并行播放路径（A/B，自 v1.9）
+
+与 §5.2 CLI bake **并存、不互相覆盖**。目的：用已验证的 LangRen 同款链路提升 ZJDH HomeTab 画质，便于对比。
+
+| 项 | 约定 |
+|----|------|
+| 源帧 | `Tools/VideoMatting/output/ZJDH_*/frames_sprite/`（流水线已产出） |
+| 导入 | `Assets/Resources/SpriteDicing/ZJDH_rest_2/frames_sprite/`、`.../ZJDH_study_2/frames_sprite/` |
+| 解耦输出 | `Assets/Resources/SpriteDicing/ZJDH_*/diced_sprites/` |
+| Atlas | `Assets/Art/Animations/ZJDH_*/ZJDH_*_Atlas.asset` |
+| 构建 | `Tools/PetDemo/Build ZJDH Unity Package Atlases` → 拷贝帧（若空）→ Sprite importer → `DicedAtlasBuilder.BuildForAnim` |
+| 播放 | `DicedSpriteSequencePlayer.PlayOnce(Image, resourcesPath)`（泛化路径缓存） |
+
+**HomeTab 开关**（`HomeTabPanelView.UseZjdhUnityPackagePath`，默认 `true`）：
+
+- `true`：ZJDH 走 `SpriteDicing/ZJDH_*/diced_sprites` + `DicedSpriteSequencePlayer`
+- `false`：ZJDH 走 `VideoMatting/ZJDH_*` + `DicedSpriteAtlasSequencePlayer`（原 CLI bake）
+
+随机池仍为三选一（LangRen / rest / study）；仅 ZJDH 后端可切换。`Resources/VideoMatting/**`、CLI Prefab、bake 播放器代码**不得删除**。
 
 ---
 
@@ -318,6 +338,7 @@ Unity 编辑器：
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| 1.9 | 2026-08-03 | 新增 §5.3 Unity-package 并行路径：`ZJDH_*` 的 `frames_sprite` → `DicedAtlasBuilder` → `diced_sprites`；HomeTab `UseZjdhUnityPackagePath` 默认 true，可回退 CLI bake；不覆盖 `Resources/VideoMatting/`。 |
 | 1.8 | 2026-08-03 | 客观验证（`_objective_test.py`，对 frames_sprite 原帧像素级 diff，IoU 0.978）确定唯一正确组合：src=uv原点左上 + fv不翻转 + dst整帧翻转一次。修复 `GetPixel` y-up 未换算（`atlasH-1-pilRow`）导致的碎片。Resources 数据从 190px 宽新帧重新 dice 刷新。 |
 | 1.7 | 2026-08-03 | 修正 `DicedSpriteAtlasSequencePlayer.BakeFrame`：写入 `Texture2D` 时先按 `row = oy` 不翻转写全部块，再对整帧做一次垂直翻转；此前块内逐行 `row = texH-1-oy` 会把每个 dice 块竖直撕开，导致图集碎片。 |
 | 1.6 | 2026-08-03 | 实测确认 CLI `sprites.json` UV 以**图集左上角**为原点（y 向下），块内 fv 不翻转；修复 ZJDH 烘焙出"图集碎片/黑图"的根因。重跑 `dice_atlas.py` 刷新 `ZJDH_rest_2`/`ZJDH_study_2` 的 `Resources/VideoMatting/` 数据。 |

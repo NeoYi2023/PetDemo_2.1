@@ -1,4 +1,4 @@
-// SPEC §9.14.11 v3.273：SpriteDicing diced 序列 15fps 播放。
+// SPEC §9.14.11 v3.273 / v3.283：SpriteDicing diced 序列 15fps 播放（支持任意 Resources 路径）。
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -15,6 +15,9 @@ namespace PetDemo.UI
         public const string DicedSpritesResourcePath = "SpriteDicing/LangRen_DZ _1/diced_sprites";
         public const string FallbackFramesResourcePath = "SpriteDicing/LangRen_DZ _1/frames_sprite";
         public const float Fps = 15f;
+
+        private static readonly Dictionary<string, Sprite[]> PathCache =
+            new Dictionary<string, Sprite[]>(StringComparer.Ordinal);
 
         private static Sprite[] cachedFrames;
         private static string cachedSourcePath;
@@ -49,15 +52,61 @@ namespace PetDemo.UI
             return cachedFrames;
         }
 
+        /// <summary>
+        /// 按 Resources 相对路径加载并缓存。优先 <paramref name="resourcesPath"/>；
+        /// 若为空且路径以 /diced_sprites 结尾，则回退同级 frames_sprite。
+        /// </summary>
+        public static Sprite[] GetOrLoadFrames(string resourcesPath)
+        {
+            if (string.IsNullOrWhiteSpace(resourcesPath))
+                return GetOrLoadFrames();
+
+            string path = resourcesPath.Trim().TrimEnd('/');
+            if (PathCache.TryGetValue(path, out var cached) && cached != null && cached.Length > 0)
+                return cached;
+
+            var frames = LoadSortedSprites(path);
+            if (frames != null && frames.Length > 0)
+            {
+                PathCache[path] = frames;
+                return frames;
+            }
+
+            string fallback = DeriveFramesSpriteFallback(path);
+            if (!string.IsNullOrEmpty(fallback))
+            {
+                frames = LoadSortedSprites(fallback);
+                if (frames != null && frames.Length > 0)
+                {
+                    UnityEngine.Debug.LogWarning(
+                        "[DicedSpriteSequencePlayer] 未找到 " + path + "，回退 " + fallback +
+                        "。请执行 Tools/PetDemo/Build ZJDH Unity Package Atlases 或对应 Diced Atlas 菜单。");
+                    PathCache[path] = frames;
+                    return frames;
+                }
+            }
+
+            UnityEngine.Debug.LogWarning(
+                "[DicedSpriteSequencePlayer] 未找到任何序列帧 Resources/" + path);
+            PathCache[path] = Array.Empty<Sprite>();
+            return PathCache[path];
+        }
+
         public static void ClearCache()
         {
             cachedFrames = null;
             cachedSourcePath = null;
+            PathCache.Clear();
         }
 
         public static string CachedSourcePath => cachedSourcePath;
 
         public static IEnumerator PlayOnce(Image target, Action onComplete = null)
+        {
+            yield return PlayOnce(target, null, Fps, onComplete);
+        }
+
+        public static IEnumerator PlayOnce(Image target, string resourcesPath, float fps = Fps, Action onComplete = null)
         {
             if (target == null)
             {
@@ -65,7 +114,9 @@ namespace PetDemo.UI
                 yield break;
             }
 
-            var frames = GetOrLoadFrames();
+            var frames = string.IsNullOrWhiteSpace(resourcesPath)
+                ? GetOrLoadFrames()
+                : GetOrLoadFrames(resourcesPath);
             if (frames == null || frames.Length == 0)
             {
                 onComplete?.Invoke();
@@ -77,7 +128,7 @@ namespace PetDemo.UI
             target.color = Color.white;
             target.enabled = true;
 
-            float frameInterval = 1f / Fps;
+            float interval = 1f / (fps > 0f ? fps : Fps);
             for (int i = 0; i < frames.Length; i++)
             {
                 if (target == null)
@@ -88,7 +139,7 @@ namespace PetDemo.UI
                     target.sprite = frame;
 
                 float elapsed = 0f;
-                while (elapsed < frameInterval)
+                while (elapsed < interval)
                 {
                     elapsed += Time.deltaTime;
                     yield return null;
@@ -96,6 +147,14 @@ namespace PetDemo.UI
             }
 
             onComplete?.Invoke();
+        }
+
+        private static string DeriveFramesSpriteFallback(string dicedOrAnyPath)
+        {
+            const string suffix = "/diced_sprites";
+            if (dicedOrAnyPath.EndsWith(suffix, StringComparison.Ordinal))
+                return dicedOrAnyPath.Substring(0, dicedOrAnyPath.Length - suffix.Length) + "/frames_sprite";
+            return null;
         }
 
         private static Sprite[] LoadSortedSprites(string resourcesPath)

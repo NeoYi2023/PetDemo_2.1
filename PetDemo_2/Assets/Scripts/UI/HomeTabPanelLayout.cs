@@ -1,4 +1,7 @@
 // SPEC §9.14.11：家园页签面板层级构建（运行时回退与预制体生成器共用，保证结构一致）。
+using System;
+using System.Collections.Generic;
+using System.IO;
 using PetDemo.Core;
 using PetDemo.UI.Farm;
 using UnityEngine;
@@ -62,10 +65,29 @@ namespace PetDemo.UI
         // SPEC §9.14.11 v3.208：体力条右侧「增加经验」按钮
         public static readonly Vector2 AddExpButtonSize = new Vector2(140f, 64f);
         public const float AddExpButtonGap = 16f;
+        // SPEC §9.14.11 v3.284：AddExp 右侧 GM「播放动作」
+        public static readonly Vector2 PlayAnimGmButtonSize = new Vector2(140f, 64f);
         public static readonly Vector2 TopLeftStaminaHudSize = new Vector2(
-            StaminaBarSlotSize.x + AddExpButtonGap + AddExpButtonSize.x, StaminaBarSlotSize.y);
+            StaminaBarSlotSize.x
+            + AddExpButtonGap + AddExpButtonSize.x
+            + AddExpButtonGap + PlayAnimGmButtonSize.x,
+            StaminaBarSlotSize.y);
         private static readonly Color AddExpButtonColor = new Color(0f, 0f, 0f, 1f);
         private const int AddExpButtonFontSize = 28;
+
+        // SPEC §9.14.11 v3.284 / v3.285：播放动作弹层
+        public static readonly Vector2 PlayAnimGmPopupPanelSize = new Vector2(520f, 640f);
+        public static readonly string[] PlayAnimGmFallbackIds = { "LangRen_DZ _1", "ZJDH_rest_2", "ZJDH_study_2" };
+        /// <summary>兼容旧硬编码别名；优先使用 <see cref="PlayAnimGmFallbackIds"/>。</summary>
+        public static readonly string[] PlayAnimGmIds = PlayAnimGmFallbackIds;
+        public const float PlayAnimGmItemHeight = 72f;
+        public const float PlayAnimGmItemGap = 16f;
+        private static readonly Color PlayAnimGmPopupDimColor = new Color(0f, 0f, 0f, 0.55f);
+        private static readonly Color PlayAnimGmPopupPanelColor = new Color(0.18f, 0.16f, 0.22f, 0.96f);
+        private static readonly Color PlayAnimGmItemColor = new Color(0.08f, 0.08f, 0.1f, 1f);
+        private const int PlayAnimGmTitleFontSize = 36;
+        private const int PlayAnimGmItemFontSize = 28;
+        private const int PlayAnimGmToggleFontSize = 28;
 
         // SPEC §9.14.11 v3.188：双列三行属性网格
         public const int GrowthAttrCount = 6;
@@ -180,6 +202,8 @@ namespace PetDemo.UI
             BuildTopRightActions(rootRt);
             BuildScreenCloseButton(rootRt);
             BuildTopLeftStaminaHud(rootRt);
+            EnsurePlayAnimGmPopup(rootRt);
+            EnsureGmPlaybackStopOverlay(rootRt);
 
             root.SetActive(false);
             return root;
@@ -324,7 +348,7 @@ namespace PetDemo.UI
             }
         }
 
-        /// <summary>SPEC §9.14.11 v3.204 / v3.208：左上体力 HUD + 增加经验按钮（关闭钮右侧；缺则补建）。</summary>
+        /// <summary>SPEC §9.14.11 v3.204 / v3.208 / v3.284：左上体力 HUD + 增加经验 + 播放动作（关闭钮右侧；缺则补建）。</summary>
         public static RectTransform BuildTopLeftStaminaHud(RectTransform rootRt)
         {
             if (rootRt == null)
@@ -335,6 +359,7 @@ namespace PetDemo.UI
             {
                 ApplyTopLeftStaminaHudLayout(existing);
                 EnsureAddExpButton(existing);
+                EnsurePlayAnimGmButton(existing);
                 return existing.Find("StaminaBarSlot") as RectTransform;
             }
 
@@ -350,6 +375,7 @@ namespace PetDemo.UI
             slotRt.anchoredPosition = new Vector2(0f, 0f);
 
             EnsureAddExpButton(hudRt);
+            EnsurePlayAnimGmButton(hudRt);
             ApplyTopLeftStaminaHudLayout(hudRt);
             return slotRt;
         }
@@ -394,6 +420,395 @@ namespace PetDemo.UI
             return btnRt;
         }
 
+        /// <summary>SPEC §9.14.11 v3.284：AddExp 右侧「播放动作」GM 按钮。</summary>
+        public static RectTransform EnsurePlayAnimGmButton(RectTransform hudRt)
+        {
+            if (hudRt == null)
+                return null;
+
+            var existing = hudRt.Find("PlayAnimGmButton") as RectTransform;
+            if (existing != null)
+            {
+                ApplyPlayAnimGmButtonLayout(existing);
+                return existing;
+            }
+
+            float x = StaminaBarSlotSize.x + AddExpButtonGap + AddExpButtonSize.x + AddExpButtonGap;
+            var btnRt = CreateChild(hudRt, "PlayAnimGmButton",
+                new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                new Vector2(0f, 0.5f),
+                new Vector2(x, 0f),
+                PlayAnimGmButtonSize);
+            var img = btnRt.gameObject.AddComponent<Image>();
+            img.color = AddExpButtonColor;
+            img.raycastTarget = true;
+            var btn = btnRt.gameObject.AddComponent<Button>();
+            btn.transition = Selectable.Transition.ColorTint;
+            btn.targetGraphic = img;
+
+            var labelRt = CreateChild(btnRt, "Label", Vector2.zero, Vector2.one,
+                new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            StretchFull(labelRt);
+            var label = labelRt.gameObject.AddComponent<Text>();
+            label.text = "播放动作";
+            label.font = FarmGridView.LoadBuiltinFont();
+            label.fontSize = AddExpButtonFontSize;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.color = Color.white;
+            label.raycastTarget = false;
+
+            ApplyPlayAnimGmButtonLayout(btnRt);
+            return btnRt;
+        }
+
+        private static void ApplyPlayAnimGmButtonLayout(RectTransform btnRt)
+        {
+            if (btnRt == null)
+                return;
+            btnRt.anchorMin = new Vector2(0f, 0.5f);
+            btnRt.anchorMax = new Vector2(0f, 0.5f);
+            btnRt.pivot = new Vector2(0f, 0.5f);
+            float x = StaminaBarSlotSize.x + AddExpButtonGap + AddExpButtonSize.x + AddExpButtonGap;
+            btnRt.anchoredPosition = new Vector2(x, 0f);
+            btnRt.sizeDelta = PlayAnimGmButtonSize;
+        }
+
+        /// <summary>SPEC §9.14.11 v3.284 / v3.285：播放动作可选列表面板（默认隐藏）。</summary>
+        public static RectTransform EnsurePlayAnimGmPopup(RectTransform rootRt)
+        {
+            if (rootRt == null)
+                return null;
+
+            var existing = rootRt.Find("PlayAnimGmPopup") as RectTransform;
+            if (existing != null)
+            {
+                EnsurePlayAnimGmPopupChrome(existing);
+                return existing;
+            }
+
+            var popupRt = CreateChild(rootRt, "PlayAnimGmPopup",
+                Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            StretchFull(popupRt);
+            popupRt.gameObject.SetActive(false);
+
+            var dimRt = CreateChild(popupRt, "Dim",
+                Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            StretchFull(dimRt);
+            var dimImg = dimRt.gameObject.AddComponent<Image>();
+            dimImg.color = PlayAnimGmPopupDimColor;
+            dimImg.raycastTarget = true;
+            var dimBtn = dimRt.gameObject.AddComponent<Button>();
+            dimBtn.transition = Selectable.Transition.None;
+            dimBtn.targetGraphic = dimImg;
+
+            var panelRt = CreateChild(popupRt, "Panel",
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, PlayAnimGmPopupPanelSize);
+            var panelImg = panelRt.gameObject.AddComponent<Image>();
+            panelImg.color = PlayAnimGmPopupPanelColor;
+            panelImg.raycastTarget = true;
+
+            var titleTxt = CreateText(panelRt, "Title", "播放动作",
+                new Vector2(0.5f, 1f), new Vector2(0f, -36f), new Vector2(400f, 48f),
+                PlayAnimGmTitleFontSize, TextAnchor.MiddleCenter);
+            titleTxt.color = Color.white;
+
+            var closeRt = CreateChild(panelRt, "CloseButton",
+                new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(1f, 1f), new Vector2(-12f, -12f), new Vector2(56f, 56f));
+            var closeImg = closeRt.gameObject.AddComponent<Image>();
+            closeImg.color = new Color(0.35f, 0.12f, 0.12f, 1f);
+            closeImg.raycastTarget = true;
+            var closeBtn = closeRt.gameObject.AddComponent<Button>();
+            closeBtn.transition = Selectable.Transition.ColorTint;
+            closeBtn.targetGraphic = closeImg;
+            var closeLabel = CreateText(closeRt, "Label", "×",
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(56f, 56f),
+                40, TextAnchor.MiddleCenter);
+            closeLabel.color = Color.white;
+
+            EnsurePlayAnimGmPopupChrome(popupRt);
+            RebuildPlayAnimGmList(popupRt, ScanPlayableAnimIds());
+
+            popupRt.SetAsLastSibling();
+            return popupRt;
+        }
+
+        /// <summary>补建滚动列表 / 持续播放行 / 刷新列表按钮（兼容已创建弹层）。</summary>
+        public static void EnsurePlayAnimGmPopupChrome(RectTransform popupRt)
+        {
+            if (popupRt == null)
+                return;
+            var panelRt = popupRt.Find("Panel") as RectTransform;
+            if (panelRt == null)
+                return;
+
+            panelRt.sizeDelta = PlayAnimGmPopupPanelSize;
+
+            if (panelRt.Find("ListViewport") == null)
+            {
+                // 旧版 Content 直挂 Panel：迁入 ScrollRect
+                var oldContent = panelRt.Find("Content") as RectTransform;
+                var viewport = CreateChild(panelRt, "ListViewport",
+                    new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                    new Vector2(0.5f, 1f), new Vector2(0f, -92f), new Vector2(440f, 300f));
+                var vpImg = viewport.gameObject.AddComponent<Image>();
+                vpImg.color = new Color(0f, 0f, 0f, 0.01f);
+                vpImg.raycastTarget = true;
+                var mask = viewport.gameObject.AddComponent<Mask>();
+                mask.showMaskGraphic = false;
+
+                RectTransform contentRt;
+                if (oldContent != null)
+                {
+                    oldContent.SetParent(viewport, false);
+                    contentRt = oldContent;
+                }
+                else
+                {
+                    contentRt = CreateChild(viewport, "Content",
+                        new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                        new Vector2(0.5f, 1f), Vector2.zero, new Vector2(440f, 300f));
+                }
+
+                contentRt.anchorMin = new Vector2(0.5f, 1f);
+                contentRt.anchorMax = new Vector2(0.5f, 1f);
+                contentRt.pivot = new Vector2(0.5f, 1f);
+                contentRt.anchoredPosition = Vector2.zero;
+
+                var scroll = viewport.gameObject.AddComponent<ScrollRect>();
+                scroll.viewport = viewport;
+                scroll.content = contentRt;
+                scroll.horizontal = false;
+                scroll.vertical = true;
+                scroll.movementType = ScrollRect.MovementType.Clamped;
+            }
+
+            if (panelRt.Find("LoopRow") == null)
+            {
+                var loopRow = CreateChild(panelRt, "LoopRow",
+                    new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                    new Vector2(0.5f, 0f), new Vector2(0f, 100f), new Vector2(440f, 64f));
+
+                var toggleRt = CreateChild(loopRow, "LoopToggle",
+                    new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                    new Vector2(0f, 0.5f), new Vector2(24f, 0f), new Vector2(48f, 48f));
+                var bgImg = toggleRt.gameObject.AddComponent<Image>();
+                bgImg.color = new Color(0.35f, 0.35f, 0.4f, 1f);
+                bgImg.raycastTarget = true;
+
+                var checkRt = CreateChild(toggleRt, "Checkmark",
+                    Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+                StretchFull(checkRt);
+                checkRt.offsetMin = new Vector2(8f, 8f);
+                checkRt.offsetMax = new Vector2(-8f, -8f);
+                var checkImg = checkRt.gameObject.AddComponent<Image>();
+                checkImg.color = new Color(0.35f, 0.85f, 0.45f, 1f);
+                checkImg.raycastTarget = false;
+
+                var toggle = toggleRt.gameObject.AddComponent<Toggle>();
+                toggle.targetGraphic = bgImg;
+                toggle.graphic = checkImg;
+                toggle.isOn = false;
+
+                var loopLabel = CreateText(loopRow, "LoopLabel", "持续播放",
+                    new Vector2(0f, 0.5f), new Vector2(92f, 0f), new Vector2(280f, 56f),
+                    PlayAnimGmToggleFontSize, TextAnchor.MiddleLeft);
+                loopLabel.color = Color.white;
+            }
+            else
+            {
+                var loopRow = panelRt.Find("LoopRow") as RectTransform;
+                if (loopRow != null)
+                    loopRow.anchoredPosition = new Vector2(0f, 100f);
+            }
+
+            if (panelRt.Find("RefreshListButton") == null)
+            {
+                var btnRt = CreateChild(panelRt, "RefreshListButton",
+                    new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                    new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(440f, 56f));
+                var img = btnRt.gameObject.AddComponent<Image>();
+                img.color = new Color(0.12f, 0.28f, 0.42f, 1f);
+                img.raycastTarget = true;
+                var btn = btnRt.gameObject.AddComponent<Button>();
+                btn.transition = Selectable.Transition.ColorTint;
+                btn.targetGraphic = img;
+                var label = CreateText(btnRt, "Label", "刷新列表",
+                    new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(420f, 48f),
+                    PlayAnimGmItemFontSize, TextAnchor.MiddleCenter);
+                label.color = Color.white;
+            }
+        }
+
+        /// <summary>SPEC §9.14.11 v3.285：扫描 Resources 下可播动画目录名。</summary>
+        public static List<string> ScanPlayableAnimIds()
+        {
+            var set = new SortedSet<string>(StringComparer.Ordinal);
+            string dataRoot = Application.dataPath;
+            ScanSpriteDicingFolders(Path.Combine(dataRoot, "Resources", "SpriteDicing"), set);
+            ScanVideoMattingFolders(Path.Combine(dataRoot, "Resources", "VideoMatting"), set);
+
+            if (set.Count == 0)
+            {
+                for (int i = 0; i < PlayAnimGmFallbackIds.Length; i++)
+                    set.Add(PlayAnimGmFallbackIds[i]);
+            }
+
+            return new List<string>(set);
+        }
+
+        private static void ScanSpriteDicingFolders(string root, SortedSet<string> set)
+        {
+            if (!Directory.Exists(root))
+                return;
+            string[] dirs = Directory.GetDirectories(root);
+            for (int i = 0; i < dirs.Length; i++)
+            {
+                string name = Path.GetFileName(dirs[i]);
+                if (string.IsNullOrEmpty(name))
+                    continue;
+                string diced = Path.Combine(dirs[i], "diced_sprites");
+                string frames = Path.Combine(dirs[i], "frames_sprite");
+                bool hasDiced = Directory.Exists(diced) && Directory.GetFiles(diced, "*.asset").Length > 0;
+                bool hasFrames = Directory.Exists(frames) && Directory.GetFiles(frames, "frame_*.png").Length > 0;
+                if (hasDiced || hasFrames)
+                    set.Add(name);
+            }
+        }
+
+        private static void ScanVideoMattingFolders(string root, SortedSet<string> set)
+        {
+            if (!Directory.Exists(root))
+                return;
+            string[] dirs = Directory.GetDirectories(root);
+            for (int i = 0; i < dirs.Length; i++)
+            {
+                string name = Path.GetFileName(dirs[i]);
+                if (string.IsNullOrEmpty(name) || set.Contains(name))
+                    continue;
+                string json = Path.Combine(dirs[i], "sprites.json");
+                if (File.Exists(json))
+                    set.Add(name);
+            }
+        }
+
+        /// <summary>重建弹层列表项；返回当前 id 列表。</summary>
+        public static List<string> RebuildPlayAnimGmList(RectTransform popupRt, IList<string> ids)
+        {
+            var result = new List<string>();
+            if (popupRt == null)
+                return result;
+
+            EnsurePlayAnimGmPopupChrome(popupRt);
+            var contentRt = popupRt.Find("Panel/ListViewport/Content") as RectTransform;
+            if (contentRt == null)
+                contentRt = popupRt.Find("Panel/Content") as RectTransform;
+            if (contentRt == null)
+                return result;
+
+            for (int i = contentRt.childCount - 1; i >= 0; i--)
+                UnityEngine.Object.DestroyImmediate(contentRt.GetChild(i).gameObject);
+
+            if (ids == null || ids.Count == 0)
+            {
+                contentRt.sizeDelta = new Vector2(440f, PlayAnimGmItemHeight);
+                return result;
+            }
+
+            float totalH = ids.Count * (PlayAnimGmItemHeight + PlayAnimGmItemGap);
+            contentRt.sizeDelta = new Vector2(440f, Mathf.Max(300f, totalH));
+
+            for (int i = 0; i < ids.Count; i++)
+            {
+                string id = ids[i];
+                if (string.IsNullOrWhiteSpace(id))
+                    continue;
+                id = id.Trim();
+                result.Add(id);
+
+                float y = -i * (PlayAnimGmItemHeight + PlayAnimGmItemGap);
+                string goName = "Item_" + SanitizeAnimIdForGoName(id);
+                var itemRt = CreateChild(contentRt, goName,
+                    new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                    new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(440f, PlayAnimGmItemHeight));
+                var itemImg = itemRt.gameObject.AddComponent<Image>();
+                itemImg.color = PlayAnimGmItemColor;
+                itemImg.raycastTarget = true;
+                var itemBtn = itemRt.gameObject.AddComponent<Button>();
+                itemBtn.transition = Selectable.Transition.ColorTint;
+                itemBtn.targetGraphic = itemImg;
+
+                // 用子节点名存真实 id（可含空格）
+                var idHolder = CreateChild(itemRt, "AnimId",
+                    new Vector2(0f, 0f), new Vector2(0f, 0f),
+                    new Vector2(0f, 0f), Vector2.zero, Vector2.zero);
+                idHolder.gameObject.name = "AnimId:" + id;
+
+                var itemLabel = CreateText(itemRt, "Label", id,
+                    new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(420f, 64f),
+                    PlayAnimGmItemFontSize, TextAnchor.MiddleCenter);
+                itemLabel.color = Color.white;
+            }
+
+            var scroll = popupRt.Find("Panel/ListViewport")?.GetComponent<ScrollRect>();
+            if (scroll != null)
+            {
+                scroll.content = contentRt;
+                scroll.verticalNormalizedPosition = 1f;
+            }
+
+            return result;
+        }
+
+        public static string ReadAnimIdFromItem(Transform item)
+        {
+            if (item == null)
+                return null;
+            for (int i = 0; i < item.childCount; i++)
+            {
+                string n = item.GetChild(i).name;
+                if (n != null && n.StartsWith("AnimId:", StringComparison.Ordinal))
+                    return n.Substring("AnimId:".Length);
+            }
+
+            // 兼容旧 Item_{id}
+            const string prefix = "Item_";
+            if (item.name.StartsWith(prefix, StringComparison.Ordinal))
+                return item.name.Substring(prefix.Length).Replace("__", " ");
+            return item.name;
+        }
+
+        private static string SanitizeAnimIdForGoName(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                return "unknown";
+            return id.Replace(' ', '_').Replace('/', '_');
+        }
+
+        /// <summary>SPEC §9.14.11 v3.284：GM 播期全屏透明点击层（点任意处停播）；默认隐藏。</summary>
+        public static RectTransform EnsureGmPlaybackStopOverlay(RectTransform rootRt)
+        {
+            if (rootRt == null)
+                return null;
+
+            var existing = rootRt.Find("GmPlaybackStopOverlay") as RectTransform;
+            if (existing != null)
+                return existing;
+
+            var overlayRt = CreateChild(rootRt, "GmPlaybackStopOverlay",
+                Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            StretchFull(overlayRt);
+            var img = overlayRt.gameObject.AddComponent<Image>();
+            img.color = new Color(0f, 0f, 0f, 0f);
+            img.raycastTarget = true;
+            var btn = overlayRt.gameObject.AddComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+            btn.targetGraphic = img;
+            overlayRt.gameObject.SetActive(false);
+            return overlayRt;
+        }
+
         private static void ApplyAddExpButtonLayout(RectTransform btnRt)
         {
             if (btnRt == null)
@@ -425,6 +840,9 @@ namespace PetDemo.UI
                 slot.sizeDelta = StaminaBarSlotSize;
             }
 
+            EnsureAddExpButton(hudRt);
+            EnsurePlayAnimGmButton(hudRt);
+
             var closeBtn = hudRt.parent != null ? hudRt.parent.Find("ScreenCloseButton") : null;
             if (closeBtn != null)
             {
@@ -435,6 +853,12 @@ namespace PetDemo.UI
             {
                 hudRt.SetAsLastSibling();
             }
+        }
+
+        /// <summary>SPEC §9.14.11 v3.284：运行时补建后刷新 HUD 宽度。</summary>
+        public static void RefreshTopLeftStaminaHudLayout(RectTransform hudRt)
+        {
+            ApplyTopLeftStaminaHudLayout(hudRt);
         }
 
         /// <summary>SPEC §9.14.11 v3.190 / v3.253：右上竖排「排行榜」「每日任务」「仓库」图标按钮。</summary>
@@ -601,9 +1025,9 @@ namespace PetDemo.UI
             if (child == null)
                 return;
             if (Application.isPlaying)
-                Object.Destroy(child.gameObject);
+                UnityEngine.Object.Destroy(child.gameObject);
             else
-                Object.DestroyImmediate(child.gameObject);
+                UnityEngine.Object.DestroyImmediate(child.gameObject);
         }
 
         /// <summary>SPEC §9.14.11：嵌入创角界面时全屏拉伸，底边止于 BottomTabBar 之上。</summary>

@@ -1,0 +1,73 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4c68106294c057640a5701c6cc4e5f0e, type: 3}
+  m_Name: ZJDH_rest_2_Atlas
+  m_EditorClassIdentifier: 
+  sprites:
+  - {fileID: 21300000, guid: a0e5f1ce622bd4d41a381ddda2ebbf4a, type: 2}
+  - {fileID: 21300000, guid: a9d6d9ff20e035b418a85c2377297063, type: 2}
+  - {fileID: 21300000, guid: aec98fff5a993cd4ca95a41a2fb05e6a, type: 2}
+  - {fileID: 21300000, guid: 821e752f683a674408c0b92e97e39f3b, type: 2}
+  - {fileID: 21300000, guid: 501201e6ffa74444899de1adcd02a711, type: 2}
+  - {fileID: 21300000, guid: 90e69f93c6928ba4da4ab571937b2abd, type: 2}
+  - {fileID: 21300000, guid: 56494cbd3698add40a0056be443ba397, type: 2}
+  - {fileID: 21300000, guid: 664f9bf1cc2e23c4ea15e2c78b152186, type: 2}
+  - {fileID: 21300000, guid: 997afe564e120cb47ae25ee6319d332f, type: 2}
+  - {fileID: 21300000, guid: eaac832294fbb5046a6d4565c8e11371, type: 2}
+  - {fileID: 21300000, guid: a2d5ea1b465dcfe48a7cdb7030a6db70, type: 2}
+  - {fileID: 21300000, guid: 47420e423f3d3904f9e4d9d3e2362ef1, type: 2}
+  - {fileID: 21300000, guid: eeee9f7c1f8101d4e9ed5b49678745fe, type: 2}
+  - {fileID: 21300000, guid: 92562f5276198d84aa692ec6a9fefe6c, type: 2}
+  - {fileID: 21300000, guid: abba083d4396cb148b7e5bac7388dd9a, type: 2}
+  - {fileID: 21300000, guid: aa507ac627325eb44a675f3ccec569ca, type: 2}
+  - {fileID: 21300000, guid: 7c8323e4140a6be419c953fcaab61594, type: 2}
+  - {fileID: 21300000, guid: c4bbfb3431f29c54181282bd4c9bb73b, type: 2}
+  - {fileID: 21300000, guid: 24407f280333d5045b92f5bc8ee9a29b, type: 2}
+  - {fileID: 21300000, guid: 6e779b346fd89754196f5c592670c3aa, type: 2}
+  - {fileID: 21300000, guid: 4abe7b49426b23b4581c207e16a302fe, type: 2}
+  - {fileID: 21300000, guid: 2aa8acea21c007045a6e2131da577951, type: 2}
+  - {fileID: 21300000, guid: 650504f76d85ba04bb47ccf6456dafd9, type: 2}
+  - {fileID: 21300000, guid: e422aa42736e3a64ead8b736b9573d8a, type: 2}
+  - {fileID: 21300000, guid: 28c09a440f9680d48821b3904fc9e779, type: 2}
+  - {fileID: 21300000, guid: dea35d7a15e5ffd43b748c708e5d2aee, type: 2}
+  - {fileID: 21300000, guid: 83302a1f78b509246af3a00dadd6344d, type: 2}
+  - {fileID: 21300000, guid: 84ff2bf19ffc05f499892cf44d8ba2e8, type: 2}
+  - {fileID: 21300000, guid: e08c5f0af20038a44807e4662598e8ba, type: 2}
+  - {fileID: 21300000, guid: fc239cf3b0155424e8a839c2820c187d, type: 2}
+  - {fileID: 21300000, guid: b2e69962d4f4a014b89925dbd370cb3e, type: 2}
+  - {fileID: 21300000, guid: 3aa0663b2dba32a4da8d2f526e76d3e0, type: 2}
+  - {fileID: 21300000, guid: 29a1bb8ea9c840442b059e9db98acf03, type: 2}
+  - {fileID: 21300000, guid: 220761a91ebd97c4baef335cc399defa, type: 2}
+  - {fileID: 21300000, guid: 99550f10e1be5fa4183df3a0124a1413, type: 2}
+  - {fileID: 21300000, guid: d9c9a69073a1f0a429f44cb62085fd07, type: 2}
+  - {fileID: 21300000, guid: c7749a325f8a12d4ea5d1bb9bb681a54, type: 2}
+  - {fileID: 21300000, guid: dc566626efe5c3946a094829145a48aa, type: 2}
+  textures:
+  - {fileID: 2800000, guid: 07bf2fa5548d23b40b4b95ab092390ec, type: 3}
+  - {fileID: 2800000, guid: f95184abc6bd6b949b1e94a5eef5cb2a, type: 3}
+  - {fileID: 2800000, guid: 9eac9e9e23d4d9a41b8b1757a4669a1e, type: 3}
+  atlasSizeLimit: 1024
+  forceSquare: 0
+  forcePot: 0
+  pixelsPerUnit: 100
+  diceUnitSize: 64
+  padding: 2
+  uvInset: 0
+  defaultPivot: {x: 0.5, y: 0.5}
+  keepOriginalPivot: 1
+  decoupleSpriteData: 1
+  trimTransparent: 0
+  inputFolder: {fileID: 102900000, guid: b30245c1fdd07e648b3069284e1fb014, type: 3}
+  includeSubfolders: 0
+  prependSubfolderNames: 0
+  generatedSpritesFolderGuid: 704075b02e6041342a976037fd19b906
+  lastRatioValue: 2182 KB / (2903 KB + 153 KB) = <color=red>0.71</color>

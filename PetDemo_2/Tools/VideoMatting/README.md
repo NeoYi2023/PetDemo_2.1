@@ -83,3 +83,17 @@ output/<stem>/
   - 引用 `sprites.json`（TextAsset）+ `atlas_*` 纹理数组
 
 既有 `DicedSpriteSequencePlayer`（LangRen_DZ / Unity-package diced sprites）不受影响。
+
+---
+
+## HomeTab A/B：Unity-package 并行路径（SPEC v1.9）
+
+CLI bake（本目录产物 → `Resources/VideoMatting/`）**保留不动**。另开一条与 LangRen 相同的 package 路径：
+
+1. 在 Unity 菜单执行 **`Tools/PetDemo/Build ZJDH Unity Package Atlases`**  
+   - 从 `output/ZJDH_*/frames_sprite` 拷到 `Assets/Resources/SpriteDicing/ZJDH_*/frames_sprite`（若尚未导入）  
+   - 构建 `diced_sprites` + `Assets/Art/Animations/ZJDH_*/*_Atlas.asset`  
+2. HomeTab 常量 `UseZjdhUnityPackagePath`（默认 **true**）走 package `diced_sprites`  
+3. 对比 CLI bake：将该常量改为 **false**，再进 Play 点角色特效  
+
+验收：package 路径应接近 LangRen 完整角色帧（非图集碎片）；改 false 后仍可播旧 CLI 方案。

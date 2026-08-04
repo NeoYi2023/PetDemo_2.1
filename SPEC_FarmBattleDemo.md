@@ -3584,13 +3584,24 @@ flowchart TD
 
 1. **候选池（等概率三选一）**：每次非 pending 点击 `RoleClickHitbox`，`Random.Range(0,3)` 选中以下之一播 **一次**（**15fps**、不循环）：
    - **`LangRen_DZ`**：SpriteDicing **legacy v1**（适配 Unity 2021.3）生成 `DicedSpriteAtlas`。源帧目录 `Assets/Resources/SpriteDicing/LangRen_DZ _1/frames_sprite/`（`frame_000000`…，约 75 帧；自 **v3.275** 源帧分辨率 **251×256**）。Build 约定：`Trim Transparent = OFF`、`Keep Original Pivot = ON`、Dice Unit Size=`64`、Padding=`2`、Atlas Size Limit=`1024`（自 **v3.274**）、Pixels Per Unit=`100`、Default Pivot=`(0.5,0.5)`；`Decouple Sprite Data = ON` → `Assets/Resources/SpriteDicing/LangRen_DZ _1/diced_sprites/`。Atlas 建议 `Assets/Art/Animations/WerewolfBackflip/LangRen_DZ_Atlas.asset`。**不**解析 CLI `sprites.json`。源帧变更后执行 `Tools/PetDemo/Build LangRen DZ Diced Atlas`。
-   - **`ZJDH_rest_2`** / **`ZJDH_study_2`**（自 **v3.281**）：VideoMatting CLI 图集。运行时资源目录 `Assets/Resources/VideoMatting/ZJDH_rest_2/`、`.../ZJDH_study_2/`（`sprites.json` + `atlas_*.png`；Editor 预览可保留 `Assets/Art/VFX/` 副本）。详见 `SPEC_VideoMattingAtlas.md` §5.2。
+   - **`ZJDH_rest_2`** / **`ZJDH_study_2`**（自 **v3.281**；自 **v3.283** 双路径 A/B）：
+     - **Unity-package 路径（默认，`UseZjdhUnityPackagePath=true`）**：与 LangRen 相同——`Assets/Resources/SpriteDicing/ZJDH_*/frames_sprite/` → `DicedAtlasBuilder` → `diced_sprites/`；运行时 `DicedSpriteSequencePlayer` 按路径加载。菜单 `Tools/PetDemo/Build ZJDH Unity Package Atlases`。Atlas：`Assets/Art/Animations/ZJDH_*/`。
+     - **CLI bake 路径（保留，`UseZjdhUnityPackagePath=false`）**：`Assets/Resources/VideoMatting/ZJDH_*/`（`sprites.json` + `atlas_*.png`）+ `DicedSpriteAtlasSequencePlayer`。详见 `SPEC_VideoMattingAtlas.md` §5.2 / §5.3。两套资源**并存、互不覆盖**。
 2. **触发**：非 `openingRescuePending` 时点击 → 从候选池随机选 1 个播放；播放中禁连点；与开局营救协程、气泡 `PlayBubbleRoleAnim` **互斥**。营救 pending 点击仍只走 `CompleteOpeningRescue` + `work_2`，**不**进入随机池。
 3. **表现**：播期间隐藏 `RoleSpine`（`SkeletonGraphic`）；显示参数统一：`localScale.xy=0.7`、`anchoredPosition.y=277`（X=0）。
    - LangRen_DZ：`RoleMount` 上 uGUI `Image`（`DicedFxImage`），`useSpriteMesh=true`、`preserveAspect=true`，按帧名排序切 `sprite`。
-   - ZJDH_*（自 **v3.282**）：首次将 CLI mesh 光栅化为逐帧 `Sprite`（`DicedSpriteAtlasSequencePlayer`），再在同一 `DicedFxImage` 上切帧；**不**在 Overlay 上直画 CLI mesh。
+   - ZJDH_*（自 **v3.282**；自 **v3.283**）：默认走 package `diced_sprites` + 泛化 `DicedSpriteSequencePlayer`；开关关闭时仍用 CLI bake。**不**在 Overlay 上直画 CLI mesh。
    - 结束后隐藏特效节点、显示 Spine 并恢复 §9.14.1 待机链。`Hide()`/`Show()` 须打断播放并复位。
-4. **实现**：`PetDemo.UI.DicedSpriteSequencePlayer`（LangRen）；`PetDemo.UI.VideoMatting.DicedSpriteAtlasSequencePlayer`（ZJDH，自 **v3.282**）；`HomeTabPanelView.PlayRandomClickFxRoutine` 接线。
+4. **实现**：`PetDemo.UI.DicedSpriteSequencePlayer`（LangRen + 自 **v3.283** 泛化路径）；`PetDemo.UI.VideoMatting.DicedSpriteAtlasSequencePlayer`（ZJDH CLI，保留）；`PetDemo.EditorTools.ZjdhUnityPackageAtlasBuilder`；`HomeTabPanelView.UseZjdhUnityPackagePath` + `PlayRandomClickFxRoutine` 接线。
+
+**中文（GM「播放动作」可选列表，自 v3.284）：**
+
+1. **入口**：`TopLeftStaminaHud` 内 `AddExpButton` 右侧 GM 按钮 `PlayAnimGmButton`（文案「播放动作」；尺寸与加经验钮一致，间距同 `AddExpButtonGap`）。HUD 宽度扩展为体力槽 + 两钮。
+2. **弹层** `PlayAnimGmPopup`（面板中部，半透明遮罩可点关闭 + 面板本体）：标题「播放动作」；可滚动列表（动态项）；底部勾选 `Toggle`「持续播放」（默认关）；最底部按钮 **「刷新列表」**；关闭钮「×」。
+3. **刷新列表（自 v3.285）**：点「刷新列表」扫描 `Assets/Resources/SpriteDicing/{AnimName}/`（含 `diced_sprites` 或 `frames_sprite`）与 `Assets/Resources/VideoMatting/{AnimName}/`（含 `sprites.json`），合并去重（同名优先 SpriteDicing），按名排序重建列表按钮；并清空 diced/CLI 播放缓存以便加载新资源。首次打开弹层亦执行一次扫描。
+4. **播放**：点选一项 → **立即隐藏弹层**（不打断本次播放）→ 在 `RoleMount`/`DicedFxImage` 播放：优先 `SpriteDicing/{id}/diced_sprites`（可回退 `frames_sprite`），否则 `VideoMatting/{id}` CLI bake（ZJDH 仍受 `UseZjdhUnityPackagePath`：package 优先）；`LangRen_DZ` 别名映射到 `LangRen_DZ _1`。未勾选「持续播放」则播一次后恢复 Spine；勾选则循环直至停播 / 改选 / `Hide`/`Show`。
+5. **停播 / 互斥**：GM 播期显示全屏透明 `GmPlaybackStopOverlay`；**点击任意位置** → 停播并恢复 Spine。与开局营救、气泡 Spine、`PlayRandomClickFxRoutine` 共用 `dicedFxPlaying`。
+6. **实现**：`HomeTabPanelLayout.ScanPlayableAnimIds` / `RebuildPlayAnimGmList` / `EnsurePlayAnimGmPopup`；`HomeTabPanelView.OnRefreshPlayAnimGmList`。
 
 **中文（绿幕视频 → 15fps 透明序列帧 Editor 管线（AI 分层抠图），自 v3.277；v3.276 的 ffmpeg `colorkey` 抠绿版已废弃并移除相关参数）：**
 
@@ -3619,10 +3630,13 @@ flowchart TD
 
 **中文（接口）：**
 
-- `PetDemo.UI.HomeTabPanelView` / `PetDemo.UI.HomeTabPanelLayout`（`GetOrCreate` / `Bind(IPlantingService)` / `Show` / `Hide` / `RefreshAll`；气泡逻辑内嵌于 `Show`/`Hide`/点击回调；自 **v3.190** 另有事件 `OnDailyTaskRequested`；自 **v3.193** 另有事件 `OnCloseRequested` 与根级 `ScreenCloseButton`；自 **v3.206** 另有开局营救：`ApplyDeathLastFrame` / `RoleClickHitbox` / `CompleteOpeningRescue` 联动；自 **v3.253** 另有 `OnWarehouseRequested` + `TopRightActions` 三钮 / `PosY=-218`；自 **v3.272** 另有 `ToggleInfoTab` / `SelectInfoTab(-1|0|1)`：`InfoContent` 默认折叠、子页签同钮开关+互斥、打开态白色、双关时 `CharacterZone`/`LevelExpRow` 折叠偏移；自 **v3.273** 另有营救后点击播 LangRen_DZ diced 特效；自 **v3.281** 另有 `PlayRandomClickFxRoutine`：LangRen_DZ / ZJDH_rest_2 / ZJDH_study_2 三选一随机）。
-- `PetDemo.UI.DicedSpriteSequencePlayer`（**自 v3.273**：15fps 切帧；`Resources` 路径 `SpriteDicing/LangRen_DZ _1/diced_sprites`）。
-- `PetDemo.UI.VideoMatting.DicedSpriteAtlasSequencePlayer`（**自 v3.282**：CLI atlas 烘焙 Sprite + Image 切帧；替代 v3.281 的 Overlay `DicedSpriteCanvasPlayer`）。
+- `PetDemo.UI.HomeTabPanelView` / `PetDemo.UI.HomeTabPanelLayout`（`GetOrCreate` / `Bind(IPlantingService)` / `Show` / `Hide` / `RefreshAll`；气泡逻辑内嵌于 `Show`/`Hide`/点击回调；自 **v3.190** 另有事件 `OnDailyTaskRequested`；自 **v3.193** 另有事件 `OnCloseRequested` 与根级 `ScreenCloseButton`；自 **v3.206** 另有开局营救：`ApplyDeathLastFrame` / `RoleClickHitbox` / `CompleteOpeningRescue` 联动；自 **v3.253** 另有 `OnWarehouseRequested` + `TopRightActions` 三钮 / `PosY=-218`；自 **v3.272** 另有 `ToggleInfoTab` / `SelectInfoTab(-1|0|1)`：`InfoContent` 默认折叠、子页签同钮开关+互斥、打开态白色、双关时 `CharacterZone`/`LevelExpRow` 折叠偏移；自 **v3.273** 另有营救后点击播 LangRen_DZ diced 特效；自 **v3.281** 另有 `PlayRandomClickFxRoutine`：LangRen_DZ / ZJDH_rest_2 / ZJDH_study_2 三选一随机；自 **v3.284** 另有 GM `PlayAnimGmButton` + `PlayAnimGmPopup`（可选列表 +「持续播放」））。
+- `PetDemo.UI.DicedSpriteSequencePlayer`（**自 v3.273**：15fps 切帧；默认 `SpriteDicing/LangRen_DZ _1/diced_sprites`；**自 v3.283**：`GetOrLoadFrames(path)` / `PlayOnce(Image, path)` 泛化任意 Resources 序列）。
+- `PetDemo.UI.VideoMatting.DicedSpriteAtlasSequencePlayer`（**自 v3.282**：CLI atlas 烘焙 Sprite + Image 切帧；替代 v3.281 的 Overlay `DicedSpriteCanvasPlayer`；**v3.283 起为 A/B 备选，默认不用**）。
 - `PetDemo.UI.VideoMatting.DicedSpriteCanvasPlayer`（**自 v3.281 引入、v3.282 起 HomeTab 不再使用**）。
+- `PetDemo.EditorTools.ZjdhUnityPackageAtlasBuilder`（**自 v3.283**：`Tools/PetDemo/Build ZJDH Unity Package Atlases`——拷贝 output `frames_sprite` → `SpriteDicing/ZJDH_*` → importer → `DicedAtlasBuilder`）。
+- `HomeTabPanelView.UseZjdhUnityPackagePath`（**自 v3.283**：默认 `true`；`false` 回退 CLI bake）。
+- `HomeTabPanelLayout.EnsurePlayAnimGmButton` / `EnsurePlayAnimGmPopup` / `EnsureGmPlaybackStopOverlay` / `ScanPlayableAnimIds` / `RebuildPlayAnimGmList`（**自 v3.284**；刷新列表 **v3.285**）。
 - `PetDemo.UI.CharacterCreationScreenView.OpenAddFavorTab()`（自 **v3.190**：公开打开加好感/`ZhuanQianPopup`；**自 v3.194 起仅**供家园「每日任务」使用，底栏 `RoleAddFavorButton` 改开 §9.14.12 训练面板）。
 - `PetDemo.Core.HomeTabBubbleConfig` / `PetDemo.Core.HomeTabBubbleCatalog`（`Load` / `GetEligible` / `ClearCache` / `BuildDefault`）。
 - `PetDemo.EditorTools.HomeTabPanelPrefabGenerator`（`Tools/PetDemo/Generate Home Tab Panel Prefab`）。
@@ -3848,6 +3862,9 @@ function executeUnifiedAction():
 
 | 版本 / Ver | 日期 / Date | 说明 / Notes |
 |------------|-------------|--------------|
+| 3.285 | 2026-08-03 | **GM 播放动作「刷新列表」**：§9.14.11——弹窗底部「刷新列表」扫描 SpriteDicing + VideoMatting 可播目录并重建按钮；泛化按目录播放。 / **GM refresh anim list:** scan Resources folders and rebuild picker. |
+| 3.284 | 2026-08-03 | **HomeTab GM「播放动作」**：§9.14.11——`AddExpButton` 右侧 `PlayAnimGmButton`；弹层列表 LangRen_DZ / ZJDH_rest_2 / ZJDH_study_2 +「持续播放」Toggle；点选后关弹层；播期全屏透明层任意点击停播；与点击特效/营救互斥。 / **GM play-anim picker:** hide popup on select; tap anywhere to stop. |
+| 3.283 | 2026-08-03 | **ZJDH Unity-package 并行路径（A/B）**：§9.14.11——`ZJDH_*` 新增 `SpriteDicing/.../diced_sprites`（`DicedAtlasBuilder`）；HomeTab `UseZjdhUnityPackagePath` 默认 true 走 `DicedSpriteSequencePlayer`；false 保留 CLI bake；不覆盖 `Resources/VideoMatting/`。菜单 `Build ZJDH Unity Package Atlases`。详见 `SPEC_VideoMattingAtlas.md` v1.9。 / **ZJDH Unity-package parallel path:** A/B with CLI bake; default package diced_sprites. |
 | 3.282 | 2026-08-03 | **HomeTab ZJDH 播放改烘焙 Sprite**：§9.14.11——`ZJDH_rest_2`/`ZJDH_study_2` 经 `DicedSpriteAtlasSequencePlayer` 光栅化为 Sprite 后与 LangRen 共用 `DicedFxImage` 切帧；修复 Overlay 直画 CLI mesh 整张 atlas 铺满。 / **ZJDH HomeTab playback via baked Sprites:** fix raw-atlas fullscreen; share Image path with LangRen. |
 | 3.281 | 2026-08-03 | **HomeTab 点击特效三选一随机**：§9.14.11——营救后点击 `RoleClickHitbox` 等概率从 `LangRen_DZ` / `ZJDH_rest_2` / `ZJDH_study_2` 选 1 个播一次（15fps）；ZJDH 走 `Resources/VideoMatting/` + `DicedSpriteCanvasPlayer`（Canvas mesh）；显示 scale=0.7、PosY=277；互斥/打断逻辑不变。 / **HomeTab click FX random pool of 3:** LangRen_DZ + two ZJDH VideoMatting clips; Canvas player for Overlay. |
 | 3.280 | 2026-08-03 | **Video Matting Atlas 并行管线**：新增独立 SPEC `SPEC_VideoMattingAtlas.md`（v1.0）——绿幕/实拍视频 → 抽帧(15fps) → BiRefNet/色键抠图 → 全帧并集 bbox 统一裁切+最长边≤512 → SpriteDicing CLI（`atlas_*.png`+`sprites.json`）→ Editor 窗口 `Tools/PetDemo/Video Matting Atlas Pipeline` → 运行时 `DicedSpriteAnimationPlayer`（mesh+JSON）。与 §9.14.11 Qwen / Unity-package `DicedSpriteAtlas` / `DicedSpriteSequencePlayer` **并行共存、互不替换**。工具目录 `PetDemo_2/Tools/VideoMatting/`。 / **Video Matting Atlas parallel pipeline:** new SPEC; BiRefNet+CLI dice+mesh player; coexists with Qwen path. |
